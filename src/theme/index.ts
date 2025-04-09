@@ -13,10 +13,10 @@ const theme = extendTheme({
       body: {
         bg: 'background.primary',
         color: 'text.primary',
-        fontFamily: "'Orbitron', sans-serif",
+        fontFamily: 'Oxanium',
       },
       '*': {
-        fontFamily: "'Orbitron', sans-serif",
+        fontFamily: 'Oxanium',
       },
     }),
   },
@@ -49,7 +49,7 @@ const theme = extendTheme({
     },
     Text: {
       baseStyle: {
-        fontFamily: "'Orbitron', sans-serif",
+        fontFamily: 'Oxanium',
         lineHeight: 'tall',
       },
       variants: {
@@ -65,7 +65,7 @@ const theme = extendTheme({
     },
     Button: {
       baseStyle: {
-        fontFamily: "'Orbitron', sans-serif",
+        fontFamily: 'Oxanium',
         fontWeight: "semibold",
         borderRadius: "md",
       },
@@ -73,36 +73,36 @@ const theme = extendTheme({
     Input: {
       baseStyle: {
         field: {
-          fontFamily: "'Orbitron', sans-serif",
+          fontFamily: 'Oxanium',
         },
       },
     },
     Textarea: {
       baseStyle: {
-        fontFamily: "'Orbitron', sans-serif",
+        fontFamily: 'Oxanium',
       },
     },
     Modal: {
       baseStyle: {
         dialog: {
-          fontFamily: "'Orbitron', sans-serif",
+          fontFamily: 'Oxanium',
         },
         header: {
-          fontFamily: "'Orbitron', sans-serif",
+          fontFamily: 'Oxanium',
         },
         body: {
-          fontFamily: "'Orbitron', sans-serif",
+          fontFamily: 'Oxanium',
         },
         footer: {
-          fontFamily: "'Orbitron', sans-serif",
+          fontFamily: 'Oxanium',
         },
       },
     },
   },
   fonts: {
-    heading: "'Orbitron', sans-serif",
-    body: "'Orbitron', sans-serif",
-    mono: "'Orbitron', sans-serif",
+    heading: 'Oxanium',
+    body: 'Oxanium',
+    mono: 'Oxanium',
   },
   fontSizes: {
     xs: '0.75rem',    // 12px
