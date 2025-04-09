@@ -1,5 +1,5 @@
 import { Handler } from '@netlify/functions';
-const fetch = require('node-fetch');
+import fetch from 'node-fetch';
 
 interface RaidHelperEvent {
   title: string;
