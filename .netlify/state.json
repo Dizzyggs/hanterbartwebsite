@@ -1,0 +1,21 @@
+{
+	"siteId": "9988f4cb-7cec-47bc-9f94-fc85d631aff2",
+	"geolocation": {
+		"data": {
+			"city": "Norrköping",
+			"country": {
+				"code": "SE",
+				"name": "Sweden"
+			},
+			"subdivision": {
+				"code": "E",
+				"name": "Östergötland County"
+			},
+			"timezone": "Europe/Stockholm",
+			"latitude": 58.594,
+			"longitude": 16.1885,
+			"postalCode": "602 47"
+		},
+		"timestamp": 1744233955488
+	}
+}

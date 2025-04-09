@@ -1,0 +1,19 @@
+{
+  "name": "functions",
+  "version": "1.0.0",
+  "main": "raidhelper.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@netlify/functions": "^3.0.4",
+    "@types/node": "^22.14.0",
+    "@types/node-fetch": "^2.6.12",
+    "node-fetch": "^2.7.0",
+    "typescript": "^5.8.3"
+  }
+}

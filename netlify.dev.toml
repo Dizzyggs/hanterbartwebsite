@@ -1,0 +1,20 @@
+[dev]
+  framework = "vite"
+  targetPort = 5173
+  port = 8888
+  publish = "dist"
+  functions = "netlify/functions"
+  autoLaunch = true
+
+[functions]
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200 
