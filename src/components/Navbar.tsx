@@ -155,11 +155,6 @@ const Navbar = () => {
                   <Text>Audit Logs</Text>
                 </HStack>
               </RouterLink>
-
-              <HStack spacing={2} className="nav-link" onClick={testRaidHelper} cursor="pointer">
-                <TimeIcon />
-                <Text>Test RaidHelper</Text>
-              </HStack>
             </>
           )}
         </>
@@ -333,10 +328,6 @@ const Navbar = () => {
                         color="text.primary"
                         onClick={testRaidHelper}
                       >
-                        <HStack>
-                          <TimeIcon />
-                          <Text>Test RaidHelper</Text>
-                        </HStack>
                       </MenuItem>
                     </>
                   )}

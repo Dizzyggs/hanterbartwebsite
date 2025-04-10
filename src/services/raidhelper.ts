@@ -76,6 +76,25 @@ class RaidHelperService {
       throw error;
     }
   }
+
+  async deleteEvent(eventId: string) {
+    try {
+      const response = await fetch(`${this.baseUrl}?action=deleteEvent&eventId=${eventId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('RaidHelper API error response:', errorText);
+        throw new Error(`RaidHelper API error: ${errorText || response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Failed to delete RaidHelper event:', error);
+      throw error;
+    }
+  }
 }
 
 export const raidHelperService = new RaidHelperService(); 

@@ -25,6 +25,14 @@ functions = "C:\\Users\\fredd\\hanterbart-folder\\hanterbart\\dist\\functions"
 
 [build.services]
 
+[dev]
+command = "npm run dev"
+port = 8888.0
+publish = "dist"
+functions = "dist/functions"
+target-port = 5173.0
+framework = "#auto"
+
 [functions]
 
 [functions."*"]
@@ -33,18 +41,6 @@ node_bundler = "esbuild"
 [[redirects]]
 from = "/*"
 to = "/index.html"
-status = 200.0
-force = false
-
-[redirects.query]
-
-[redirects.conditions]
-
-[redirects.headers]
-
-[[redirects]]
-from = "/api/*"
-to = "/.netlify/functions/:splat"
 status = 200.0
 force = false
 

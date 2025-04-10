@@ -472,6 +472,21 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
 
     setIsDeleting(true);
     try {
+      // If it's a RaidHelper event, delete it from RaidHelper first
+      if (event.signupType === 'raidhelper' && event.raidHelperId) {
+        try {
+          await raidHelperService.deleteEvent(event.raidHelperId);
+        } catch (error) {
+          console.error('Failed to delete RaidHelper event:', error);
+          toast({
+            title: 'Warning',
+            description: 'Failed to delete Discord bot event. The calendar event will still be deleted.',
+            status: 'warning',
+          });
+        }
+      }
+
+      // Delete from Firebase
       await deleteDoc(doc(db, 'events', event.id));
       
       // Log the admin action
