@@ -3,6 +3,8 @@ interface RaidHelperEvent {
   description: string;
   date: string;        // ISO format
   time: string;        // HH:mm format
+  leaderId: string;    // Discord user ID
+  templateId?: string; // Template ID for the event (e.g., "wowclassic")
   size?: number;       // Raid size
   roles?: {
     tank: number;

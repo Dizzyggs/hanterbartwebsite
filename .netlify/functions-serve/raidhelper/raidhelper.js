@@ -1,1 +1,1 @@
-module.exports = require('./netlify/functions/raidhelper.js')
+module.exports = require('./dist/functions/raidhelper.js')

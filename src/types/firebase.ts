@@ -43,6 +43,9 @@ export interface User {
   updatedAt: Date;
   lastLogin: Date;
   avatarUrl?: string;
+  discordId?: string;
+  discordUsername?: string;
+  discordSignupNickname?: string;
 }
 
 export interface EventSignup {
@@ -50,6 +53,23 @@ export interface EventSignup {
   username: string;
   character: Character;
   signupDate: Date;
+}
+
+export interface RaidHelperSignup {
+  id: string | number;
+  name: string;
+  status: string;
+  className?: string;
+  role?: string;
+  classEmoteId?: string;
+  entryTime?: number;
+  userId?: string;
+  position?: number;
+}
+
+export interface RaidHelperResponse {
+  signUps: RaidHelperSignup[];
+  // Add other fields as needed
 }
 
 export interface Event {
@@ -63,31 +83,35 @@ export interface Event {
   type: 'raid' | 'dungeon' | 'social';
   difficulty: 'normal' | 'heroic' | 'mythic';
   maxPlayers: number;
-  signups: {
-    [userId: string]: {
+  signupType: 'manual' | 'raidhelper';
+  raidHelperId?: string;
+  signups: Record<string, {
+    userId: string;
+    username: string;
+    characterId: string;
+    characterName: string;
+    characterClass: string;
+    characterRole: string;
+  } | null>;
+  raidHelperSignups?: RaidHelperResponse;
+  raidComposition?: {
+    lastUpdated: Date;
+    updatedBy: {
       userId: string;
       username: string;
-      characterId: string;
-      characterName: string;
-      characterClass: string;
-      characterRole: string;
     };
-  };
-  raidComposition?: {
-    lastUpdated: Date | Timestamp;
-    updatedBy: string;
-    groups: Array<{
+    groups: {
       id: string;
       name: string;
-      players: Array<{
+      players: {
         userId: string;
         username: string;
         characterId: string;
         characterName: string;
         characterClass: string;
         characterRole: string;
-      }>;
-    }>;
+      }[];
+    }[];
   };
   createdBy: string;
   createdAt: Date | Timestamp;

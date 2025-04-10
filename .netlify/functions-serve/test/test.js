@@ -1,1 +1,1 @@
-module.exports = require('./netlify/functions/test.js')
+module.exports = require('./dist/functions/test.js')

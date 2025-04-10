@@ -38,15 +38,21 @@ import {
   AlertTitle,
   AlertDescription,
   SimpleGrid,
+  Spinner,
+  FormControl,
+  FormLabel,
+  Icon,
 } from '@chakra-ui/react';
 import { useState, useEffect, useRef } from 'react';
 import { useUser } from '../context/UserContext';
-import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Event, Character } from '../types/firebase';
 import { ChevronDownIcon, DeleteIcon, ViewIcon } from '@chakra-ui/icons';
 import { logAdminAction } from '../utils/auditLogger';
 import RosterModal from './RosterModal';
+import { raidHelperService } from '../services/raidhelper';
+import { FaDiscord } from 'react-icons/fa';
 
 // Import class icons
 import { warriorIcon, mageIcon, priestIcon, warlockIcon, hunterIcon, paladinIcon, druidIcon, rogueIcon } from '../assets/classes';
@@ -88,17 +94,38 @@ const CharacterOption = ({ character }: { character: Character }) => {
           objectFit="contain" 
         />
       </Box>
-      <Text fontWeight="medium">{character.name}</Text>
+      <Text color="white" fontWeight="medium">{character.name}</Text>
       <Text color="gray.500" fontSize="sm">({character.role})</Text>
     </HStack>
   );
 };
+
+interface RaidHelperSignup {
+  id: string | number;
+  name: string;
+  status: string;
+  class?: string;
+  role?: string;
+  classEmoteId?: string;
+  className?: string;
+  entryTime?: number;
+  userId?: string;
+  position?: number;
+}
+
+interface RaidHelperResponse {
+  signUps: RaidHelperSignup[];
+  // Add other fields as needed
+}
 
 export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: EventSignupModalProps) => {
   const { user } = useUser();
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [raidHelperSignups, setRaidHelperSignups] = useState<RaidHelperResponse | null>(null);
+  const [isLoadingSignups, setIsLoadingSignups] = useState(false);
+  const [userNicknames, setUserNicknames] = useState<Record<string, string>>({});
   const { isOpen: isRosterModalOpen, onOpen: onRosterModalOpen, onClose: onRosterModalClose } = useDisclosure();
   const { isOpen: isDeleteAlertOpen, onOpen: onDeleteAlertOpen, onClose: onDeleteAlertClose } = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -134,6 +161,67 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
       console.log('Valid signups:', Object.values(event.signups || {}).filter(signup => signup !== null));
     }
   }, [isRosterModalOpen, event]);
+
+  // Add new function to fetch Discord signup nicknames
+  const fetchDiscordNicknames = async (signups: RaidHelperSignup[]) => {
+    try {
+      const userDocs = await Promise.all(
+        signups.map(signup => getDoc(doc(db, 'users', signup.name)))
+      );
+      
+      const nicknames: Record<string, string> = {};
+      userDocs.forEach((userDoc, index) => {
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData.discordSignupNickname) {
+            nicknames[signups[index].name] = userData.discordSignupNickname;
+          }
+        }
+      });
+      
+      setUserNicknames(nicknames);
+    } catch (error) {
+      console.error('Error fetching Discord nicknames:', error);
+    }
+  };
+
+  // Fetch RaidHelper signups when modal opens
+  useEffect(() => {
+    const fetchRaidHelperSignups = async () => {
+      if (!event.raidHelperId || event.signupType !== 'raidhelper') return;
+      
+      setIsLoadingSignups(true);
+      try {
+        const response = await raidHelperService.getEvent(event.raidHelperId);
+        console.log('RaidHelper event details:', response);
+        console.log('RaidHelper signups:', response?.signUps);
+        
+        if (!response) {
+          throw new Error('No response from RaidHelper API');
+        }
+
+        setRaidHelperSignups(response);
+        
+        // Fetch Discord nicknames for all signups
+        if (response.signUps && response.signUps.length > 0) {
+          await fetchDiscordNicknames(response.signUps);
+        }
+      } catch (error) {
+        console.error('Failed to fetch RaidHelper signups:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to fetch Discord bot signups',
+          status: 'error',
+        });
+      } finally {
+        setIsLoadingSignups(false);
+      }
+    };
+
+    if ((isOpen || isRosterModalOpen) && event.raidHelperId) {
+      fetchRaidHelperSignups();
+    }
+  }, [isOpen, isRosterModalOpen, event.raidHelperId, event.signupType]);
 
   const handleSignup = async () => {
     if (!user || !selectedCharacter) return;
@@ -266,9 +354,14 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
   const SignupStats = () => {
     const totalSignups = Object.keys(event.signups || {}).length;
     
+    // Parse RaidHelper signups - note the capital U in signUps
+    const discordSignups = (raidHelperSignups?.signUps || []) as RaidHelperSignup[];
+    const raidHelperTotal = discordSignups.filter(signup => 
+      signup.status === "primary"
+    ).length;
+    
     return (
       <Box 
-        // bg="#2D3748" 
         bg="background.tertiary"
         p={4} 
         borderRadius="lg" 
@@ -276,35 +369,90 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
         borderLeft="4px solid"
         borderLeftColor="blue.400"
       >
-        <Heading size="sm" color="#E2E8F0" mb={3}>
-          Raid Signups
-        </Heading>
-        <HStack spacing={6} wrap="wrap">
+        <VStack align="stretch" spacing={4}>
           <Box>
-            <Text color="#A0AEC0" fontSize="sm">Total</Text>
-            <Text color="#E2E8F0" fontSize="xl" fontWeight="bold">
-              {totalSignups}
-            </Text>
+            <Heading size="sm" color="#E2E8F0" mb={3}>
+              Calendar Signups
+            </Heading>
+            <HStack spacing={6} wrap="wrap">
+              <Box>
+                <Text color="#A0AEC0" fontSize="sm">Total</Text>
+                <Text color="#E2E8F0" fontSize="xl" fontWeight="bold">
+                  {totalSignups}
+                </Text>
+              </Box>
+              <Box>
+                <Text color="blue.400" fontSize="sm">Tanks</Text>
+                <Text color="#E2E8F0" fontSize="xl" fontWeight="bold">
+                  {groupedSignups.Tank.length}
+                </Text>
+              </Box>
+              <Box>
+                <Text color="green.400" fontSize="sm">Healers</Text>
+                <Text color="#E2E8F0" fontSize="xl" fontWeight="bold">
+                  {groupedSignups.Healer.length}
+                </Text>
+              </Box>
+              <Box>
+                <Text color="red.400" fontSize="sm">DPS</Text>
+                <Text color="#E2E8F0" fontSize="xl" fontWeight="bold">
+                  {groupedSignups.DPS.length}
+                </Text>
+              </Box>
+            </HStack>
           </Box>
-          <Box>
-            <Text color="blue.400" fontSize="sm">Tanks</Text>
-            <Text color="#E2E8F0" fontSize="xl" fontWeight="bold">
-              {groupedSignups.Tank.length}
-            </Text>
-          </Box>
-          <Box>
-            <Text color="green.400" fontSize="sm">Healers</Text>
-            <Text color="#E2E8F0" fontSize="xl" fontWeight="bold">
-              {groupedSignups.Healer.length}
-            </Text>
-          </Box>
-          <Box>
-            <Text color="red.400" fontSize="sm">DPS</Text>
-            <Text color="#E2E8F0" fontSize="xl" fontWeight="bold">
-              {groupedSignups.DPS.length}
-            </Text>
-          </Box>
-        </HStack>
+
+          {event.signupType === 'raidhelper' && (
+            <Box>
+              <Heading size="sm" color="#E2E8F0" mb={3}>
+                <HStack spacing={2}>
+                  <Icon as={FaDiscord} />
+                  <Text>Discord Bot Signups</Text>
+                </HStack>
+                {isLoadingSignups && <Spinner size="sm" ml={2} />}
+              </Heading>
+              {raidHelperSignups ? (
+                <VStack align="stretch" spacing={2}>
+                  <HStack spacing={6} wrap="wrap">
+                    <Box>
+                      <Text color="#A0AEC0" fontSize="sm">Total</Text>
+                      <Text color="#E2E8F0" fontSize="xl" fontWeight="bold">
+                        {raidHelperTotal}
+                      </Text>
+                    </Box>
+                  </HStack>
+                  <Text color="text.secondary" fontSize="sm">
+                    To sign up or view detailed Discord signups, use the RaidHelper bot in Discord.
+                  </Text>
+                  {discordSignups.length > 0 && (
+                    <Box mt={2}>
+                      <Text color="text.secondary" fontSize="sm" mb={2}>Current signups:</Text>
+                      <VStack align="stretch" spacing={1}>
+                        {discordSignups
+                          .filter(signup => signup.status === "primary")
+                          .map((signup: RaidHelperSignup) => (
+                            <HStack key={signup.name} spacing={2}>
+                              <Text color="green.400" fontSize="sm">✓</Text>
+                              <Text color="text.primary" fontSize="sm">
+                                {signup.name}
+                              </Text>
+                              {signup.status === "primary" && (
+                                <Badge colorScheme="green" fontSize="xs">Primary</Badge>
+                              )}
+                            </HStack>
+                          ))}
+                      </VStack>
+                    </Box>
+                  )}
+                </VStack>
+              ) : (
+                <Text color="text.secondary" fontSize="sm">
+                  {isLoadingSignups ? 'Loading Discord signups...' : 'Failed to load Discord signups'}
+                </Text>
+              )}
+            </Box>
+          )}
+        </VStack>
       </Box>
     );
   };
@@ -376,158 +524,160 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
             {event.title}
           </ModalHeader>
           <ModalBody>
-            <VStack spacing={6} align="stretch" py={4}>
-              <Box bg="background.tertiary" p={4} borderRadius="lg">
-                <Text color="text.secondary" fontSize="sm" mb={2}>Datum & Tid</Text>
-                <Text color="text.primary" fontSize="lg" fontWeight="medium">
-                  {new Date(`${event.date}T${event.time}`).toLocaleString()}
-                </Text>
-              </Box>
-
-              <Box bg="background.tertiary" p={4} borderRadius="lg">
-                <Text color="text.secondary" fontSize="sm" mb={2}>Beskrivning</Text>
-                <Text color="text.primary">{event.description}</Text>
+            {/* Event Details */}
+            <VStack spacing={4} align="stretch">
+              <Box>
+                <Text fontWeight="bold" mb={2} color="blue.300">Datum & Tid</Text>
+                <Text color="white">{new Date(`${event.date}T${event.time}`).toLocaleString()}</Text>
               </Box>
 
               <Box>
-                <SignupStats />
-                {Object.keys(event.signups || {}).length === 0 && (
-                  <Text color="text.secondary" fontSize="md" textAlign="center" mt={4}>
-                    No signups yet
-                  </Text>
-                )}
+                <Text fontWeight="bold" mb={2} color="blue.300">Beskrivning</Text>
+                <Text color="gray.100">{event.description}</Text>
               </Box>
 
-              <Box borderBottom="1px solid" borderColor="border.primary" my={2} />
-
-              <Alert 
-                status={userSignup ? "success" : "warning"} 
-                variant="subtle" 
-                borderRadius="md"
-                bg={userSignup ? "green.800" : "rgba(236, 116, 0, 0.15)"}
-                backdropFilter="blur(8px)"
-                border="1px solid"
-                borderColor={userSignup ? "green.600" : "rgba(236, 116, 0, 0.3)"}
-                boxShadow="0 4px 6px rgba(236, 116, 0, 0.1)"
-                p={4}
-                style={{
-                  backdropFilter: 'blur(8px)',
-                  WebkitBackdropFilter: 'blur(8px)'
-                }}
-              >
-                <AlertIcon boxSize="20px" />
-                <Box flex="1">
-                  <Text color={userSignup ? "white" : "orange.100"} fontWeight="medium">
-                    {userSignup ? (
-                      `Du är signad till detta event med ${userSignup.characterName} (${userSignup.characterClass} - ${userSignup.characterRole})`
-                    ) : (
-                      'OBS! Du har inte signat till detta event ännu.'
-                    )}
-                  </Text>
-                </Box>
-              </Alert>
-
-              {!userSignup && user && (!user.characters || user.characters.length === 0) && (
-                <Box
-                  p={4}
-                  borderRadius="lg"
-                  bg="rgba(236, 116, 0, 0.15)"
-                  backdropFilter="blur(8px)"
-                  border="1px solid"
-                  borderColor="rgba(236, 116, 0, 0.3)"
-                  boxShadow="0 4px 6px rgba(236, 116, 0, 0.1)"
-                  style={{
-                    backdropFilter: 'blur(8px)',
-                    WebkitBackdropFilter: 'blur(8px)'
-                  }}
-                >
-                  <Text color="orange.100" fontSize="md">
-                    Du behöver skapa en karaktär först för att kunna signa till raids.
-                    Besök din profil för att skapa en!
-                  </Text>
+              {/* Only show Calendar Signups for manual signup events */}
+              {event.signupType === 'manual' && (
+                <Box>
+                  <Text fontWeight="bold" mb={2} color="blue.300">Calendar Signups</Text>
+                  <HStack spacing={4}>
+                    <VStack align="start">
+                      <Text color="gray.300">Total</Text>
+                      <Text color="white" fontSize="lg" fontWeight="bold">
+                        {Object.keys(event.signups || {}).length}
+                      </Text>
+                    </VStack>
+                    <VStack align="start">
+                      <Text color="blue.200">Tanks</Text>
+                      <Text color="white" fontSize="lg" fontWeight="bold">
+                        {groupedSignups.Tank.length}
+                      </Text>
+                    </VStack>
+                    <VStack align="start">
+                      <Text color="green.200">Healers</Text>
+                      <Text color="white" fontSize="lg" fontWeight="bold">
+                        {groupedSignups.Healer.length}
+                      </Text>
+                    </VStack>
+                    <VStack align="start">
+                      <Text color="red.200">DPS</Text>
+                      <Text color="white" fontSize="lg" fontWeight="bold">
+                        {groupedSignups.DPS.length}
+                      </Text>
+                    </VStack>
+                  </HStack>
                 </Box>
               )}
 
-              {!userSignup && user && user.characters && user.characters.length > 0 && (
-                <Box bg="#2D3748" p={4} borderRadius="lg">
-                  <Text color="#A0AEC0" fontSize="sm" mb={3}>Sign up with character</Text>
-                  <Menu>
-                    <MenuButton
-                      as={Button}
-                      rightIcon={<ChevronDownIcon />}
-                      w="full"
-                      bg="#1A202C"
-                      color={selectedCharacter ? "#E2E8F0" : "#A0AEC0"}
-                      borderColor="#4A5568"
-                      _hover={{ bg: "#2D3748", borderColor: "#63B3ED" }}
-                      _active={{ bg: "#2D3748" }}
-                      _focus={{ borderColor: "#63B3ED", boxShadow: "0 0 0 1px #63B3ED" }}
-                    >
-                      {selectedCharacter ? (
-                        <CharacterOption character={selectedCharacter} />
-                      ) : (
-                        "Select character"
-                      )}
-                    </MenuButton>
-                    <MenuList
-                      bg="#2D3748"
-                      borderColor="#4A5568"
-                      boxShadow="dark-lg"
-                      py={2}
-                    >
-                      {user.characters.map((char) => (
-                        <MenuItem
-                          key={char.id}
-                          onClick={() => setSelectedCharacter(char)}
-                          bg="#2D3748"
-                          color="white"
-                          _hover={{ bg: "#1A202C" }}
-                          _focus={{ bg: "#1A202C" }}
-                        >
-                          <CharacterOption character={char} />
-                        </MenuItem>
-                      ))}
-                    </MenuList>
-                  </Menu>
+              {/* Discord Bot Signups section - always show for RaidHelper events */}
+              {event.signupType === 'raidhelper' && (
+                <Box>
+                  <Text fontWeight="bold" mb={2} color="blue.300">
+                    <HStack spacing={2}>
+                      <Icon as={FaDiscord} />
+                      <Text>Discord Bot Signups</Text>
+                    </HStack>
+                  </Text>
+                  <HStack spacing={3} mb={2}>
+                    <Text color="gray.300">Total:</Text>
+                    <Text color="white" fontSize="lg" fontWeight="bold">
+                      {raidHelperSignups?.signUps?.length || 0}
+                    </Text>
+                  </HStack>
+                  <Text mb={4} fontSize="sm" color="gray.400">
+                    To sign up or view detailed Discord signups, use the RaidHelper bot in Discord.
+                  </Text>
+
                 </Box>
+              )}
+
+              {/* Only show manual signup form for manual signup events */}
+              {event.signupType === 'manual' && (
+                <>
+                  {!userSignup && (
+                    <Box>
+                      <Alert status="warning" mb={4}>
+                        <AlertIcon />
+                        OBS! Du har inte signat till detta event ännu.
+                      </Alert>
+                      <FormControl>
+                        <FormLabel color="blue.300">Sign up with character</FormLabel>
+                        <Menu>
+                          <MenuButton
+                            as={Button}
+                            rightIcon={<ChevronDownIcon />}
+                            w="full"
+                            bg="whiteAlpha.50"
+                            color="white"
+                            borderColor="whiteAlpha.200"
+                            _hover={{ 
+                              bg: "whiteAlpha.100",
+                              borderColor: "whiteAlpha.300"
+                            }}
+                            _active={{
+                              bg: "whiteAlpha.200"
+                            }}
+                            _focus={{
+                              borderColor: "blue.300",
+                              boxShadow: "0 0 0 1px var(--chakra-colors-blue-300)"
+                            }}
+                          >
+                            {selectedCharacter ? (
+                              <CharacterOption character={selectedCharacter} />
+                            ) : (
+                              "Select character"
+                            )}
+                          </MenuButton>
+                          <MenuList
+                            bg="background.secondary"
+                            borderColor="whiteAlpha.200"
+                            boxShadow="dark-lg"
+                            py={2}
+                          >
+                            {user?.characters?.map((char) => (
+                              <MenuItem
+                                key={char.id}
+                                onClick={() => setSelectedCharacter(char)}
+                                bg="transparent"
+                                _hover={{ bg: "whiteAlpha.200" }}
+                                _focus={{ bg: "whiteAlpha.200" }}
+                              >
+                                <CharacterOption character={char} />
+                              </MenuItem>
+                            ))}
+                          </MenuList>
+                        </Menu>
+                      </FormControl>
+                    </Box>
+                  )}
+                </>
               )}
             </VStack>
           </ModalBody>
 
-          <ModalFooter borderTop="1px solid" borderColor="border.primary">
-            <ButtonGroup>
-            
+          <ModalFooter>
+            <ButtonGroup spacing={3}>
+              <Button
+                leftIcon={<ViewIcon />}
+                colorScheme="blue"
+                variant="outline"
+                onClick={onRosterModalOpen}
+                color="white"
+                _hover={{
+                  bg: "whiteAlpha.200"
+                }}
+              >
+                View raidroster
+              </Button>
+              {event.signupType === 'manual' && !userSignup && (
                 <Button
-                  leftIcon={<ViewIcon />}
-                  onClick={onRosterModalOpen}
                   colorScheme="blue"
-                  variant="outline"
-                  mr={3}
-                >
-                  View raidroster
-                </Button>
-              
-              {userSignup ? (
-                <Button
-                  colorScheme="red"
-                  onClick={handleCancelSignup}
-                  isLoading={isSubmitting}
-                  mr={3}
-                >
-                  Signa av
-                </Button>
-              ) : user && user.characters && user.characters.length > 0 && (
-                <Button
-                  colorScheme="primary"
                   onClick={handleSignup}
                   isLoading={isSubmitting}
-                  isDisabled={!selectedCharacter}
-                  mr={3}
                 >
                   Anmäl
                 </Button>
               )}
-
             </ButtonGroup>
           </ModalFooter>
         </ModalContent>
@@ -575,7 +725,10 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
       <RosterModal
         isOpen={isRosterModalOpen}
         onClose={onRosterModalClose}
-        event={event}
+        event={{
+          ...event,
+          raidHelperSignups: raidHelperSignups || undefined
+        }}
         isAdmin={user?.role === 'admin'}
       />
     </>

@@ -1,8 +1,0 @@
-{
-  "version": 3,
-  "sources": ["../../../../hanterbart-folder/hanterbart/netlify/functions/test.ts"],
-  "sourceRoot": "C:/Users/fredd/AppData/Local/Temp/tmp-28400-Q5zFjFeP6XCL",
-  "sourcesContent": ["import { Handler } from '@netlify/functions';\r\n\r\nexport const handler: Handler = async (event, context) => {\r\n  return {\r\n    statusCode: 200,\r\n    body: JSON.stringify({ message: 'Test function works!' }),\r\n  };\r\n}; "],
-  "mappings": ";;;;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAEO,IAAM,UAAmB,OAAO,OAAO,YAAY;AACxD,SAAO;AAAA,IACL,YAAY;AAAA,IACZ,MAAM,KAAK,UAAU,EAAE,SAAS,uBAAuB,CAAC;AAAA,EAC1D;AACF;",
-  "names": []
-}

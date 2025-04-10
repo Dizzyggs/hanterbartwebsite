@@ -56,6 +56,7 @@ const Navbar = () => {
         date: tomorrow.toISOString().split('T')[0],
         time: "20:00",
         leaderId: "184485021719986176",
+        templateId: "wowclassic",
         size: 25,
         roles: {
           tank: 2,

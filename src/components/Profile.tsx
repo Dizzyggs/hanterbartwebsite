@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -27,6 +27,9 @@ import {
   AlertDialogContent,
   AlertDialogOverlay,
   Spinner,
+  Input,
+  FormControl,
+  FormLabel,
 } from '@chakra-ui/react';
 import { AddIcon, StarIcon, EditIcon, ExternalLinkIcon, DeleteIcon } from '@chakra-ui/icons';
 import { useUser } from '../context/UserContext';
@@ -79,6 +82,11 @@ const Profile = () => {
   const navigate = useNavigate();
   const [avatarUrl, setAvatarUrl] = useState(defaultAvatar);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDiscordConnected, setIsDiscordConnected] = useState(false);
+  const [discordSignupNickname, setDiscordSignupNickname] = useState('');
+  const [isUpdatingNickname, setIsUpdatingNickname] = useState(false);
+  const [isEditingNickname, setIsEditingNickname] = useState(false);
+  const [isInitialDataFetched, setIsInitialDataFetched] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [characters, setCharacters] = useState<Character[]>([]);
@@ -104,13 +112,6 @@ const Profile = () => {
         const userData = userDoc.data();
         const newCharacters = userData.characters || [];
         setCharacters(newCharacters);
-        // Update the user context with the new characters
-        if (user) {
-          updateUser({
-            ...user,
-            characters: newCharacters
-          });
-        }
       }
     } catch (error) {
       console.error('Error fetching characters:', error);
@@ -134,14 +135,141 @@ const Profile = () => {
     }
   };
 
+  const checkDiscordConnection = async () => {
+    if (!user) return;
+    try {
+      const userDoc = await getDoc(doc(db, 'users', user.username));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const isConnected = !!userData.discordId;
+        setIsDiscordConnected(isConnected);
+      }
+    } catch (error) {
+      console.error('Error checking Discord connection:', error);
+    }
+  };
+
+  // Add memoized callback functions
+  const memoizedFetchCharacters = useCallback(fetchCharacters, [user]);
+  const memoizedFetchProfilePicture = useCallback(fetchProfilePicture, [user]);
+  const memoizedCheckDiscordConnection = useCallback(checkDiscordConnection, [user]);
+
+  const handleConnectDiscord = () => {
+    window.location.href = `${window.location.origin}/.netlify/functions/discord-auth`;
+  };
+
   useEffect(() => {
     if (!user) {
       navigate('/login');
       return;
     }
-    fetchCharacters();
-    fetchProfilePicture();
-  }, [user, navigate]);
+
+    if (isInitialDataFetched) {
+      return;
+    }
+
+    // Handle Discord connection callback
+    const params = new URLSearchParams(window.location.search);
+    const discordId = params.get('discord_id');
+    const discordUsername = params.get('discord_username');
+    const error = params.get('error');
+
+    if (error === 'discord_auth_failed') {
+      toast({
+        title: 'Discord Connection Failed',
+        description: 'Could not connect to Discord. Please try again.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      window.history.replaceState({}, '', '/profile');
+    } else if (discordId && discordUsername) {
+      handleDiscordCallback(discordId, discordUsername);
+      window.history.replaceState({}, '', '/profile');
+      return;
+    }
+
+    // Initial data fetching
+    const fetchInitialData = async () => {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.username));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          
+          // Update all states at once
+          setCharacters(userData.characters || []);
+          setAvatarUrl(userData.avatarUrl || defaultAvatar);
+          setIsDiscordConnected(!!userData.discordId);
+          setDiscordSignupNickname(userData.discordSignupNickname || '');
+          
+          // Update user context if needed
+          if (JSON.stringify(userData.characters) !== JSON.stringify(user.characters)) {
+            updateUser({
+              ...user,
+              characters: userData.characters || [],
+              avatarUrl: userData.avatarUrl,
+              discordId: userData.discordId,
+              discordUsername: userData.discordUsername,
+              discordSignupNickname: userData.discordSignupNickname,
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching initial data:', error);
+      } finally {
+        setIsInitialDataFetched(true);
+        setLoading(false);
+      }
+    };
+    
+    fetchInitialData();
+    
+  }, [user, navigate, updateUser, toast, isInitialDataFetched]); // Added isInitialDataFetched to dependencies
+
+  const handleDiscordCallback = async (discordId: string, discordUsername: string) => {
+    if (!user) return;
+
+    try {
+      const userRef = doc(db, 'users', user.username);
+      await updateDoc(userRef, {
+        discordId,
+        discordUsername,
+      });
+
+      setIsDiscordConnected(true);
+      toast({
+        title: 'Discord Connected!',
+        description: `Successfully connected to Discord account: ${discordUsername}`,
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      });
+
+      // Update user context
+      updateUser({
+        ...user,
+        discordId,
+        discordUsername,
+      });
+
+      // Fetch updated data
+      const userDoc = await getDoc(userRef);
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setCharacters(userData.characters || []);
+        setAvatarUrl(userData.avatarUrl || defaultAvatar);
+      }
+    } catch (error) {
+      console.error('Error saving Discord connection:', error);
+      toast({
+        title: 'Connection Error',
+        description: 'Failed to save Discord connection. Please try again.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  };
 
   const handleAvatarClick = () => {
     if (!isUploading && fileInputRef.current) {
@@ -410,6 +538,45 @@ const Profile = () => {
     }
   };
 
+  const handleUpdateDiscordNickname = async () => {
+    if (!user) return;
+    
+    setIsUpdatingNickname(true);
+    try {
+      const userRef = doc(db, 'users', user.username);
+      await updateDoc(userRef, {
+        discordSignupNickname: discordSignupNickname
+      });
+
+      toast({
+        title: 'Discord Signup Nickname Updated',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+
+      // Update user context
+      updateUser({
+        ...user,
+        discordSignupNickname
+      });
+      
+      // Exit edit mode after successful update
+      setIsEditingNickname(false);
+    } catch (error) {
+      console.error('Error updating Discord signup nickname:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update Discord signup nickname. Please try again.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsUpdatingNickname(false);
+    }
+  };
+
   if (!user) {
     return null;
   }
@@ -524,51 +691,67 @@ const Profile = () => {
                 </VStack>
 
                 <HStack spacing={6}>
-                  <Tooltip label="Discord Connected" hasArrow>
+                  <Tooltip label={isDiscordConnected ? `Discord Connected (${user.discordUsername})` : "Connect Discord"} hasArrow>
                     <Box 
                       as="span" 
                       cursor="pointer" 
                       transition="all 0.2s"
                       _hover={{ transform: 'scale(1.1)' }}
                       position="relative"
+                      onClick={!isDiscordConnected ? handleConnectDiscord : undefined}
                     >
-                      <Icon as={FaDiscord} w={6} h={6} color="primary.400" />
-                      <Box
-                        position="absolute"
-                        bottom="-2px"
-                        right="-2px"
-                        w="10px"
-                        h="10px"
-                        bg="green.400"
-                        borderRadius="full"
-                        border="2px solid"
-                        borderColor="background.tertiary"
+                      <Icon 
+                        as={FaDiscord} 
+                        w={6} 
+                        h={6} 
+                        color={isDiscordConnected ? "primary.400" : "gray.400"} 
                       />
-                    </Box>
-                  </Tooltip>
-                  <Tooltip label="Battle.net Connected" hasArrow>
-                    <Box 
-                      as="span" 
-                      cursor="pointer"
-                      transition="all 0.2s"
-                      _hover={{ transform: 'scale(1.1)' }}
-                      position="relative"
-                    >
-                      <Icon as={FaBattleNet} w={6} h={6} color="primary.400" />
-                      <Box
-                        position="absolute"
-                        bottom="-2px"
-                        right="-2px"
-                        w="10px"
-                        h="10px"
-                        bg="green.400"
-                        borderRadius="full"
-                        border="2px solid"
-                        borderColor="background.tertiary"
-                      />
+                      {isDiscordConnected && (
+                        <Box
+                          position="absolute"
+                          bottom="-2px"
+                          right="-2px"
+                          w="10px"
+                          h="10px"
+                          bg="green.400"
+                          borderRadius="full"
+                          border="2px solid"
+                          borderColor="background.tertiary"
+                        />
+                      )}
                     </Box>
                   </Tooltip>
                 </HStack>
+
+                {/* Discord Signup Nickname Section */}
+                {isDiscordConnected && (
+                  <FormControl>
+                    <FormLabel color="blue.300">Discord Signup Nickname</FormLabel>
+                    <HStack>
+                      <Input
+                        value={discordSignupNickname}
+                        onChange={(e) => setDiscordSignupNickname(e.target.value)}
+                        placeholder="Enter your Discord signup nickname"
+                        bg="whiteAlpha.50"
+                        color="white"
+                        borderColor="whiteAlpha.200"
+                        _hover={{ borderColor: isEditingNickname ? "whiteAlpha.300" : "whiteAlpha.200" }}
+                        _focus={{
+                          borderColor: "blue.300",
+                          boxShadow: "0 0 0 1px var(--chakra-colors-blue-300)"
+                        }}
+                        isDisabled={!isEditingNickname && discordSignupNickname !== ''}
+                      />
+                      <Button
+                        colorScheme="blue"
+                        onClick={isEditingNickname ? handleUpdateDiscordNickname : () => setIsEditingNickname(true)}
+                        isLoading={isUpdatingNickname}
+                      >
+                        {discordSignupNickname && !isEditingNickname ? 'Edit' : 'Save'}
+                      </Button>
+                    </HStack>
+                  </FormControl>
+                )}
               </VStack>
             </MotionFlex>
 

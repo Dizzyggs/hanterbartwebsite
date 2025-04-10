@@ -1,5 +1,4 @@
 {
-	"siteId": "9988f4cb-7cec-47bc-9f94-fc85d631aff2",
 	"geolocation": {
 		"data": {
 			"city": "Norrköping",
@@ -16,6 +15,6 @@
 			"longitude": 16.1885,
 			"postalCode": "602 47"
 		},
-		"timestamp": 1744233955488
+		"timestamp": 1744267247917
 	}
 }

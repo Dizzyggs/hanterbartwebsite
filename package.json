@@ -22,7 +22,7 @@
     "date-fns": "^3.3.1",
     "firebase": "^10.7.2",
     "framer-motion": "^10.18.0",
-    "node-fetch": "^2.6.9",
+    "node-fetch": "^2.7.0",
     "react": "^18.2.0",
     "react-beautiful-dnd": "^13.1.1",
     "react-big-calendar": "^1.8.6",
@@ -31,7 +31,7 @@
     "react-router-dom": "^6.21.3"
   },
   "devDependencies": {
-    "@types/node-fetch": "^2.6.4",
+    "@types/node-fetch": "^2.6.12",
     "@types/react": "^18.2.48",
     "@types/react-big-calendar": "^1.8.3",
     "@types/react-dom": "^18.2.18",
@@ -39,6 +39,8 @@
     "eslint": "^8.56.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "netlify-lambda": "^2.0.16",
+    "ts-loader": "^9.5.2",
     "typescript": "^5.3.3",
     "vite": "^5.0.12"
   }

@@ -207,10 +207,6 @@ const Calendar = () => {
           endDate = new Date(startDate.getTime() + 3 * 60 * 60 * 1000);
         }
 
-        console.log("Found event with title:", eventData.title, 
-                   "scheduled for:", startDate.toISOString(), 
-                   "and ending at:", endDate.toISOString());
-
         eventsList.push({
           ...eventData,
           id: doc.id,

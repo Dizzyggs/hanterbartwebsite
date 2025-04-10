@@ -7,6 +7,7 @@ interface RaidHelperEvent {
   date: string;
   time: string;
   leaderId: string;  // Discord user ID of the raid leader
+  templateId?: string;  // Changed back to templateId
   size?: number;
   roles?: {
     tank: number;
@@ -76,8 +77,21 @@ export const handler: Handler = async (event, context) => {
     switch (event.httpMethod) {
       case 'POST':
         // Handle event creation
-        const eventData: RaidHelperEvent = JSON.parse(event.body || '{}');
-        console.log('Creating event with data:', eventData);
+        const parsedBody = JSON.parse(event.body || '{}');
+        const eventData: RaidHelperEvent = {
+          title: parsedBody.title,
+          description: parsedBody.description,
+          date: parsedBody.date,
+          time: parsedBody.time,
+          leaderId: parsedBody.leaderId,
+          size: parsedBody.size,
+          roles: parsedBody.roles,
+          templateId: "wowclassic"  // Changed back to templateId
+        };
+        
+        console.log('Creating event with data (before stringify):', eventData);
+        const requestBody = JSON.stringify(eventData);
+        console.log('Request body after stringify:', requestBody);
         
         const response = await fetch(
           `https://raid-helper.dev/api/v2/servers/${serverId}/channels/${channelId}/event`,
@@ -87,7 +101,7 @@ export const handler: Handler = async (event, context) => {
               'Authorization': apiKey,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(eventData),
+            body: requestBody,
           }
         );
 

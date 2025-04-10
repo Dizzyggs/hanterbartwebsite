@@ -8,7 +8,7 @@
   port = 8888
   publish = "dist"
   functions = "dist/functions"
-  targetPort = 5176
+  target-port = 5173
   framework = "#auto"
 
 [functions]
@@ -19,6 +19,7 @@
   to = "/.netlify/functions/:splat"
   status = 200
   force = true
+  headers = { Access-Control-Allow-Origin = "*", Access-Control-Allow-Methods = "GET, POST, OPTIONS", Access-Control-Allow-Headers = "Content-Type, Authorization" }
 
 [[redirects]]
   from = "/*"

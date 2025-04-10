@@ -30,11 +30,11 @@ import {
   ButtonGroup,
 } from '@chakra-ui/react';
 import { Global, css } from '@emotion/react';
-import { Event } from '../types/firebase';
+import { Event, RaidHelperSignup as RaidHelperSignupType } from '../types/firebase';
 import { DragDropContext, Droppable, Draggable, DroppableProvided, DraggableProvided, DropResult, DroppableStateSnapshot } from 'react-beautiful-dnd';
 import { useState, useEffect, memo, ReactElement, useMemo } from 'react';
 import { CheckIcon, TimeIcon, InfoIcon } from '@chakra-ui/icons';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, getDocs, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useUser } from '../context/UserContext';
 
@@ -79,14 +79,28 @@ const CLASS_ICONS = {
   ROGUE: rogueIcon,
 };
 
-type SignupPlayer = {
+interface SignupPlayer {
   userId: string;
   username: string;
   characterId: string;
   characterName: string;
   characterClass: string;
   characterRole: string;
-};
+  originalDiscordName?: string;
+  discordNickname?: string;
+}
+
+// Update the type guard to not require originalDiscordName for manual signups
+function isSignupPlayer(signup: any): signup is SignupPlayer {
+  return signup !== null && 
+    typeof signup === 'object' &&
+    'userId' in signup &&
+    'username' in signup &&
+    'characterId' in signup &&
+    'characterName' in signup &&
+    'characterClass' in signup &&
+    'characterRole' in signup;
+}
 
 interface RaidGroup {
   id: string;
@@ -99,6 +113,15 @@ interface RosterModalProps {
   onClose: () => void;
   event: Event;
   isAdmin: boolean;
+}
+
+// Update the FirebaseUser interface at the top of the file
+interface FirebaseUser {
+  id: string;
+  discordId?: string;
+  discordSignupNickname?: string;
+  username?: string;
+  [key: string]: any;
 }
 
 // Create a memoized droppable wrapper with explicit props and default parameters
@@ -169,6 +192,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   const [selectedRole, setSelectedRole] = useState<'Tank' | 'Healer' | 'DPS' | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedRaid, setSelectedRaid] = useState<'1-8' | '11-18' | '21-28' | null>(null);
+  const [userNicknames, setUserNicknames] = useState<Record<string, string>>({});
   const { user } = useUser();
 
   const toast = useToast({
@@ -177,92 +201,230 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     isClosable: true,
   });
 
-  // Initialize raid groups and players when event changes
-  useEffect(() => {
-    console.log('RosterModal useEffect - event:', event);
-    console.log('RosterModal useEffect - event.signups:', event.signups);
-    
-    if (!event?.signups) {
-      console.log('No signups found');
-      setUnassignedPlayers([]);
-      setAssignedPlayers(new Set());
-      setRaidGroups(prev => prev.map(group => ({ ...group, players: [] })));
-      return;
-    }
+  // Add isOpen to the component's state tracking
+  const [hasInitialized, setHasInitialized] = useState(false);
 
-    // Initialize unassigned players with all signups (excluding null values)
-    const validSignups = Object.values(event.signups).filter(signup => signup !== null);
-    console.log('Valid signups:', validSignups);
-    
-    setUnassignedPlayers(validSignups);
-    setAssignedPlayers(new Set());
-
-    // Initialize raid groups
-    const initialGroups = [
-      { id: 'group1', name: 'Group 1', players: [] },
-      { id: 'group2', name: 'Group 2', players: [] },
-      { id: 'group3', name: 'Group 3', players: [] },
-      { id: 'group4', name: 'Group 4', players: [] },
-      { id: 'group5', name: 'Group 5', players: [] },
-      { id: 'group6', name: 'Group 6', players: [] },
-      { id: 'group7', name: 'Group 7', players: [] },
-      { id: 'group8', name: 'Group 8', players: [] },
-      { id: 'group11', name: 'Group 11', players: [] },
-      { id: 'group12', name: 'Group 12', players: [] },
-      { id: 'group13', name: 'Group 13', players: [] },
-      { id: 'group14', name: 'Group 14', players: [] },
-      { id: 'group15', name: 'Group 15', players: [] },
-      { id: 'group16', name: 'Group 16', players: [] },
-      { id: 'group17', name: 'Group 17', players: [] },
-      { id: 'group18', name: 'Group 18', players: [] },
-      { id: 'group21', name: 'Group 21', players: [] },
-      { id: 'group22', name: 'Group 22', players: [] },
-      { id: 'group23', name: 'Group 23', players: [] },
-      { id: 'group24', name: 'Group 24', players: [] },
-      { id: 'group25', name: 'Group 25', players: [] },
-      { id: 'group26', name: 'Group 26', players: [] },
-      { id: 'group27', name: 'Group 27', players: [] },
-      { id: 'group28', name: 'Group 28', players: [] },
-    ];
-
-    // If there's a saved raid composition, load it
-    if (event.raidComposition) {
-      console.log('Loading saved raid composition:', event.raidComposition);
-      const savedGroups = event.raidComposition.groups;
-      const assignedPlayerIds = new Set<string>();
-
-      // Update groups with saved players
-      const updatedGroups = initialGroups.map(group => {
-        const savedGroup = savedGroups.find(g => g.id === group.id);
-        if (savedGroup) {
-          // Map saved players to signup format
-          const players = savedGroup.players
-            .map(savedPlayer => {
-              const signup = Object.values(event.signups).find(s => s?.characterId === savedPlayer.characterId);
-              if (signup) {
-                assignedPlayerIds.add(signup.characterId);
-                return signup;
-              }
-              return null;
-            })
-            .filter(Boolean) as SignupPlayer[];
-
-          return { ...group, players };
+  // Add function to fetch Discord nicknames
+  const fetchDiscordNicknames = async (signups: SignupPlayer[]) => {
+    try {
+      console.log('Fetching Discord nicknames for signups:', signups);
+      const userDocs = await Promise.all(
+        signups.map(signup => getDoc(doc(db, 'users', signup.userId)))
+      );
+      
+      const nicknames: Record<string, string> = {};
+      userDocs.forEach((userDoc, index) => {
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          console.log('User data for', signups[index].userId, ':', {
+            discordId: userData.discordId,
+            discordSignupNickname: userData.discordSignupNickname,
+            signupUserId: signups[index].userId
+          });
+          if (userData.discordSignupNickname) {
+            nicknames[signups[index].userId] = userData.discordSignupNickname;
+          }
+        } else {
+          console.log('No user document found for', signups[index].userId);
         }
-        return group;
       });
-
-      setRaidGroups(updatedGroups);
-      setAssignedPlayers(assignedPlayerIds);
-
-      // Update unassigned players by removing those that are assigned
-      const unassigned = validSignups.filter(signup => !assignedPlayerIds.has(signup.characterId));
-      setUnassignedPlayers(unassigned);
-    } else {
-      console.log('No saved raid composition found');
-      setRaidGroups(initialGroups);
+      
+      setUserNicknames(nicknames);
+    } catch (error) {
+      console.error('Error fetching Discord nicknames:', error);
     }
-  }, [event?.id, event?.signups, event?.raidComposition]); // Only re-run if these specific event properties change
+  };
+
+  // Update the matchDiscordSignupsWithUsers function
+  const matchDiscordSignupsWithUsers = async (discordSignups: RaidHelperSignupType[]) => {
+    try {
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const firebaseUsers = new Map<string, FirebaseUser>(
+        usersSnapshot.docs
+          .map(doc => {
+            const data = doc.data();
+            const discordId = data.discordId;
+            if (discordId) {
+              return [discordId, { id: doc.id, ...data } as FirebaseUser];
+            }
+            return null;
+          })
+          .filter((entry): entry is [string, FirebaseUser] => entry !== null)
+      );
+
+      console.log('Firebase users map:', firebaseUsers);
+
+      const validSignups = discordSignups
+        .filter((signup: RaidHelperSignupType) => signup.status === "primary")
+        .map((signup: RaidHelperSignupType): SignupPlayer => {
+          const matchingUser = signup.userId ? firebaseUsers.get(signup.userId) : undefined;
+          console.log('Matching user for signup:', {
+            signupUserId: signup.userId,
+            matchingUser: matchingUser ? {
+              id: matchingUser.id,
+              discordId: matchingUser.discordId,
+              discordSignupNickname: matchingUser.discordSignupNickname
+            } : null
+          });
+
+          return {
+            userId: signup.userId || signup.name,
+            username: signup.name,
+            characterId: signup.id.toString(),
+            characterName: signup.name,
+            characterClass: signup.className || 'Unknown',
+            characterRole: signup.role || 'DPS',
+            originalDiscordName: signup.name,
+            discordNickname: matchingUser?.discordSignupNickname
+          };
+        });
+
+      return validSignups;
+    } catch (error) {
+      console.error('Error matching Discord signups with users:', error);
+      return [];
+    }
+  };
+
+  // Update the useEffect to only run on initial open
+  useEffect(() => {
+    const initializeSignups = async () => {
+      // Only initialize if we haven't already or if the modal is newly opened
+      if (!hasInitialized && isOpen) {
+        console.log('Initializing raid roster...');
+        
+        if (event.raidComposition) {
+          console.log('Loading saved raid composition:', event.raidComposition);
+          const savedGroups = event.raidComposition.groups;
+          const assignedPlayerIds = new Set<string>();
+
+          // Get all users for Discord nickname mapping
+          let firebaseUsers = new Map();
+          if (event.signupType === 'raidhelper') {
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            firebaseUsers = new Map(
+              usersSnapshot.docs.map(doc => [doc.data().discordId, { ...doc.data(), id: doc.id }])
+            );
+          }
+
+          // Update groups with saved players
+          const updatedGroups = raidGroups.map(group => {
+            const savedGroup = savedGroups.find((g: { id: string }) => g.id === group.id);
+            if (savedGroup) {
+              const players = savedGroup.players
+                .map((savedPlayer: SignupPlayer) => {
+                  if (event.signupType === 'raidhelper' && event.raidHelperSignups?.signUps) {
+                    const raidHelperSignup = event.raidHelperSignups.signUps
+                      .find((s: RaidHelperSignupType) => 
+                        (savedPlayer.userId && s.userId === savedPlayer.userId) || 
+                        (s.name === savedPlayer.username && s.status === "primary")
+                      );
+                    
+                    if (raidHelperSignup) {
+                      const matchingUser = firebaseUsers.get(raidHelperSignup.userId);
+                      return {
+                        userId: raidHelperSignup.userId || raidHelperSignup.name,
+                        username: raidHelperSignup.name,
+                        characterId: raidHelperSignup.id.toString(),
+                        characterName: raidHelperSignup.name,
+                        characterClass: raidHelperSignup.className || 'Unknown',
+                        characterRole: raidHelperSignup.role || 'DPS',
+                        originalDiscordName: raidHelperSignup.name,
+                        discordNickname: matchingUser?.discordSignupNickname
+                      };
+                    }
+                    return null;
+                  }
+                  return event.signups?.[savedPlayer.userId] || null;
+                })
+                .filter(isSignupPlayer);
+
+              players.forEach(player => assignedPlayerIds.add(player.characterId));
+              return { ...group, players };
+            }
+            return group;
+          });
+
+          setRaidGroups(updatedGroups);
+          setAssignedPlayers(assignedPlayerIds);
+
+          // Handle unassigned players
+          if (event.signupType === 'raidhelper' && event.raidHelperSignups?.signUps) {
+            const unassigned = await matchDiscordSignupsWithUsers(
+              event.raidHelperSignups.signUps.filter(
+                signup => signup.status === "primary" && !assignedPlayerIds.has(signup.id.toString())
+              )
+            );
+            setUnassignedPlayers(unassigned);
+          } else if (event.signups) {
+            const unassigned = Object.entries(event.signups)
+              .filter(([_, signup]) => signup !== null)
+              .map(([_, signup]) => signup as SignupPlayer)
+              .filter(isSignupPlayer)
+              .filter(signup => !assignedPlayerIds.has(signup.characterId));
+            
+            setUnassignedPlayers(unassigned);
+          }
+        } else {
+          // No saved composition, initialize fresh state
+          if (event.signupType === 'raidhelper' && event.raidHelperSignups?.signUps) {
+            const matchedSignups = await matchDiscordSignupsWithUsers(event.raidHelperSignups.signUps);
+            setUnassignedPlayers(matchedSignups);
+            setAssignedPlayers(new Set());
+            setRaidGroups(raidGroups);
+          } else if (event.signups) {
+            console.log('Processing manual signups:', event.signups);
+            const validSignups = Object.entries(event.signups)
+              .filter(([_, signup]) => signup !== null)
+              .map(([_, signup]) => ({
+                userId: signup!.userId,
+                username: signup!.username,
+                characterId: signup!.characterId,
+                characterName: signup!.characterName,
+                characterClass: signup!.characterClass,
+                characterRole: signup!.characterRole
+              }))
+              .filter(isSignupPlayer);
+            
+            setUnassignedPlayers(validSignups);
+            setAssignedPlayers(new Set());
+            setRaidGroups(raidGroups);
+          } else {
+            console.log('No signups found');
+            setUnassignedPlayers([]);
+            setAssignedPlayers(new Set());
+            setRaidGroups(raidGroups);
+          }
+        }
+
+        setHasInitialized(true);
+      }
+    };
+
+    initializeSignups();
+  }, [isOpen, event.id]); // Only depend on isOpen and event.id
+
+  // Reset initialization state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setHasInitialized(false);
+    }
+  }, [isOpen]);
+
+  // Update the useEffect to fetch Discord nicknames when component mounts
+  useEffect(() => {
+    const fetchNicknames = async () => {
+      if (event.signupType === 'raidhelper') {
+        const allPlayers = [
+          ...unassignedPlayers,
+          ...raidGroups.flatMap(group => group.players)
+        ];
+        await fetchDiscordNicknames(allPlayers);
+      }
+    };
+    
+    fetchNicknames();
+  }, [event.signupType, unassignedPlayers, raidGroups]);
 
   const handleDragEnd = (result: DropResult) => {
     // If not admin, ignore drag
@@ -471,14 +633,19 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       : CLASS_ICONS.WARRIOR;
     const { isOpen: isMenuOpen, onOpen: onMenuOpen, onClose: onMenuClose } = useDisclosure();
 
-    const draggableId = player.characterId;
+    // Update getDisplayName to use the stored nickname
+    const getDisplayName = () => {
+      if (event.signupType === 'raidhelper') {
+        return player.discordNickname || player.originalDiscordName || player.username;
+      }
+      return player.characterName;
+    };
 
     return (
       <Draggable 
-        draggableId={draggableId} 
+        draggableId={player.characterId} 
         index={index}
-        key={draggableId}
-        isDragDisabled={!isAdmin}
+        key={player.characterId}
       >
         {(provided: DraggableProvided, snapshot) => (
           <Menu isOpen={isMenuOpen} onClose={onMenuClose}>
@@ -487,43 +654,31 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
               ref={provided.innerRef}
               {...provided.draggableProps}
               {...provided.dragHandleProps}
-              bg="background.tertiary"
+              bg={snapshot.isDragging ? "background.primary" : "background.secondary"}
               p={2}
               borderRadius="md"
-              cursor={isAdmin ? "grab" : "default"}
               border="1px solid"
-              borderColor="border.primary"
+              borderColor={snapshot.isDragging ? "primary.400" : "border.primary"}
               _hover={{
                 borderColor: "primary.400",
-                bg: "background.secondary"
+                cursor: isAdmin ? "grab" : "default"
               }}
-              onClick={isAdmin ? onMenuOpen : undefined}
-              position="relative"
-              style={{
-                ...provided.draggableProps.style,
-                transform: snapshot.isDragging ? provided.draggableProps.style?.transform : "none",
-              }}
+              onClick={onMenuOpen}
             >
-              <Flex align="center" gap={2}>
+              <HStack spacing={2}>
                 <Image
                   src={classIcon}
                   alt={player.characterClass}
-                  boxSize="24px"
+                  boxSize="20px"
                   objectFit="cover"
                 />
-                <Text color="text.primary" fontSize="sm" fontWeight="medium">
-                  {player.characterName}
-                </Text>
-                <Badge
-                  colorScheme={
-                    player.characterRole === 'Tank' ? 'red' :
-                    player.characterRole === 'Healer' ? 'green' : 'blue'
-                  }
-                  fontSize="xs"
-                >
-                  {player.characterRole}
-                </Badge>
-              </Flex>
+                <VStack align="start" spacing={0}>
+                  <Text color="white" fontSize="sm">
+                    {getDisplayName()}
+                  </Text>
+                  <Text color={classColor} fontSize="xs">{player.characterClass}</Text>
+                </VStack>
+              </HStack>
             </MenuButton>
 
             {isAdmin && (
@@ -691,20 +846,35 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     
     setIsSaving(true);
     try {
-      // Filter out empty groups
+      // Filter out empty groups and clean up the data
       const nonEmptyGroups = raidGroups
         .filter(group => group.players.length > 0)
         .map(group => ({
           id: group.id,
           name: group.name,
-          players: group.players.map(player => ({
-            userId: player.userId,
-            username: player.username,
-            characterId: player.characterId,
-            characterName: player.characterName,
-            characterClass: player.characterClass,
-            characterRole: player.characterRole
-          }))
+          players: group.players.map(player => {
+            // Create a clean player object without undefined values
+            const cleanPlayer = {
+              userId: player.userId,
+              username: player.username,
+              characterId: player.characterId,
+              characterName: player.characterName,
+              characterClass: player.characterClass || 'Unknown',
+              characterRole: player.characterRole || 'DPS'
+            };
+
+            // For Discord signups, add Discord-specific fields if they exist
+            if (event.signupType === 'raidhelper') {
+              return {
+                ...cleanPlayer,
+                originalDiscordName: player.originalDiscordName || player.username,
+                discordNickname: player.discordNickname || null,
+                isDiscordSignup: true
+              };
+            }
+
+            return cleanPlayer;
+          })
         }));
 
       const raidComposition = {
@@ -800,7 +970,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
           <ModalHeader color="text.primary" fontSize="2xl" pt={8} px={8} display="flex" flexDirection="column" gap={4}>
             <Flex justify="space-between" alignItems="center">
               <Text>Slutgiltig Roster - {event.title}</Text>
-              {isAdmin && signupEntries.length > 0 && (
+              {isAdmin && unassignedPlayers.length + raidGroups.reduce((total, group) => total + group.players.length, 0) > 0 && (
                 <Button
                   leftIcon={<CheckIcon />}
                   colorScheme="primary"
@@ -809,7 +979,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                   onClick={handleSaveRaidComp}
                   isLoading={isSaving}
                   loadingText="Sparar..."
-                  style={{ marginTop: '2rem' }}
                 >
                   Spara Raid Comp
                 </Button>
