@@ -319,37 +319,47 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
     }
   };
 
-  const SignupList = ({ role, signups }: { role: string; signups: typeof event.signups[string][] }) => (
-    <Box>
-      <HStack mb={2} align="center">
-        <Heading size="sm" color={getRoleColor(role)}>
-          {role}s
+  interface SignupListProps {
+    role: string;
+    signups: Array<{
+      userId: string;
+      characterName: string;
+      characterClass: string;
+    } | null>;
+  }
+
+  const SignupList = ({ role, signups }: SignupListProps) => {
+    const validSignups = signups.filter((signup): signup is NonNullable<typeof signups[0]> => signup !== null);
+    
+    return (
+      <Box>
+        <Heading size="sm" color="#E2E8F0" mb={3}>
+          {role} ({validSignups.length})
         </Heading>
-        <Text color="#A0AEC0" fontSize="sm">({signups.length})</Text>
-      </HStack>
-      <List spacing={2} mb={4}>
-        {signups.map((signup) => (
-          <ListItem 
-            key={signup.userId}
-            p={2}
-            borderRadius="md"
-            borderLeft="4px solid"
-            borderLeftColor={getRoleColor(role)}
-          >
-            <HStack>
-              <Avatar size="sm" name={signup.characterName} />
-              <Box>
-                <Text color="#E2E8F0">{signup.characterName}</Text>
-                <Text color="#A0AEC0" fontSize="sm">
-                  {signup.characterClass}
-                </Text>
-              </Box>
-            </HStack>
-          </ListItem>
-        ))}
-      </List>
-    </Box>
-  );
+        <List spacing={2} mb={4}>
+          {validSignups.map((signup) => (
+            <ListItem 
+              key={signup.userId}
+              p={2}
+              borderRadius="md"
+              borderLeft="4px solid"
+              borderLeftColor={getRoleColor(role)}
+            >
+              <HStack>
+                <Avatar size="sm" name={signup.characterName} />
+                <Box>
+                  <Text color="#E2E8F0">{signup.characterName}</Text>
+                  <Text color="#A0AEC0" fontSize="sm">
+                    {signup.characterClass}
+                  </Text>
+                </Box>
+              </HStack>
+            </ListItem>
+          ))}
+        </List>
+      </Box>
+    );
+  };
 
   const SignupStats = () => {
     const totalSignups = Object.keys(event.signups || {}).length;
