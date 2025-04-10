@@ -1024,10 +1024,8 @@ const Profile = () => {
                                 <HStack spacing={2}>
                                   <Tooltip label="Character Level" hasArrow>
                                     <Text 
-                                      color="text.primary" 
+                                      color="white" 
                                       fontSize="xs"
-                                      bgGradient={`linear(to-r, ${getClassColor(character.class)}, text.secondary)`}
-                                      bgClip="text"
                                       fontWeight="bold"
                                     >
                                       Level {character.level}
