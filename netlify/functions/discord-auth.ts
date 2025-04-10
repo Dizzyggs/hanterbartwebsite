@@ -42,20 +42,30 @@ const handler: Handler = async (event) => {
     const redirectUri = `${baseUrl}/.netlify/functions/discord-auth`;
     const scope = 'identify';
     
+    // Validate required environment variables
+    if (!clientId) {
+      console.error('Missing DISCORD_CLIENT_ID environment variable');
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ error: 'Discord client ID not configured' }),
+      };
+    }
+    
     // Generate state parameter to prevent CSRF
     const state = Math.random().toString(36).substring(7);
 
     // Ensure the redirect URI is properly encoded
     const encodedRedirectUri = encodeURIComponent(redirectUri);
     
-    const discordAuthUrl = `https://discord.com/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodedRedirectUri}&response_type=code&scope=${scope}&state=${state}`;
+    const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodedRedirectUri}&response_type=code&scope=${scope}&state=${state}`;
     
-    console.log('Environment check:', {
-      clientId: !!clientId,
+    console.log('Discord auth configuration:', {
+      clientId: clientId.substring(0, 4) + '...',  // Log only first 4 chars for security
       baseUrl,
       redirectUri,
       hasCode: !!code,
-      hasState: !!state
+      hasState: !!state,
+      authUrl: discordAuthUrl
     });
     
     return {
@@ -72,12 +82,24 @@ const handler: Handler = async (event) => {
     const baseUrl = process.env.URL || 'http://localhost:8888';
     const redirectUri = `${baseUrl}/.netlify/functions/discord-auth`;
     
+    // Validate required environment variables
+    const clientId = process.env.DISCORD_CLIENT_ID;
+    const clientSecret = process.env.DISCORD_CLIENT_SECRET;
+    
+    if (!clientId || !clientSecret) {
+      console.error('Missing required Discord credentials:', {
+        hasClientId: !!clientId,
+        hasClientSecret: !!clientSecret
+      });
+      throw new Error('Discord credentials not configured');
+    }
+    
     // Exchange code for access token
     const tokenResponse = await fetch('https://discord.com/api/oauth2/token', {
       method: 'POST',
       body: new URLSearchParams({
-        client_id: process.env.DISCORD_CLIENT_ID!,
-        client_secret: process.env.DISCORD_CLIENT_SECRET!,
+        client_id: clientId,
+        client_secret: clientSecret,
         code,
         grant_type: 'authorization_code',
         redirect_uri: redirectUri,

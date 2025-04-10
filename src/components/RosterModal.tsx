@@ -771,8 +771,8 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       borderRadius="md"
       border="1px solid"
       borderColor="border.primary"
-      minH="240px"
-      maxH="240px"
+      minH="330px"
+      maxH="330px"
       position="relative"
       sx={{
         msOverflowStyle: 'none',
@@ -795,8 +795,8 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
             bg="background.tertiary"
             p={2}
             borderRadius="md"
-            minH="205px"
-            maxH="205px"
+            minH="290px"
+            maxH="290px"
             overflowY="auto"
             css={{
               '&::-webkit-scrollbar': {
@@ -964,6 +964,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
           bg="background.secondary"
           margin={0}
           height="100vh"
+          maxHeight="100vh"
           overflow="hidden"
         >
           <ModalCloseButton color="text.primary" size="lg" top={4} right={4} />
@@ -979,6 +980,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                   onClick={handleSaveRaidComp}
                   isLoading={isSaving}
                   loadingText="Sparar..."
+                  marginTop={"2rem"}
                 >
                   Spara Raid Comp
                 </Button>
@@ -1030,10 +1032,33 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
             )}
           </ModalHeader>
 
-          <ModalBody p={8} overflowY="auto" height="calc(100vh - 200px)">
+          <ModalBody 
+            p={8} 
+            overflowY="auto" 
+            height="calc(100vh - 250px)"
+            onWheel={(e) => {
+              e.currentTarget.scrollTop += e.deltaY;
+            }}
+            css={{
+              '&::-webkit-scrollbar': {
+                width: '8px',
+              },
+              '&::-webkit-scrollbar-track': {
+                background: 'var(--chakra-colors-background-tertiary)',
+                borderRadius: '4px',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                background: 'var(--chakra-colors-border-primary)',
+                borderRadius: '4px',
+                '&:hover': {
+                  background: 'var(--chakra-colors-primary-400)',
+                },
+              },
+            }}
+          >
             <DragDropContext onDragEnd={handleDragEnd}>
               <HStack align="start" spacing={8} height="100%">
-                <Box flex="1" overflowY="auto" height="100%">
+                <Box flex="1" height="100%">
                   <VStack align="stretch" spacing={4}>
                     <Box
                       bg="background.tertiary"
@@ -1041,6 +1066,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                       borderRadius="lg"
                       borderLeft="4px solid"
                       borderLeftColor="primary.400"
+                      mt={"6rem"}
                     >
                       <Heading size="sm" color="text.primary" mb={3}>
                         Unassigned Players ({unassignedPlayers.length})
@@ -1051,8 +1077,14 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                             ref={provided.innerRef}
                             {...provided.droppableProps}
                             minH="100px"
-                            maxH="calc(100vh - 400px)"
+                            maxH="calc(100vh - 450px)"
                             overflowY="auto"
+                            onWheel={(e) => {
+                              if (e.currentTarget.scrollHeight > e.currentTarget.clientHeight) {
+                                e.stopPropagation();
+                                e.currentTarget.scrollTop += e.deltaY;
+                              }
+                            }}
                             bg={snapshot.isDraggingOver ? "background.secondary" : "transparent"}
                             borderRadius="md"
                             p={2}
@@ -1070,7 +1102,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                   </VStack>
                 </Box>
 
-                <Box flex="3" overflowY="auto" height="100%">
+                <Box flex="3" height="100%">
                   <VStack align="stretch" spacing={4}>
                     <ButtonGroup isAttached variant="outline" alignSelf="flex-end">
                       <Button
