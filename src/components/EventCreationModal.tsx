@@ -74,7 +74,7 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
     count: eventCreationSteps.length,
   });
 
-  const [signupType, setSignupType] = useState<'manual' | 'raidhelper'>('manual');
+  const [signupType, setSignupType] = useState<'manual' | 'raidhelper'>('raidhelper');
   const [eventTitle, setEventTitle] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [eventTime, setEventTime] = useState('');
@@ -336,29 +336,6 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
                 <HStack spacing={4} align="stretch" w="100%">
                   <Flex
                     as={Radio}
-                    value="manual"
-                    p={4}
-                    borderWidth="1px"
-                    borderColor="border.primary"
-                    borderRadius="md"
-                    flex="1"
-                    _hover={{
-                      borderColor: 'primary.500',
-                      bg: 'whiteAlpha.50'
-                    }}
-                    _checked={{
-                      borderColor: 'primary.500',
-                      boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)'
-                    }}
-                    cursor="pointer"
-                  >
-                    <VStack align="start" spacing={1}>
-                      <Text color="white" fontWeight="bold">Manual anmälan</Text>
-                      <Text color="gray.300" fontSize="sm">Spelare anmäler sig via kalendern</Text>
-                    </VStack>
-                  </Flex>
-                  <Flex
-                    as={Radio}
                     value="raidhelper"
                     p={4}
                     borderWidth="1px"
@@ -378,6 +355,29 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
                     <VStack align="start" spacing={1}>
                       <Text color="white" fontWeight="bold">RaidHelper Discord Bot</Text>
                       <Text color="gray.300" fontSize="sm">Spelare anmäler sig via Discord</Text>
+                    </VStack>
+                  </Flex>
+                  <Flex
+                    as={Radio}
+                    value="manual"
+                    p={4}
+                    borderWidth="1px"
+                    borderColor="border.primary"
+                    borderRadius="md"
+                    flex="1"
+                    _hover={{
+                      borderColor: 'primary.500',
+                      bg: 'whiteAlpha.50'
+                    }}
+                    _checked={{
+                      borderColor: 'primary.500',
+                      boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)'
+                    }}
+                    cursor="pointer"
+                  >
+                    <VStack align="start" spacing={1}>
+                      <Text color="white" fontWeight="bold">Manual anmälan</Text>
+                      <Text color="gray.300" fontSize="sm">Spelare anmäler sig via kalendern</Text>
                     </VStack>
                   </Flex>
                 </HStack>

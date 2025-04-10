@@ -177,6 +177,16 @@ const Navbar = () => {
 
   const DesktopNavItems = () => (
     <>
+
+      {user && (
+        <RouterLink to="/calendar">
+          <HStack spacing={2} className="nav-link">
+            <CalendarIcon />
+            <Text>Raids</Text>
+          </HStack>
+        </RouterLink>
+      )}
+      
       <RouterLink to="/media">
         <HStack spacing={2} className="nav-link">
           <FaImage />
@@ -192,16 +202,7 @@ const Navbar = () => {
           </HStack>
         </RouterLink>
       )}
-
-      {user && (
-        <RouterLink to="/calendar">
-          <HStack spacing={2} className="nav-link">
-            <CalendarIcon />
-            <Text>Raids</Text>
-          </HStack>
-        </RouterLink>
-      )}
-
+      
       {user && (
         <RouterLink to="/profile">
           <HStack spacing={2} className="nav-link">
@@ -210,6 +211,8 @@ const Navbar = () => {
           </HStack>
         </RouterLink>
       )}
+      
+
 
       <IconButton
         as={ChakraLink}
