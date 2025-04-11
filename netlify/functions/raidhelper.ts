@@ -45,9 +45,9 @@ export const handler: Handler = async (event, context) => {
     };
   }
 
-  const apiKey = process.env.RAID_HELPER_API_KEY;
-  const serverId = process.env.RAID_HELPER_SERVER_ID;
-  const channelId = process.env.RAID_HELPER_CHANNEL_ID;
+  const apiKey = process.env.RAIDHELPER_API_KEY;
+  const serverId = process.env.DISCORD_SERVER_ID;
+  const channelId = process.env.DISCORD_CHANNEL_ID;
 
   console.log('Environment variables check:', { 
     hasApiKey: !!apiKey, 
