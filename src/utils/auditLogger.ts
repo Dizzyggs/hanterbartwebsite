@@ -8,7 +8,7 @@ export interface AuditLogEntry {
   adminId: string;
   adminUsername: string;
   action: AuditAction;
-  targetType: 'event' | 'character' | 'user' | 'role';
+  targetType: 'event' | 'character' | 'user' | 'role' | 'confirmedRaider';
   targetId: string;
   targetName: string;
   details?: string;

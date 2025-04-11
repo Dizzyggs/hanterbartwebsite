@@ -44,7 +44,6 @@ import { raidHelperService } from '../services/raidhelper';
 import { getDayInSwedish } from '../tools/tools';
 import { eventCreationSteps } from '../tools/tools';
 import { FaDiscord, FaCalendarAlt, FaPlus, FaTrash, FaEdit, FaCheck } from 'react-icons/fa';
-import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import SignupTypeStep from './CreateEventStepper/SignupTypeStep';
 
