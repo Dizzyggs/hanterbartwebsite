@@ -46,6 +46,7 @@ export interface User {
   discordId?: string;
   discordUsername?: string;
   discordSignupNickname?: string;
+  confirmedRaider?: boolean;
 }
 
 export interface EventSignup {
@@ -123,7 +124,7 @@ export interface AuditLog {
   userId: string;
   username: string;
   action: 'create' | 'update' | 'delete';
-  resourceType: 'event' | 'user' | 'character';
+  resourceType: 'event' | 'user' | 'character' | 'confirmedRaider' | 'role';
   resourceId: string;
   details: string;
   timestamp: Date;

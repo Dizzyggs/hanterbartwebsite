@@ -28,6 +28,7 @@ import {
   Flex,
   Icon,
   ButtonGroup,
+  Select,
 } from '@chakra-ui/react';
 import { Global, css } from '@emotion/react';
 import { Event, RaidHelperSignup as RaidHelperSignupType } from '../types/firebase';
@@ -153,6 +154,136 @@ const StableDroppable = memo(({
 
 StableDroppable.displayName = 'StableDroppable';
 
+// Add ClassViewModal component
+const ClassViewModal = ({ isOpen, onClose, allPlayers, raidGroups }: {
+  isOpen: boolean;
+  onClose: () => void;
+  allPlayers: SignupPlayer[];
+  raidGroups: RaidGroup[];
+}) => {
+  const [selectedClass, setSelectedClass] = useState<string>('');
+  
+  const getPlayerGroup = (player: SignupPlayer) => {
+    for (const group of raidGroups) {
+      if (group.players.some(p => p.userId === player.userId)) {
+        return group.name;
+      }
+    }
+    return 'Unassigned';
+  };
+
+  const getDisplayName = (player: SignupPlayer) => {
+    return player.discordNickname || player.originalDiscordName || player.characterName;
+  };
+
+  const filteredPlayers = selectedClass
+    ? allPlayers.filter(player => player.characterClass.toUpperCase() === selectedClass)
+    : [];
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size="xl">
+      <ModalOverlay />
+      <ModalContent bg="gray.800">
+        <ModalHeader color="white">View Classes</ModalHeader>
+        <ModalCloseButton color="white" />
+        <ModalBody pb={6}>
+          <VStack spacing={4} align="stretch">
+            <Menu>
+              <MenuButton
+                as={Button}
+                rightIcon={<Icon as={InfoIcon} />}
+                bg="gray.700"
+                color="white"
+                width="100%"
+                textAlign="left"
+                _hover={{ bg: 'gray.600' }}
+                _active={{ bg: 'gray.600' }}
+              >
+                {selectedClass || 'Select a class'}
+              </MenuButton>
+              <MenuList bg="gray.700" borderColor="gray.600">
+                <MenuItem
+                  onClick={() => setSelectedClass('')}
+                  bg="gray.700"
+                  _hover={{ bg: 'gray.600' }}
+                  color="white"
+                >
+                  Select a class
+                </MenuItem>
+                <MenuDivider />
+                {Object.keys(CLASS_COLORS).map(className => (
+                  <MenuItem
+                    key={className}
+                    onClick={() => setSelectedClass(className)}
+                    bg="gray.700"
+                    _hover={{ bg: 'gray.600' }}
+                  >
+                    <HStack>
+                      <Image
+                        src={CLASS_ICONS[className as keyof typeof CLASS_ICONS]}
+                        boxSize="24px"
+                        alt={className}
+                      />
+                      <Text color={CLASS_COLORS[className as keyof typeof CLASS_COLORS]}>
+                        {className}
+                      </Text>
+                    </HStack>
+                  </MenuItem>
+                ))}
+              </MenuList>
+            </Menu>
+
+            {selectedClass && (
+              <VStack
+                spacing={2}
+                align="stretch"
+                maxH="400px"
+                overflowY="auto"
+                css={{
+                  '&::-webkit-scrollbar': {
+                    width: '8px',
+                  },
+                  '&::-webkit-scrollbar-track': {
+                    background: 'gray.700',
+                  },
+                  '&::-webkit-scrollbar-thumb': {
+                    background: 'gray.600',
+                    borderRadius: '4px',
+                  },
+                }}
+              >
+                {filteredPlayers.map((player) => (
+                  <HStack
+                    key={player.userId}
+                    bg="gray.700"
+                    p={3}
+                    borderRadius="md"
+                    justify="space-between"
+                  >
+                    <HStack>
+                      <Image
+                        src={CLASS_ICONS[player.characterClass.toUpperCase() as keyof typeof CLASS_ICONS]}
+                        boxSize="24px"
+                        alt={player.characterClass}
+                      />
+                      <Text color="white">{getDisplayName(player)}</Text>
+                    </HStack>
+                    <Badge
+                      colorScheme={getPlayerGroup(player) === 'Unassigned' ? 'red' : 'green'}
+                    >
+                      {getPlayerGroup(player)}
+                    </Badge>
+                  </HStack>
+                ))}
+              </VStack>
+            )}
+          </VStack>
+        </ModalBody>
+      </ModalContent>
+    </Modal>
+  );
+};
+
 const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   // Group signups by role
   const signupEntries = Object.values(event.signups || {}).filter(signup => signup !== null);
@@ -203,6 +334,12 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
 
   // Add isOpen to the component's state tracking
   const [hasInitialized, setHasInitialized] = useState(false);
+
+  const {
+    isOpen: isClassViewOpen,
+    onOpen: onClassViewOpen,
+    onClose: onClassViewClose
+  } = useDisclosure();
 
   // Add function to fetch Discord nicknames
   const fetchDiscordNicknames = async (signups: SignupPlayer[]) => {
@@ -947,6 +1084,11 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
 
   const userCharacterInfo = getUserCharacterGroup();
 
+  // Get all players (both assigned and unassigned)
+  const allPlayers = useMemo(() => {
+    return [...unassignedPlayers, ...raidGroups.flatMap(group => group.players)];
+  }, [unassignedPlayers, raidGroups]);
+
   return (
     <>
       <Global
@@ -980,7 +1122,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                   onClick={handleSaveRaidComp}
                   isLoading={isSaving}
                   loadingText="Sparar..."
-                  marginTop={"2rem"}
                 >
                   Spara Raid Comp
                 </Button>
@@ -1031,7 +1172,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
               </VStack>
             )}
           </ModalHeader>
-
           <ModalBody 
             p={8} 
             overflowY="auto" 
@@ -1060,13 +1200,22 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
               <HStack align="start" spacing={8} height="100%">
                 <Box flex="1" height="100%">
                   <VStack align="stretch" spacing={4}>
+                    <Button
+                      colorScheme="blue"
+                      size="sm"
+                      onClick={onClassViewOpen}
+                      leftIcon={<Icon as={InfoIcon} />}
+                      width="fit-content"
+                      mt={"6rem"}
+                    >
+                      View Classes
+                    </Button>
                     <Box
                       bg="background.tertiary"
                       p={4}
                       borderRadius="lg"
                       borderLeft="4px solid"
                       borderLeftColor="primary.400"
-                      mt={"6rem"}
                     >
                       <Heading size="sm" color="text.primary" mb={3}>
                         Unassigned Players ({unassignedPlayers.length})
@@ -1182,6 +1331,13 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
               </HStack>
             </DragDropContext>
           </ModalBody>
+
+          <ClassViewModal
+            isOpen={isClassViewOpen}
+            onClose={onClassViewClose}
+            allPlayers={allPlayers}
+            raidGroups={raidGroups}
+          />
         </ModalContent>
       </Modal>
     </>

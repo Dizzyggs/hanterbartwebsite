@@ -97,7 +97,7 @@ const Navbar = () => {
         </RouterLink>
       )}
 
-      {user && (
+      {user && user.confirmedRaider && (
         <RouterLink to="/calendar" onClick={onClose}>
           <HStack spacing={2} className="nav-link">
             <CalendarIcon />
@@ -177,8 +177,7 @@ const Navbar = () => {
 
   const DesktopNavItems = () => (
     <>
-
-      {user && (
+      {user && user.confirmedRaider && (
         <RouterLink to="/calendar">
           <HStack spacing={2} className="nav-link">
             <CalendarIcon />

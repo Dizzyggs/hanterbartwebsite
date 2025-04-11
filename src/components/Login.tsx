@@ -25,6 +25,7 @@ import { useUser } from '../context/UserContext';
 import type { User } from '../types/firebase';
 import { ViewIcon, ViewOffIcon, LockIcon } from '@chakra-ui/icons';
 import { motion } from 'framer-motion';
+import { createStyledToast } from '../utils/toast';
 
 const MotionBox = motion(Box);
 
@@ -36,11 +37,7 @@ const Login = () => {
   const [usernameError, setUsernameError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const navigate = useNavigate();
-  const toast = useToast({
-    position: 'top',
-    duration: 3000,
-    isClosable: true,
-  });
+  const toast = useToast();
   const { login } = useUser();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -78,22 +75,18 @@ const Login = () => {
       // Login successful
       login(userData);
       
-      toast({
+      toast(createStyledToast({
         title: 'Inloggningen lyckades!',
         description: 'Välkommen tillbaka ' + userData.username,
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
+        status: 'success'
+      }));
       navigate('/profile');
     } catch (error: any) {
-      toast({
+      toast(createStyledToast({
         title: 'Inloggningen misslyckades',
         description: error.message,
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
+        status: 'error'
+      }));
     } finally {
       setIsLoading(false);
     }

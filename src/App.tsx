@@ -17,6 +17,7 @@ import { UserProvider, useUser } from './context/UserContext';
 import AuditLogs from './components/admin/AuditLogs';
 import ManageUsers from './components/admin/ManageUsers';
 import { ThemeProvider } from './context/ThemeContext';
+import RaiderRoute from './components/RaiderRoute';
 
 // Protected route wrapper component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -63,9 +64,9 @@ function App() {
                 <Route 
                   path="/calendar" 
                   element={
-                    <ProtectedRoute>
+                    <RaiderRoute>
                       <Calendar />
-                    </ProtectedRoute>
+                    </RaiderRoute>
                   } 
                 />
                 <Route 

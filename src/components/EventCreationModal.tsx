@@ -31,8 +31,10 @@ import {
   Radio,
   Text,
   Flex,
+  useDisclosure,
+  useTheme,
 } from '@chakra-ui/react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CheckIcon } from '@chakra-ui/icons';
 import { collection, addDoc, doc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -41,6 +43,10 @@ import type { Event } from '../types/firebase';
 import { raidHelperService } from '../services/raidhelper';
 import { getDayInSwedish } from '../tools/tools';
 import { eventCreationSteps } from '../tools/tools';
+import { FaDiscord, FaCalendarAlt, FaPlus, FaTrash, FaEdit, FaCheck } from 'react-icons/fa';
+import { useAuth } from '../../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import SignupTypeStep from './CreateEventStepper/SignupTypeStep';
 
 interface EventCreationModalProps {
   isOpen: boolean;
@@ -81,6 +87,7 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
   const [eventDescription, setEventDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isWeeklyRecurring, setIsWeeklyRecurring] = useState(false);
+  const [recurringWeeks, setRecurringWeeks] = useState(1);
   
   const { user } = useUser();
   const toast = useToast({
@@ -225,13 +232,11 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
         const initialDate = new Date(`${eventDate}T${eventTime}`);
         
         if (isWeeklyRecurring) {
-          // Create events for the remainder of the year
-          const currentYear = initialDate.getFullYear();
-          const endOfYear = new Date(currentYear, 11, 31); // December 31st
+          // Create events for the specified number of weeks
           const events = [];
           let currentDate = new Date(initialDate);
 
-          while (currentDate <= endOfYear) {
+          for (let i = 0; i < recurringWeeks; i++) {
             const event = await createEvent(currentDate);
             events.push(event);
             // Add 7 days for next week
@@ -332,56 +337,10 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
               <FormLabel color="text.primary" fontSize="lg" mb={4}>
                 Anmälningstyp
               </FormLabel>
-              <RadioGroup value={signupType} onChange={(value) => setSignupType(value as 'manual' | 'raidhelper')}>
-                <HStack spacing={4} align="stretch" w="100%">
-                  <Flex
-                    as={Radio}
-                    value="raidhelper"
-                    p={4}
-                    borderWidth="1px"
-                    borderColor="border.primary"
-                    borderRadius="md"
-                    flex="1"
-                    _hover={{
-                      borderColor: 'primary.500',
-                      bg: 'whiteAlpha.50'
-                    }}
-                    _checked={{
-                      borderColor: 'primary.500',
-                      boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)'
-                    }}
-                    cursor="pointer"
-                  >
-                    <VStack align="start" spacing={1}>
-                      <Text color="white" fontWeight="bold">RaidHelper Discord Bot</Text>
-                      <Text color="gray.300" fontSize="sm">Spelare anmäler sig via Discord</Text>
-                    </VStack>
-                  </Flex>
-                  <Flex
-                    as={Radio}
-                    value="manual"
-                    p={4}
-                    borderWidth="1px"
-                    borderColor="border.primary"
-                    borderRadius="md"
-                    flex="1"
-                    _hover={{
-                      borderColor: 'primary.500',
-                      bg: 'whiteAlpha.50'
-                    }}
-                    _checked={{
-                      borderColor: 'primary.500',
-                      boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)'
-                    }}
-                    cursor="pointer"
-                  >
-                    <VStack align="start" spacing={1}>
-                      <Text color="white" fontWeight="bold">Manual anmälan</Text>
-                      <Text color="gray.300" fontSize="sm">Spelare anmäler sig via kalendern</Text>
-                    </VStack>
-                  </Flex>
-                </HStack>
-              </RadioGroup>
+              <SignupTypeStep 
+                signupType={signupType} 
+                setSignupType={(value) => setSignupType(value as 'manual' | 'raidhelper')} 
+              />
             </FormControl>
           </VStack>
         );
@@ -460,40 +419,69 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
                   }}
                 />
                 <Box w="100%">
-                  <Tooltip
-                    label={eventDate 
-                      ? `Samma event kommer skapas varje ${getDayInSwedish(eventDate)} för resten av året`
-                      : 'Välj ett datum först'}
-                    hasArrow
-                    placement="bottom-start"
-                    bg="background.tertiary"
-                    color="text.primary"
-                    px={4}
-                    py={2}
-                    borderRadius="md"
-                    boxShadow="lg"
-                    border="1px solid"
-                    borderColor="border.primary"
-                  >
-                    <HStack
-                      as="label"
-                      cursor="pointer"
-                      spacing={3}
-                      _hover={{ color: 'primary.400' }}
-                      transition="color 0.2s"
-                      pl={1}
+                  <VStack align="start" spacing={3}>
+                    <Tooltip
+                      label={eventDate 
+                        ? `Samma event kommer skapas varje ${getDayInSwedish(eventDate)} för valt antal veckor`
+                        : 'Välj ett datum först'}
+                      hasArrow
+                      placement="bottom-start"
+                      bg="background.tertiary"
+                      color="text.primary"
+                      px={4}
+                      py={2}
+                      borderRadius="md"
+                      boxShadow="lg"
+                      border="1px solid"
+                      borderColor="border.primary"
                     >
-                      <Checkbox
-                        isChecked={isWeeklyRecurring}
-                        onChange={(e) => setIsWeeklyRecurring(e.target.checked)}
-                        colorScheme="primary"
-                        size="lg"
-                        color="text.primary"
+                      <HStack
+                        as="label"
+                        cursor="pointer"
+                        spacing={3}
+                        _hover={{ color: 'primary.400' }}
+                        transition="color 0.2s"
+                        pl={1}
                       >
-                        Veckovis återkommande
-                      </Checkbox>
-                    </HStack>
-                  </Tooltip>
+                        <Checkbox
+                          isChecked={isWeeklyRecurring}
+                          onChange={(e) => setIsWeeklyRecurring(e.target.checked)}
+                          colorScheme="primary"
+                          size="lg"
+                          color="text.primary"
+                        >
+                          Veckovis återkommande
+                        </Checkbox>
+                      </HStack>
+                    </Tooltip>
+                    
+                    {isWeeklyRecurring && (
+                      <HStack spacing={3} pl={10}>
+                        <FormControl w="150px">
+                          <FormLabel color="text.primary" fontSize="sm">
+                            Antal veckor
+                          </FormLabel>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={52}
+                            value={recurringWeeks}
+                            onChange={(e) => setRecurringWeeks(Math.min(52, Math.max(1, parseInt(e.target.value) || 1)))}
+                            size="sm"
+                            bg="background.tertiary"
+                            border="1px solid"
+                            borderColor="border.primary"
+                            color="text.primary"
+                            _hover={{ borderColor: 'primary.500' }}
+                            _focus={{ 
+                              borderColor: 'primary.500',
+                              boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)'
+                            }}
+                          />
+                        </FormControl>
+                      </HStack>
+                    )}
+                  </VStack>
                 </Box>
               </VStack>
             </FormControl>

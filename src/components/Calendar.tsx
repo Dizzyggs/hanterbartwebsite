@@ -12,6 +12,7 @@ import { db } from '../firebase';
 import { useEffect, useState } from 'react';
 import type { Event } from '../types/firebase';
 import { AddIcon } from '@chakra-ui/icons';
+import Breadcrumbs from './Breadcrumbs';
 
 const MotionBox = motion(Box);
 const MotionHeading = motion(Heading);
@@ -226,9 +227,15 @@ const Calendar = () => {
   };
 
   return (
-    <Box minH="calc(100vh - 4rem)" bg="background.primary" py={4} px={2}>
-      <style>{calendarStyles}</style>
-      <Container maxW="container.xl">
+    <Box 
+      minH="calc(100vh - 4rem)"
+      bgGradient="linear(to-br, background.primary, background.secondary)"
+      py={8}
+      pt="80px"
+    >
+      <Container maxW="7xl">
+        <Breadcrumbs />
+        <style>{calendarStyles}</style>
         <MotionFlex
           justify="space-between"
           align={{ base: "center", md: "center" }}

@@ -30,8 +30,11 @@ import {
   Input,
   FormControl,
   FormLabel,
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
 } from '@chakra-ui/react';
-import { AddIcon, StarIcon, EditIcon, ExternalLinkIcon, DeleteIcon } from '@chakra-ui/icons';
+import { AddIcon, StarIcon, EditIcon, ExternalLinkIcon, DeleteIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import { useUser } from '../context/UserContext';
 import { useNavigate } from 'react-router-dom';
 import defaultAvatar from '../assets/avatar.jpg';
@@ -54,6 +57,8 @@ import { motion } from 'framer-motion';
 import { FaDiscord, FaBattleNet, FaCalendarAlt, FaClock } from 'react-icons/fa';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
+import { Link as RouterLink } from 'react-router-dom';
+import Breadcrumbs from './Breadcrumbs';
 
 const MotionBox = motion(Box);
 const MotionFlex = motion(Flex);
@@ -586,8 +591,10 @@ const Profile = () => {
       minH="calc(100vh - 4rem)" 
       bgGradient={bgGradient} 
       py={8}
+      pt="80px"
     >
       <Container maxW="7xl">
+        <Breadcrumbs />
         <Box
           bg="background.secondary"
           borderRadius="2xl"

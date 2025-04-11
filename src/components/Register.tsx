@@ -116,7 +116,8 @@ const Register = () => {
         characters: [],
         createdAt: new Date(),
         updatedAt: new Date(),
-        lastLogin: new Date()
+        lastLogin: new Date(),
+        confirmedRaider: false
       };
 
       await setDoc(doc(usersRef, username.toLowerCase()), newUser);

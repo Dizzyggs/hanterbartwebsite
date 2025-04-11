@@ -37,6 +37,7 @@ import {
   Image,
   VStack,
   Flex,
+  Select,
 } from '@chakra-ui/react';
 import { useEffect, useState, useRef } from 'react';
 import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
@@ -46,6 +47,8 @@ import type { User as FirebaseUser } from '../../types/firebase';
 import { useUser } from '../../context/UserContext';
 import { useNavigate } from 'react-router-dom';
 import { logAdminAction } from '../../utils/auditLogger';
+import Breadcrumbs from '../Breadcrumbs';
+import { createStyledToast } from '../../utils/toast';
 
 // Import class icons
 import warriorIcon from '../../assets/classes/warrior.png';
@@ -81,9 +84,10 @@ const CLASS_COLORS = {
 
 interface User extends Omit<FirebaseUser, 'createdAt'> {
   createdAt: Date;
+  confirmedRaider?: boolean;
 }
 
-type SortField = 'username' | 'role' | 'joined';
+type SortField = 'username' | 'role' | 'joined' | 'confirmedRaider';
 
 const ManageUsers = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -92,6 +96,7 @@ const ManageUsers = () => {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [sortField, setSortField] = useState<SortField>('username');
+  const [sortAscending, setSortAscending] = useState(true);
   const deleteDialog = useDisclosure();
   const charactersModal = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -117,6 +122,7 @@ const ManageUsers = () => {
           updatedAt: data.updatedAt?.toDate() || new Date(),
           lastLogin: data.lastLogin?.toDate() || new Date(),
           avatarUrl: data.avatarUrl,
+          confirmedRaider: data.confirmedRaider,
         });
       });
       setUsers(newUsers);
@@ -170,6 +176,48 @@ const ManageUsers = () => {
         isClosable: true,
         position: 'top',
       });
+    }
+  };
+
+  const handleConfirmedRaiderToggle = async (userId: string, username: string, currentStatus: boolean) => {
+    try {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        confirmedRaider: !currentStatus
+      });
+
+      // Log the admin action
+      if (currentUser && currentUser.role === 'admin') {
+        await logAdminAction(
+          currentUser.username,
+          currentUser.username,
+          'update',
+          'confirmedRaider',
+          userId,
+          username,
+          `Changed confirmed raider status of user **${username}** to **${!currentStatus ? 'Confirmed' : 'Unconfirmed'}**`
+        );
+      }
+
+      // Update local state
+      setUsers(prevUsers =>
+        prevUsers.map(u =>
+          u.id === userId ? { ...u, confirmedRaider: !currentStatus } : u
+        )
+      );
+
+      toast(createStyledToast({
+        title: 'Raider Status Updated',
+        description: `${username} is now ${!currentStatus ? 'a confirmed' : 'an unconfirmed'} raider`,
+        status: 'success'
+      }));
+    } catch (error) {
+      console.error('Error updating confirmed raider status:', error);
+      toast(createStyledToast({
+        title: 'Error',
+        description: 'Failed to update raider status',
+        status: 'error'
+      }));
     }
   };
 
@@ -301,26 +349,49 @@ const ManageUsers = () => {
 
   const sortUsers = (users: User[]) => {
     return [...users].sort((a, b) => {
+      let comparison = 0;
+      
       switch (sortField) {
         case 'username':
-          return (a.username || '').toLowerCase().localeCompare((b.username || '').toLowerCase());
+          comparison = (a.username || '').toLowerCase().localeCompare((b.username || '').toLowerCase());
+          break;
         case 'role': {
           const roleOrder: Record<'admin' | 'officer' | 'member', number> = { 
             admin: 0, 
             officer: 1, 
             member: 2 
           };
-          // Roles are already lowercase in our data
           const aRole = roleOrder[a.role as 'admin' | 'officer' | 'member'] ?? 2;
           const bRole = roleOrder[b.role as 'admin' | 'officer' | 'member'] ?? 2;
-          return aRole - bRole;
+          comparison = aRole - bRole;
+          break;
         }
         case 'joined':
-          return b.createdAt.getTime() - a.createdAt.getTime(); // Newest first
-        default:
-          return 0;
+          comparison = b.createdAt.getTime() - a.createdAt.getTime();
+          break;
+        case 'confirmedRaider': {
+          const aConfirmed = a.confirmedRaider ?? false;
+          const bConfirmed = b.confirmedRaider ?? false;
+          if (aConfirmed === bConfirmed) {
+            comparison = (a.username || '').toLowerCase().localeCompare((b.username || '').toLowerCase());
+          } else {
+            comparison = aConfirmed ? 1 : -1;
+          }
+          break;
+        }
       }
+      
+      return sortAscending ? comparison : -comparison;
     });
+  };
+
+  const handleSortChange = (newSortField: SortField) => {
+    if (newSortField === sortField) {
+      setSortAscending(!sortAscending);
+    } else {
+      setSortField(newSortField);
+      setSortAscending(true);
+    }
   };
 
   const filteredUsers = sortUsers(users.filter(user => {
@@ -344,8 +415,9 @@ const ManageUsers = () => {
   };
 
   return (
-    <Box minH="calc(100vh - 4rem)" bg="background.primary" py={8}>
-      <Container maxW="container.xl">
+    <Box minH="calc(100vh - 4rem)" bg="background.primary" py={8} pt="80px">
+      <Container maxW="7xl">
+        <Breadcrumbs />
         <HStack justify="space-between" mb={8}>
           <Heading
             color="text.primary"
@@ -356,48 +428,25 @@ const ManageUsers = () => {
             Manage Users
           </Heading>
           <HStack spacing={8}>
-            <Menu>
-              <MenuButton
-                as={Button}
-                rightIcon={<TriangleDownIcon boxSize={3} />}
-                bg="background.secondary"
-                color="text.primary"
-                _hover={{ bg: 'background.tertiary' }}
-                _active={{ bg: 'background.tertiary' }}
-                size="md"
-                minW="200px"
-                h="40px"
-                px={4}
-              >
-                Sort by: {sortField.charAt(0).toUpperCase() + sortField.slice(1)}
-              </MenuButton>
-              <MenuList bg="background.tertiary" borderColor="border.primary" boxShadow="dark-lg">
-                <MenuItem
-                  onClick={() => setSortField('username')}
-                  bg="background.tertiary"
-                  _hover={{ bg: 'whiteAlpha.200' }}
-                  color="text.primary"
-                >
-                  Username
-                </MenuItem>
-                <MenuItem
-                  onClick={() => setSortField('role')}
-                  bg="background.tertiary"
-                  _hover={{ bg: 'whiteAlpha.200' }}
-                  color="text.primary"
-                >
-                  Role
-                </MenuItem>
-                <MenuItem
-                  onClick={() => setSortField('joined')}
-                  bg="background.tertiary"
-                  _hover={{ bg: 'whiteAlpha.200' }}
-                  color="text.primary"
-                >
-                  Joined
-                </MenuItem>
-              </MenuList>
-            </Menu>
+            <Select 
+              value={sortField} 
+              onChange={(e) => handleSortChange(e.target.value as SortField)} 
+              mb={4}
+              icon={<TriangleDownIcon transform={sortAscending ? 'rotate(0deg)' : 'rotate(180deg)'} />}
+              color="text.primary"
+              _hover={{ borderColor: 'border.secondary' }}
+              sx={{
+                '> option': {
+                  color: 'text.primary',
+                  background: 'background.tertiary'
+                }
+              }}
+            >
+              <option value="username">Username</option>
+              <option value="role">Role</option>
+              <option value="joined">Join Date</option>
+              <option value="confirmedRaider">Raider Status</option>
+            </Select>
             <InputGroup maxW="300px">
               <InputLeftElement pointerEvents="none">
                 <SearchIcon color="text.secondary" />
@@ -439,6 +488,7 @@ const ManageUsers = () => {
                   <Th color="text.secondary">Role</Th>
                   <Th color="text.secondary">Characters</Th>
                   <Th color="text.secondary">Joined</Th>
+                  <Th color="text.secondary">Confirmed Raider</Th>
                   <Th color="text.secondary" textAlign="center">Actions</Th>
                 </Tr>
               </Thead>
@@ -463,6 +513,16 @@ const ManageUsers = () => {
                     </Td>
                     <Td color="text.primary">
                       {user.createdAt.toLocaleDateString()}
+                    </Td>
+                    <Td>
+                      <Button
+                        size="sm"
+                        colorScheme={user.confirmedRaider ? "green" : "orange"}
+                        variant={user.confirmedRaider ? "solid" : "outline"}
+                        onClick={() => handleConfirmedRaiderToggle(user.id, user.username, user.confirmedRaider || false)}
+                      >
+                        {user.confirmedRaider ? "Confirmed" : "Unconfirmed"}
+                      </Button>
                     </Td>
                     <Td>
                       <HStack spacing={2} justify="center">
@@ -586,6 +646,18 @@ const ManageUsers = () => {
                       <Text color="text.secondary" fontSize="sm">
                         Joined: {user.createdAt.toLocaleDateString()}
                       </Text>
+                    </Flex>
+
+                    <Flex justify="space-between" align="center">
+                      <Text color="text.secondary" fontSize="sm">Raider Status:</Text>
+                      <Button
+                        size="sm"
+                        colorScheme={user.confirmedRaider ? "green" : "orange"}
+                        variant={user.confirmedRaider ? "solid" : "outline"}
+                        onClick={() => handleConfirmedRaiderToggle(user.id, user.username, user.confirmedRaider || false)}
+                      >
+                        {user.confirmedRaider ? "Confirmed" : "Unconfirmed"}
+                      </Button>
                     </Flex>
 
                     <Flex justify="space-between" gap={2} mt={2}>

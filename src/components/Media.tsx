@@ -33,6 +33,7 @@ import { DeleteIcon, AddIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon } 
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import { useTheme } from '../context/ThemeContext';
+import Breadcrumbs from './Breadcrumbs';
 
 interface Comment {
   id: string;
@@ -408,16 +409,14 @@ const Media = () => {
 
   return (
     <Box 
-      minH="calc(100vh - 4rem)" 
-      bg="background.primary" 
+      minH="calc(100vh - 4rem)"
+      bgGradient="linear(to-br, background.primary, background.secondary)"
       py={8}
-      sx={{
-        '#root': {
-          overflowY: 'scroll !important'
-        }
-      }}
+      pt="80px"
+      pb="500px"
     >
-      <Container maxW="container.xl">
+      <Container maxW="7xl">
+        <Breadcrumbs />
         <VStack spacing={8} align="stretch">
           <Flex justify="space-between" align="center">
             <Heading 
@@ -498,20 +497,33 @@ const Media = () => {
           </Flex>
 
           <Box 
-            maxH="calc(100vh - 200px)" 
-            overflowY="scroll"
+            maxH="calc(100vh - 300px)"
+            overflowY="auto"
             sx={{
               '&::-webkit-scrollbar': {
-                display: 'none'
+                width: '6px',
+                display: 'block'
               },
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none'
+              '&::-webkit-scrollbar-track': {
+                background: 'transparent'
+              },
+              '&::-webkit-scrollbar-thumb': {
+                background: isNeonTheme ? 'primary.400' : 'whiteAlpha.300',
+                borderRadius: 'full',
+                '&:hover': {
+                  background: isNeonTheme ? 'primary.300' : 'whiteAlpha.400'
+                }
+              },
+              scrollbarWidth: 'thin',
+              scrollbarColor: isNeonTheme ? 'var(--chakra-colors-primary-400) transparent' : 'var(--chakra-colors-whiteAlpha-300) transparent'
             }}
           >
             <SimpleGrid 
-              columns={{ base: 1, sm: 2, md: 3, lg: 5 }} 
+              columns={{ base: 1, sm: 2, md: 3, lg: 4 }}
               spacing={6}
-              pb={6}
+              pb={16}
+              maxW="container.xl"
+              mx="auto"
             >
               {paginatedItems.map((item) => (
                 <Box
@@ -526,10 +538,11 @@ const Media = () => {
                   onClick={() => handleImageClick(item)}
                   position="relative"
                   w="100%"
-                  minW="200px"
+                  maxW="280px"
+                  mx="auto"
                   {...neonButtonStyles}
                 >
-                  <AspectRatio ratio={1} w="100%">
+                  <AspectRatio ratio={4/3} w="100%">
                     <>
                       {(loadingImages[item.id] !== false) && (
                         <Flex
@@ -538,15 +551,17 @@ const Media = () => {
                           left="0"
                           right="0"
                           bottom="0"
-                          bg="background.overlay"
+                          bg={isNeonTheme ? "whiteAlpha.50" : "background.overlay"}
+                          backdropFilter="blur(4px)"
                           zIndex="1"
                           justify="center"
                           align="center"
+                          boxShadow={isNeonTheme ? "inset 0 0 20px rgba(0, 224, 80, 0.2)" : "none"}
                         >
                           <Spinner
                             thickness="4px"
                             speed="0.65s"
-                            emptyColor="background.tertiary"
+                            emptyColor={isNeonTheme ? "whiteAlpha.100" : "background.tertiary"}
                             color={isNeonTheme ? 'primary.500' : 'blue.500'}
                             size="xl"
                           />
@@ -630,20 +645,19 @@ const Media = () => {
                     {loadingModalImage && (
                       <Flex
                         position="absolute"
-                        top="0"
-                        left="0"
-                        right="0"
-                        bottom="0"
-                        bg="background.overlay"
+                        inset="0"
+                        bg={isNeonTheme ? "whiteAlpha.50" : "background.overlay"}
+                        backdropFilter="blur(4px)"
                         zIndex="1"
                         justify="center"
                         align="center"
+                        boxShadow={isNeonTheme ? "inset 0 0 20px rgba(0, 224, 80, 0.2)" : "none"}
                       >
                         <Spinner
                           thickness="4px"
                           speed="0.65s"
-                          emptyColor="background.tertiary"
-                          color="blue.500"
+                          emptyColor={isNeonTheme ? "whiteAlpha.100" : "background.tertiary"}
+                          color={isNeonTheme ? 'primary.500' : 'blue.500'}
                           size="xl"
                         />
                       </Flex>

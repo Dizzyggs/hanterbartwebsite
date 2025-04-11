@@ -18,6 +18,7 @@ import { collection, query, orderBy, limit, onSnapshot, doc, deleteDoc } from 'f
 import { db } from '../../firebase';
 import type { AuditLogEntry } from '../../utils/auditLogger';
 import { DeleteIcon } from '@chakra-ui/icons';
+import Breadcrumbs from '../Breadcrumbs';
 
 interface AuditLog extends Omit<AuditLogEntry, 'timestamp'> {
   id: string;
@@ -112,8 +113,9 @@ const AuditLogs = () => {
   };
 
   return (
-    <Box minH="calc(100vh - 4rem)" bg="background.primary" py={8}>
-      <Container maxW="container.xl">
+    <Box minH="calc(100vh - 4rem)" bg="background.primary" py={8} pt="80px">
+      <Container maxW="7xl">
+        <Breadcrumbs />
         <Heading
           color="text.primary"
           fontSize="2xl"

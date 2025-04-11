@@ -13,10 +13,10 @@ const theme = extendTheme({
       body: {
         bg: 'background.primary',
         color: 'text.primary',
-        fontFamily: 'Oxanium',
+        fontFamily: props.theme.fonts.body,
       },
       '*': {
-        fontFamily: 'Oxanium',
+        fontFamily: 'inherit',
       },
     }),
   },
@@ -100,9 +100,10 @@ const theme = extendTheme({
     },
   },
   fonts: {
-    heading: 'Oxanium',
-    body: 'Oxanium',
-    mono: 'Oxanium',
+    heading: 'Inter',
+    body: 'Inter',
+    mono: 'JetBrains Mono',
+    ui: (isNeonTheme: boolean) => isNeonTheme ? "'Chakra Petch', sans-serif" : "'DM Sans', sans-serif",
   },
   fontSizes: {
     xs: '0.75rem',    // 12px
@@ -440,9 +441,9 @@ const neonTheme = {
     },
   },
   fonts: {
-    heading: 'Oxanium',
-    body: 'Oxanium',
-    mono: 'Oxanium',
+    heading: 'Orbitron',
+    body: 'Inter',
+    mono: 'JetBrains Mono',
   },
   shadows: {
     outline: '0 0 0 3px rgba(0, 224, 80, 0.6)',
@@ -453,7 +454,7 @@ const neonTheme = {
   components: {
     Button: {
       baseStyle: {
-        fontFamily: 'Oxanium',
+        fontFamily: 'Chakra Petch',
       },
       variants: {
         solid: {
@@ -475,30 +476,27 @@ const neonTheme = {
     },
     Heading: {
       baseStyle: {
-        fontFamily: 'Oxanium',
+        fontFamily: 'Orbitron',
       },
     },
     Text: {
       baseStyle: {
-        fontFamily: 'Oxanium',
+        fontFamily: 'inherit',
       },
     },
     Modal: {
       baseStyle: {
         dialog: {
-          fontFamily: 'Oxanium',
+          fontFamily: 'inherit',
         },
         header: {
-          fontFamily: 'Oxanium',
+          fontFamily: 'Orbitron',
         },
         body: {
-          fontFamily: 'Oxanium',
-          '*': {
-            fontFamily: 'Oxanium',
-          },
+          fontFamily: 'inherit',
         },
         footer: {
-          fontFamily: 'Oxanium',
+          fontFamily: 'inherit',
         },
       },
     },
@@ -532,16 +530,19 @@ const neonTheme = {
       body: {
         bg: 'background.primary',
         color: 'text.primary',
-        fontFamily: 'Oxanium',
+        fontFamily: 'Inter',
       },
       'h1, h2, h3, h4, h5, h6': {
-        fontFamily: 'Oxanium',
+        fontFamily: 'Orbitron',
       },
-      'button, input, textarea, p, span, div': {
-        fontFamily: 'Oxanium',
+      'button': {
+        fontFamily: 'Chakra Petch',
+      },
+      'input, textarea, p, span, div': {
+        fontFamily: 'inherit',
       },
       '.chakra-modal__content *': {
-        fontFamily: 'Oxanium',
+        fontFamily: 'inherit',
       },
       '.nav-link': {
         color: 'text.primary',
