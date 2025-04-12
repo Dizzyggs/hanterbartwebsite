@@ -69,11 +69,6 @@ const Media = () => {
   const columns = useBreakpointValue({ base: 1, sm: 2, md: 3, lg: 5 }) || 5;
   const itemsPerPage = columns * 3; // 3 rows
   const totalPages = Math.ceil(mediaItems.length / itemsPerPage);
-
-  useEffect(() => {
-    console.log(mediaItems)
-
-  }, [mediaItems])
   
   const paginatedItems = mediaItems.slice(
     (currentPage - 1) * itemsPerPage,
@@ -198,10 +193,6 @@ const Media = () => {
   };
 
   const handlePostComment = async (commentText: string) => {
-    console.log('Starting handlePostComment');
-    console.log('User:', user);
-    console.log('Selected Image Data:', selectedImageData);
-    console.log('Comment Text:', commentText);
 
     if (!user || !selectedImageData || !commentText.trim()) {
       console.log('Validation failed:', { user: !!user, selectedImageData: !!selectedImageData, hasComment: !!commentText.trim() });
@@ -220,59 +211,48 @@ const Media = () => {
         username: user.username,
         createdAt: timestamp
       };
-      console.log('Created comment object:', comment);
 
       const mediaRef = doc(db, 'media', selectedImageData.id);
-      console.log('Current comments:', selectedImageData.comments);
       
       const updatedComments = [
         ...selectedImageData.comments,
         { ...comment, createdAt: timestamp }
       ];
-      console.log('Updated comments array:', updatedComments);
 
       const firestoreComments = updatedComments.map(c => ({
         ...c,
         createdAt: c.createdAt instanceof Date ? Timestamp.fromDate(c.createdAt) : c.createdAt
       }));
-      console.log('Firestore formatted comments:', firestoreComments);
 
       await updateDoc(mediaRef, {
         comments: firestoreComments
       });
-      console.log('Successfully updated Firestore');
 
       // Update local states with Date objects
       const localComment = {
         ...comment,
         createdAt: timestamp.toDate()
       };
-      console.log('Local comment with Date:', localComment);
 
       const localUpdatedComments = [
         ...selectedImageData.comments,
         localComment
       ];
-      console.log('Final local comments array:', localUpdatedComments);
 
       setSelectedImageData(prev => {
-        console.log('Previous selected image data:', prev);
         const updated = prev ? {
           ...prev,
           comments: localUpdatedComments
         } : null;
-        console.log('Updated selected image data:', updated);
         return updated;
       });
 
       setMediaItems(prev => {
-        console.log('Previous media items:', prev);
         const updated = prev.map(item => 
           item.id === selectedImageData.id 
             ? { ...item, comments: localUpdatedComments }
             : item
         );
-        console.log('Updated media items:', updated);
         return updated;
       });
 
@@ -360,10 +340,7 @@ const Media = () => {
     const { currentTheme } = useTheme();
     const isNeonTheme = currentTheme === 'neon';
 
-    console.log('CommentInput rendered with comment:', comment);
-
     const handleSubmit = () => {
-      console.log('CommentInput handleSubmit called with:', comment);
       if (comment.trim()) {
         onSubmit(comment);
         setComment('');
@@ -375,7 +352,6 @@ const Media = () => {
         <Textarea
           value={comment}
           onChange={(e) => {
-            console.log('Comment textarea changed:', e.target.value);
             setComment(e.target.value);
           }}
           placeholder="Add a comment..."
@@ -433,7 +409,7 @@ const Media = () => {
                 isLoading={isUploading}
                 {...neonButtonStyles}
               >
-                Upload image
+                Ladda upp Bild
               </Button>
             )}
             <Input

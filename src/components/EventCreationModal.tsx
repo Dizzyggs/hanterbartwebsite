@@ -139,11 +139,8 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
             }
           };
 
-          console.log('Creating RaidHelper event with data:', raidHelperData);
-          
           // Create RaidHelper event
           const raidHelperResponse = await raidHelperService.createEvent(raidHelperData);
-          console.log('RaidHelper API response:', raidHelperResponse);
           
           if (!raidHelperResponse) {
             throw new Error('No response from RaidHelper API');
@@ -175,7 +172,6 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
       }
 
       // Create the Firestore event
-      console.log('Creating Firestore event with data:', finalEventData);
       const docRef = await addDoc(collection(db, 'events'), finalEventData);
       return { ...finalEventData, id: docRef.id };
     } catch (error) {

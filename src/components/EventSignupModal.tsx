@@ -206,11 +206,6 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
         }
       } catch (error) {
         console.error('Failed to fetch RaidHelper signups:', error);
-        // toast({
-        //   title: 'Error',
-        //   description: 'Failed to fetch Discord bot signups',
-        //   status: 'error',
-        // });
       } finally {
         setIsLoadingSignups(false);
       }

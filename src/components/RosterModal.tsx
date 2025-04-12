@@ -357,8 +357,8 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   // Add state for tracking changes
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [initialState, setInitialState] = useState<{
-    raidGroups: RaidGroup[];
-    unassignedPlayers: SignupPlayer[];
+    groups: RaidGroup[];
+    unassigned: SignupPlayer[];
   } | null>(null);
   
   // Add alert dialog state
@@ -369,11 +369,166 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   } = useAlertDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
 
+  // Function to create a clean copy of state
+  const createCleanState = () => ({
+    groups: raidGroups.map(group => ({
+      ...group,
+      players: group.players.map(player => ({
+        userId: player.userId,
+        username: player.username,
+        characterId: player.characterId,
+        characterName: player.characterName,
+        characterClass: player.characterClass,
+        characterRole: player.characterRole,
+        discordNickname: player.discordNickname,
+        originalDiscordName: player.originalDiscordName,
+        spec: player.spec
+      }))
+    })),
+    unassigned: unassignedPlayers.map(player => ({
+      userId: player.userId,
+      username: player.username,
+      characterId: player.characterId,
+      characterName: player.characterName,
+      characterClass: player.characterClass,
+      characterRole: player.characterRole,
+      discordNickname: player.discordNickname,
+      originalDiscordName: player.originalDiscordName,
+      spec: player.spec
+    }))
+  });
+
+  // Set initial state when modal opens
+  useEffect(() => {
+    if (isOpen && !initialState) {
+      setInitialState(createCleanState());
+      setHasUnsavedChanges(false);
+    }
+  }, [isOpen]);
+
+  // Function to compare players
+  const arePlayersEqual = (p1: SignupPlayer, p2: SignupPlayer) => 
+    p1.characterId === p2.characterId &&
+    p1.userId === p2.userId &&
+    p1.characterName === p2.characterName &&
+    p1.characterClass === p2.characterClass &&
+    p1.characterRole === p2.characterRole;
+
+  // Function to compare groups
+  const areGroupsEqual = (g1: RaidGroup, g2: RaidGroup) => {
+    if (g1.players.length !== g2.players.length) return false;
+    return g1.players.every((player, index) => arePlayersEqual(player, g2.players[index]));
+  };
+
+  // Update change detection
+  useEffect(() => {
+    if (!isAdmin || !initialState) return;
+
+    const currentState = createCleanState();
+
+    // Compare groups that have players
+    const currentActiveGroups = currentState.groups.filter(g => g.players.length > 0);
+    const initialActiveGroups = initialState.groups.filter(g => g.players.length > 0);
+
+    const hasGroupChanges = 
+      currentActiveGroups.length !== initialActiveGroups.length ||
+      currentActiveGroups.some((group, index) => !areGroupsEqual(group, initialActiveGroups[index]));
+
+    // Compare unassigned players
+    const hasUnassignedChanges = 
+      currentState.unassigned.length !== initialState.unassigned.length ||
+      !currentState.unassigned.every(player => 
+        initialState.unassigned.some(p => arePlayersEqual(player, p))
+      );
+
+    setHasUnsavedChanges(hasGroupChanges || hasUnassignedChanges);
+  }, [raidGroups, unassignedPlayers, initialState, isAdmin]);
+
+  // Update handleSaveRaidComp
+  const handleSaveRaidComp = async () => {
+    if (!isAdmin || !user) return;
+    
+    setIsSaving(true);
+    try {
+      // Filter out empty groups and clean up the data
+      const nonEmptyGroups = raidGroups
+        .filter(group => group.players.length > 0)
+        .map(group => ({
+          id: group.id,
+          name: group.name,
+          players: group.players.map(player => {
+            const cleanPlayer = {
+              userId: player.userId,
+              username: player.username,
+              characterId: player.characterId,
+              characterName: player.characterName,
+              characterClass: player.characterClass || 'Unknown',
+              characterRole: player.characterRole || 'DPS',
+              spec: player.spec
+            };
+
+            if (event.signupType === 'raidhelper') {
+              return {
+                ...cleanPlayer,
+                originalDiscordName: player.originalDiscordName || player.username,
+                discordNickname: player.discordNickname || null,
+                isDiscordSignup: true,
+                spec: player.spec
+              };
+            }
+
+            return cleanPlayer;
+          })
+        }));
+
+      const raidComposition = {
+        lastUpdated: new Date(),
+        updatedBy: {
+          userId: user.username,
+          username: user.username
+        },
+        groups: nonEmptyGroups
+      };
+
+      await updateDoc(doc(db, 'events', event.id), {
+        raidComposition
+      });
+
+      // After successful save, update the initial state
+      setInitialState(createCleanState());
+      setHasUnsavedChanges(false);
+
+      toast({
+        title: "Raid composition saved",
+        description: "The raid composition has been updated successfully",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+        position: "top"
+      });
+    } catch (error) {
+      console.error('Error saving raid composition:', error);
+      toast({
+        title: "Error saving raid composition",
+        description: "There was an error saving the raid composition. Please try again.",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "top"
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Function to handle modal close
   const handleModalClose = () => {
     if (isAdmin && hasUnsavedChanges) {
       onAlertOpen();
     } else {
+      // Reset state when closing
+      setInitialState(null);
+      setHasUnsavedChanges(false);
       onClose();
     }
   };
@@ -391,102 +546,35 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     onClose();
   };
 
-  // Update hasUnsavedChanges when groups or unassigned players change
-  useEffect(() => {
-    if (!isAdmin || !initialState) return;
+  // Find user's character group
+  const getUserCharacterGroup = (user: any, event: Event, raidGroups: RaidGroup[]) => {
+    if (!user || !event.signups) return null;
+    
+    const userSignup = Object.values(event.signups).find(signup => signup?.userId === user.username);
+    if (!userSignup) return null;
 
-    const currentState = {
-      raidGroups: JSON.parse(JSON.stringify(raidGroups)),
-      unassignedPlayers: JSON.parse(JSON.stringify(unassignedPlayers))
+    const assignedGroup = raidGroups.find(group => 
+      group.players.some(player => player.characterId === userSignup.characterId)
+    );
+    
+    return {
+      character: userSignup,
+      group: assignedGroup || null
     };
-
-    const hasChanges = JSON.stringify(currentState) !== JSON.stringify(initialState);
-    setHasUnsavedChanges(hasChanges);
-  }, [raidGroups, unassignedPlayers, initialState, isAdmin]);
-
-  // Set initial state when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setInitialState({
-        raidGroups: JSON.parse(JSON.stringify(raidGroups)),
-        unassignedPlayers: JSON.parse(JSON.stringify(unassignedPlayers))
-      });
-      setHasUnsavedChanges(false);
-    }
-  }, [isOpen]);
-
-  // Add function to fetch Discord nicknames
-  const fetchDiscordNicknames = async (signups: SignupPlayer[]) => {
-    try {
-      console.log('Fetching Discord nicknames for signups:', signups);
-      const userDocs = await Promise.all(
-        signups.map(signup => getDoc(doc(db, 'users', signup.userId)))
-      );
-      
-      const nicknames: Record<string, string> = {};
-      userDocs.forEach((userDoc, index) => {
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          console.log('User data for', signups[index].userId, ':', {
-            discordId: userData.discordId,
-            discordSignupNickname: userData.discordSignupNickname,
-            signupUserId: signups[index].userId
-          });
-          if (userData.discordSignupNickname) {
-            nicknames[signups[index].userId] = userData.discordSignupNickname;
-          }
-        } else {
-          console.log('No user document found for', signups[index].userId);
-        }
-      });
-      
-      setUserNicknames(nicknames);
-    } catch (error) {
-      console.error('Error fetching Discord nicknames:', error);
-    }
   };
 
-  // Update the matchDiscordSignupsWithUsers function
-  const matchDiscordSignupsWithUsers = async (discordSignups: RaidHelperSignupType[]) => {
-    try {
-      const usersSnapshot = await getDocs(collection(db, 'users'));
-      const firebaseUsers = new Map<string, FirebaseUser>(
-        usersSnapshot.docs
-          .map(doc => {
-            const data = doc.data();
-            const discordId = data.discordId;
-            if (discordId) {
-              return [discordId, { id: doc.id, ...data } as FirebaseUser];
-            }
-            return null;
-          })
-          .filter((entry): entry is [string, FirebaseUser] => entry !== null)
-      );
+  const getRaidName = (groupId: string) => {
+    const groupNumber = parseInt(groupId.replace('group', ''));
+    if (groupNumber >= 1 && groupNumber <= 8) return 'Raid 1-8';
+    if (groupNumber >= 11 && groupNumber <= 18) return 'Raid 11-18';
+    if (groupNumber >= 21 && groupNumber <= 28) return 'Raid 21-28';
+    return '';
+  };
 
-      const validSignups = discordSignups
-        .filter((signup: RaidHelperSignupType) => signup.status === "primary")
-        .map((signup: RaidHelperSignupType): SignupPlayer => {
-          const matchingUser = signup.userId ? firebaseUsers.get(signup.userId) : undefined;
-          console.log('Processing signup:', signup);
-
-          return {
-            userId: signup.userId || signup.name,
-            username: signup.name,
-            characterId: signup.id.toString(),
-            characterName: signup.name,
-            characterClass: signup.className || 'Unknown',
-            characterRole: signup.role || 'none',
-            originalDiscordName: signup.name,
-            discordNickname: matchingUser?.discordSignupNickname,
-            spec: signup.specName || undefined
-          };
-        });
-
-      return validSignups;
-    } catch (error) {
-      console.error('Error matching Discord signups with users:', error);
-      return [];
-    }
+  const getRaidPlayerCount = (raidGroups: RaidGroup[], startGroup: number, endGroup: number) => {
+    return raidGroups
+      .slice(startGroup, endGroup)
+      .reduce((total, group) => total + group.players.length, 0);
   };
 
   // Update the useEffect to only run on initial open
@@ -519,10 +607,10 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
           })));
         }
         
-        if (event.raidComposition) {
-          console.log('Loading saved raid composition:', event.raidComposition);
-          const savedGroups = event.raidComposition.groups;
-          const assignedPlayerIds = new Set<string>();
+    if (event.raidComposition) {
+      console.log('Loading saved raid composition:', event.raidComposition);
+      const savedGroups = event.raidComposition.groups;
+      const assignedPlayerIds = new Set<string>();
 
           // Get all users for Discord nickname mapping
           let firebaseUsers = new Map();
@@ -533,11 +621,11 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
             );
           }
 
-          // Update groups with saved players
+      // Update groups with saved players
           const updatedGroups = raidGroups.map(group => {
             const savedGroup = savedGroups.find((g: { id: string }) => g.id === group.id);
-            if (savedGroup) {
-              const players = savedGroup.players
+        if (savedGroup) {
+          const players = savedGroup.players
                 .map((savedPlayer: SignupPlayer) => {
                   if (event.signupType === 'raidhelper' && event.raidHelperSignups?.signUps) {
                     const raidHelperSignup = event.raidHelperSignups.signUps
@@ -559,21 +647,21 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                         discordNickname: matchingUser?.discordSignupNickname,
                         spec: raidHelperSignup.specName || undefined
                       };
-                    }
-                    return null;
+              }
+              return null;
                   }
                   return event.signups?.[savedPlayer.userId] || null;
-                })
+            })
                 .filter(isSignupPlayer);
 
               players.forEach(player => assignedPlayerIds.add(player.characterId));
-              return { ...group, players };
-            }
-            return group;
-          });
+          return { ...group, players };
+        }
+        return group;
+      });
 
-          setRaidGroups(updatedGroups);
-          setAssignedPlayers(assignedPlayerIds);
+      setRaidGroups(updatedGroups);
+      setAssignedPlayers(assignedPlayerIds);
 
           // Handle unassigned players
           if (event.signupType === 'raidhelper' && event.raidHelperSignups?.signUps) {
@@ -582,7 +670,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                 signup => signup.status === "primary" && !assignedPlayerIds.has(signup.id.toString())
               )
             );
-            setUnassignedPlayers(unassigned);
+      setUnassignedPlayers(unassigned);
           } else if (event.signups) {
             const unassigned = Object.entries(event.signups)
               .filter(([_, signup]) => signup !== null)
@@ -592,7 +680,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
             
             setUnassignedPlayers(unassigned);
           }
-        } else {
+    } else {
           // No saved composition, initialize fresh state
           if (event.signupType === 'raidhelper' && event.raidHelperSignups?.signUps) {
             const matchedSignups = await matchDiscordSignupsWithUsers(event.raidHelperSignups.signUps);
@@ -924,28 +1012,39 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
               <HStack spacing={3} justify="space-between" width="100%">
                 <HStack spacing={3}>
                   <Box
-                    position="relative"
+              position="relative"
                     padding="2px"
                     borderRadius="full"
                     background={getClassGradient(player.characterClass)}
                   >
-                    <Image
-                      src={classIcon}
-                      alt={player.characterClass}
-                      boxSize="24px"
-                      objectFit="cover"
+                <Image
+                  src={classIcon}
+                  alt={player.characterClass}
+                  boxSize="24px"
+                  objectFit="cover"
                       borderRadius="full"
                     />
                   </Box>
                   <VStack align="start" spacing={0}>
                     <Text color="white" fontSize="sm" fontWeight="medium">
                       {getDisplayName()}
-                    </Text>
+                </Text>
                     <Text color={classColor} fontSize="xs" textTransform="uppercase">
                       {player.characterClass}
                     </Text>
                   </VStack>
                 </HStack>
+                <Badge
+                  bg="rgba(30, 34, 42, 0.95)"
+                  color="white"
+                  px={2}
+                  py={1}
+                  borderRadius="sm"
+                  fontSize="xs"
+                  textTransform="uppercase"
+                >
+                  {player.characterRole}
+                </Badge>
               </HStack>
             </MenuButton>
 
@@ -1109,118 +1208,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     return a.characterName.localeCompare(b.characterName);
   });
 
-  const handleSaveRaidComp = async () => {
-    if (!isAdmin || !user) return;
-    
-    setIsSaving(true);
-    try {
-      // Filter out empty groups and clean up the data
-      const nonEmptyGroups = raidGroups
-        .filter(group => group.players.length > 0)
-        .map(group => ({
-          id: group.id,
-          name: group.name,
-          players: group.players.map(player => {
-            const cleanPlayer = {
-              userId: player.userId,
-              username: player.username,
-              characterId: player.characterId,
-              characterName: player.characterName,
-              characterClass: player.characterClass || 'Unknown',
-              characterRole: player.characterRole || 'DPS',
-              spec: player.spec
-            };
-
-            if (event.signupType === 'raidhelper') {
-              return {
-                ...cleanPlayer,
-                originalDiscordName: player.originalDiscordName || player.username,
-                discordNickname: player.discordNickname || null,
-                isDiscordSignup: true,
-                spec: player.spec
-              };
-            }
-
-            return cleanPlayer;
-          })
-        }));
-
-      const raidComposition = {
-        lastUpdated: new Date(),
-        updatedBy: {
-          userId: user.username,
-          username: user.username
-        },
-        groups: nonEmptyGroups
-      };
-
-      // Save to Firebase
-      await updateDoc(doc(db, 'events', event.id), {
-        raidComposition
-      });
-
-      // Update initial state after successful save
-      setInitialState({
-        raidGroups: JSON.parse(JSON.stringify(raidGroups)),
-        unassignedPlayers: JSON.parse(JSON.stringify(unassignedPlayers))
-      });
-      setHasUnsavedChanges(false);
-
-      toast({
-        title: "Raid composition saved",
-        description: "The raid composition has been updated successfully",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-        position: "top"
-      });
-    } catch (error) {
-      console.error('Error saving raid composition:', error);
-      toast({
-        title: "Error saving raid composition",
-        description: "There was an error saving the raid composition. Please try again.",
-        status: "error",
-        duration: 3000,
-        isClosable: true,
-        position: "top"
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Find user's character group
-  const getUserCharacterGroup = () => {
-    if (!user || !event.signups) return null;
-    
-    const userSignup = Object.values(event.signups).find(signup => signup?.userId === user.username);
-    if (!userSignup) return null;
-
-    const assignedGroup = raidGroups.find(group => 
-      group.players.some(player => player.characterId === userSignup.characterId)
-    );
-    
-    return {
-      character: userSignup,
-      group: assignedGroup || null
-    };
-  };
-
-  const getRaidName = (groupId: string) => {
-    const groupNumber = parseInt(groupId.replace('group', ''));
-    if (groupNumber >= 1 && groupNumber <= 8) return 'Raid 1-8';
-    if (groupNumber >= 11 && groupNumber <= 18) return 'Raid 11-18';
-    if (groupNumber >= 21 && groupNumber <= 28) return 'Raid 21-28';
-    return '';
-  };
-
-  const getRaidPlayerCount = (startGroup: number, endGroup: number) => {
-    return raidGroups
-      .slice(startGroup, endGroup)
-      .reduce((total, group) => total + group.players.length, 0);
-  };
-
-  const userCharacterInfo = getUserCharacterGroup();
+  const userCharacterInfo = getUserCharacterGroup(user, event, raidGroups);
 
   // Get all players (both assigned and unassigned)
   const allPlayers = useMemo(() => {
@@ -1283,6 +1271,70 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
         position: "top"
       });
     });
+  };
+
+  // Add these functions back
+  const fetchDiscordNicknames = async (signups: SignupPlayer[]) => {
+    try {
+      console.log('Fetching Discord nicknames for signups:', signups);
+      const userDocs = await Promise.all(
+        signups.map(signup => getDoc(doc(db, 'users', signup.userId)))
+      );
+      
+      const nicknames: Record<string, string> = {};
+      userDocs.forEach((userDoc, index) => {
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData.discordSignupNickname) {
+            nicknames[signups[index].userId] = userData.discordSignupNickname;
+          }
+        }
+      });
+      
+      setUserNicknames(nicknames);
+    } catch (error) {
+      console.error('Error fetching Discord nicknames:', error);
+    }
+  };
+
+  const matchDiscordSignupsWithUsers = async (discordSignups: RaidHelperSignupType[]) => {
+    try {
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const firebaseUsers = new Map<string, FirebaseUser>(
+        usersSnapshot.docs
+          .map(doc => {
+            const data = doc.data();
+            const discordId = data.discordId;
+            if (discordId) {
+              return [discordId, { id: doc.id, ...data } as FirebaseUser];
+            }
+            return null;
+          })
+          .filter((entry): entry is [string, FirebaseUser] => entry !== null)
+      );
+
+      const validSignups = discordSignups
+        .filter((signup: RaidHelperSignupType) => signup.status === "primary")
+        .map((signup: RaidHelperSignupType): SignupPlayer => {
+          const matchingUser = signup.userId ? firebaseUsers.get(signup.userId) : undefined;
+    return {
+            userId: signup.userId || signup.name,
+            username: signup.name,
+            characterId: signup.id.toString(),
+            characterName: signup.name,
+            characterClass: signup.className || 'Unknown',
+            characterRole: signup.role || 'DPS',
+            originalDiscordName: signup.name,
+            discordNickname: matchingUser?.discordSignupNickname,
+            spec: signup.specName || undefined
+          };
+        });
+
+      return validSignups;
+    } catch (error) {
+      console.error('Error matching Discord signups with users:', error);
+      return [];
+    }
   };
 
   return (
@@ -1394,19 +1446,19 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                       </MenuItem>
                     </MenuList>
                   </Menu>
-                  <Button
-                    leftIcon={<CheckIcon />}
-                    colorScheme="primary"
-                    variant="solid"
+                <Button
+                  leftIcon={<CheckIcon />}
+                  colorScheme="primary"
+                  variant="solid"
                     size="sm"
                     px={4}
                     py={1}
-                    onClick={handleSaveRaidComp}
-                    isLoading={isSaving}
-                    loadingText="Sparar..."
-                  >
-                    Spara Raid Comp
-                  </Button>
+                  onClick={handleSaveRaidComp}
+                  isLoading={isSaving}
+                  loadingText="Sparar..."
+                >
+                  Spara Raid Comp
+                </Button>
                 </HStack>
               )}
             </Flex>
@@ -1417,22 +1469,22 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                 borderRadius="xl"
                 p={4}
                 maxW="800px"
-                borderLeft="4px solid"
-                borderLeftColor="primary.400"
+                  borderLeft="4px solid"
+                  borderLeftColor="primary.400"
                 _dark={{
                   bg: "rgba(255, 255, 255, 0.06)",
                 }}
-              >
+                >
                 <HStack spacing={3}>
                   <Text
-                    color="primary.400"
+                      color="primary.400"
                     fontSize="sm"
                     fontWeight="semibold"
                     textTransform="uppercase"
                     minW="fit-content"
                   >
                     Event Description:
-                  </Text>
+                    </Text>
                   <Text
                     color="text.primary"
                     fontSize="sm"
@@ -1441,10 +1493,10 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                     }}
                   >
                     {event.description}
-                  </Text>
-                </HStack>
-              </Box>
-            )}
+                      </Text>
+                    </HStack>
+                  </Box>
+                )}
 
             {userCharacterInfo && (
               <VStack align="start" spacing={2}>
@@ -1595,7 +1647,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                     {(!selectedRaid || selectedRaid === '1-8') && (
                       <>
                         <Heading size="sm" color="text.primary" mb={4}>
-                          Raid 1-8 [{getRaidPlayerCount(0, 8)}/40]
+                          Raid 1-8 [{getRaidPlayerCount(raidGroups, 0, 8)}/40]
                         </Heading>
                         <SimpleGrid columns={4} spacing={4}>
                           {raidGroups.slice(0, 8).map((group) => (
@@ -1608,7 +1660,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                     {(!selectedRaid || selectedRaid === '11-18') && (
                       <>
                         <Heading size="sm" color="text.primary" mb={4}>
-                          Raid 11-18 [{getRaidPlayerCount(8, 16)}/40]
+                          Raid 11-18 [{getRaidPlayerCount(raidGroups, 8, 16)}/40]
                         </Heading>
                         <SimpleGrid columns={4} spacing={4}>
                           {raidGroups.slice(8, 16).map((group) => (
@@ -1621,7 +1673,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                     {(!selectedRaid || selectedRaid === '21-28') && (
                       <>
                         <Heading size="sm" color="text.primary" mb={4}>
-                          Raid 21-28 [{getRaidPlayerCount(16, 24)}/40]
+                          Raid 21-28 [{getRaidPlayerCount(raidGroups, 16, 24)}/40]
                         </Heading>
                         <SimpleGrid columns={4} spacing={4}>
                           {raidGroups.slice(16, 24).map((group) => (

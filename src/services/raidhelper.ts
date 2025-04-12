@@ -25,7 +25,6 @@ class RaidHelperService {
 
   async createEvent(event: RaidHelperEvent) {
     try {
-      console.log('Creating event with URL:', this.baseUrl);
       const response = await fetch(`${this.baseUrl}`, {
         method: 'POST',
         headers: {
