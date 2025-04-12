@@ -193,8 +193,6 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
       setIsLoadingSignups(true);
       try {
         const response = await raidHelperService.getEvent(event.raidHelperId);
-        console.log('RaidHelper event details:', response);
-        console.log('RaidHelper signups:', response?.signUps);
         
         if (!response) {
           throw new Error('No response from RaidHelper API');
@@ -208,11 +206,11 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
         }
       } catch (error) {
         console.error('Failed to fetch RaidHelper signups:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to fetch Discord bot signups',
-          status: 'error',
-        });
+        // toast({
+        //   title: 'Error',
+        //   description: 'Failed to fetch Discord bot signups',
+        //   status: 'error',
+        // });
       } finally {
         setIsLoadingSignups(false);
       }

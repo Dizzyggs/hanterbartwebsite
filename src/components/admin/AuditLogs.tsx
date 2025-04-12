@@ -158,10 +158,10 @@ const AuditLogs = () => {
             <Table variant="simple">
               <Thead position="sticky" top={0} bg="background.secondary" zIndex={1}>
                 <Tr>
-                  <Th color="text.secondary">Tid</Th>
+                  <Th color="text.secondary">Time</Th>
                   <Th color="text.secondary">Action</Th>
-                  <Th color="text.secondary">Användare</Th>
-                  <Th color="text.secondary">Beskrivning</Th>
+                  <Th color="text.secondary">User</Th>
+                  <Th color="text.secondary">Description</Th>
                   <Th color="text.secondary" width="1"></Th>
                 </Tr>
               </Thead>

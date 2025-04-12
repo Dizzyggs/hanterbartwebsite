@@ -6,6 +6,7 @@ import hunter from './hunter.png';
 import paladin from './paladin.png';
 import druid from './druid.png';
 import rogue from './rogue.png';
+import fury from './fury.png';
 
 export const warriorIcon = warrior;
 export const mageIcon = mage;
@@ -15,3 +16,4 @@ export const hunterIcon = hunter;
 export const paladinIcon = paladin;
 export const druidIcon = druid;
 export const rogueIcon = rogue; 
+export const furyIcon = fury;

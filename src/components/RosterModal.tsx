@@ -29,12 +29,19 @@ import {
   Icon,
   ButtonGroup,
   Select,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
+  useDisclosure as useAlertDisclosure,
 } from '@chakra-ui/react';
 import { Global, css } from '@emotion/react';
 import { Event, RaidHelperSignup as RaidHelperSignupType } from '../types/firebase';
 import { DragDropContext, Droppable, Draggable, DroppableProvided, DraggableProvided, DropResult, DroppableStateSnapshot } from 'react-beautiful-dnd';
-import { useState, useEffect, memo, ReactElement, useMemo } from 'react';
-import { CheckIcon, TimeIcon, InfoIcon } from '@chakra-ui/icons';
+import { useState, useEffect, memo, ReactElement, useMemo, useRef } from 'react';
+import { CheckIcon, TimeIcon, InfoIcon, DownloadIcon } from '@chakra-ui/icons';
 import { doc, updateDoc, getDoc, getDocs, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useUser } from '../context/UserContext';
@@ -57,7 +64,8 @@ import hunterIcon from '../assets/classes/hunter.png';
 import paladinIcon from '../assets/classes/paladin.png';
 import druidIcon from '../assets/classes/druid.png';
 import rogueIcon from '../assets/classes/rogue.png';
-
+import protIcon from '../assets/classes/prot.png';
+import furyIcon from '../assets/classes/fury.png';
 const CLASS_COLORS = {
   WARRIOR: '#C79C6E', // light brown
   MAGE: '#69CCF0',    // light blue
@@ -69,7 +77,9 @@ const CLASS_COLORS = {
   ROGUE: '#FFF569',
 };
 
-const CLASS_ICONS = {
+type ClassIconType = 'WARRIOR' | 'MAGE' | 'PRIEST' | 'WARLOCK' | 'HUNTER' | 'PALADIN' | 'DRUID' | 'ROGUE' | 'TANK' | 'FURY';
+
+const CLASS_ICONS: Record<ClassIconType, string> = {
   WARRIOR: warriorIcon,
   MAGE: mageIcon,
   PRIEST: priestIcon,
@@ -78,6 +88,8 @@ const CLASS_ICONS = {
   PALADIN: paladinIcon,
   DRUID: druidIcon,
   ROGUE: rogueIcon,
+  TANK: protIcon,
+  FURY: furyIcon
 };
 
 interface SignupPlayer {
@@ -89,6 +101,7 @@ interface SignupPlayer {
   characterRole: string;
   originalDiscordName?: string;
   discordNickname?: string;
+  spec?: string;
 }
 
 // Update the type guard to not require originalDiscordName for manual signups
@@ -341,6 +354,67 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     onClose: onClassViewClose
   } = useDisclosure();
 
+  // Add state for tracking changes
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [initialState, setInitialState] = useState<{
+    raidGroups: RaidGroup[];
+    unassignedPlayers: SignupPlayer[];
+  } | null>(null);
+  
+  // Add alert dialog state
+  const {
+    isOpen: isAlertOpen,
+    onOpen: onAlertOpen,
+    onClose: onAlertClose
+  } = useAlertDisclosure();
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  // Function to handle modal close
+  const handleModalClose = () => {
+    if (isAdmin && hasUnsavedChanges) {
+      onAlertOpen();
+    } else {
+      onClose();
+    }
+  };
+
+  // Function to close without saving
+  const closeWithoutSaving = () => {
+    onAlertClose();
+    onClose();
+  };
+
+  // Function to save and close
+  const saveAndClose = async () => {
+    await handleSaveRaidComp();
+    onAlertClose();
+    onClose();
+  };
+
+  // Update hasUnsavedChanges when groups or unassigned players change
+  useEffect(() => {
+    if (!isAdmin || !initialState) return;
+
+    const currentState = {
+      raidGroups: JSON.parse(JSON.stringify(raidGroups)),
+      unassignedPlayers: JSON.parse(JSON.stringify(unassignedPlayers))
+    };
+
+    const hasChanges = JSON.stringify(currentState) !== JSON.stringify(initialState);
+    setHasUnsavedChanges(hasChanges);
+  }, [raidGroups, unassignedPlayers, initialState, isAdmin]);
+
+  // Set initial state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setInitialState({
+        raidGroups: JSON.parse(JSON.stringify(raidGroups)),
+        unassignedPlayers: JSON.parse(JSON.stringify(unassignedPlayers))
+      });
+      setHasUnsavedChanges(false);
+    }
+  }, [isOpen]);
+
   // Add function to fetch Discord nicknames
   const fetchDiscordNicknames = async (signups: SignupPlayer[]) => {
     try {
@@ -389,20 +463,11 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
           .filter((entry): entry is [string, FirebaseUser] => entry !== null)
       );
 
-      console.log('Firebase users map:', firebaseUsers);
-
       const validSignups = discordSignups
         .filter((signup: RaidHelperSignupType) => signup.status === "primary")
         .map((signup: RaidHelperSignupType): SignupPlayer => {
           const matchingUser = signup.userId ? firebaseUsers.get(signup.userId) : undefined;
-          console.log('Matching user for signup:', {
-            signupUserId: signup.userId,
-            matchingUser: matchingUser ? {
-              id: matchingUser.id,
-              discordId: matchingUser.discordId,
-              discordSignupNickname: matchingUser.discordSignupNickname
-            } : null
-          });
+          console.log('Processing signup:', signup);
 
           return {
             userId: signup.userId || signup.name,
@@ -410,9 +475,10 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
             characterId: signup.id.toString(),
             characterName: signup.name,
             characterClass: signup.className || 'Unknown',
-            characterRole: signup.role || 'DPS',
+            characterRole: signup.role || 'none',
             originalDiscordName: signup.name,
-            discordNickname: matchingUser?.discordSignupNickname
+            discordNickname: matchingUser?.discordSignupNickname,
+            spec: signup.specName || undefined
           };
         });
 
@@ -428,7 +494,30 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     const initializeSignups = async () => {
       // Only initialize if we haven't already or if the modal is newly opened
       if (!hasInitialized && isOpen) {
-        console.log('Initializing raid roster...');
+        console.log('Initializing raid roster with complete event data:', {
+          eventId: event.id,
+          title: event.title,
+          signupType: event.signupType,
+          raidHelperSignups: event.raidHelperSignups,
+          manualSignups: event.signups,
+          raidComposition: event.raidComposition
+        });
+
+        if (event.signupType === 'raidhelper' && event.raidHelperSignups?.signUps) {
+          console.log('RaidHelper Signups Detail:', event.raidHelperSignups.signUps.map(signup => ({
+            id: signup.id,
+            userId: signup.userId,
+            name: signup.name,
+            className: signup.className,
+            role: signup.role,
+            status: signup.status,
+            specName: signup.specName,
+            tentative: signup.tentative,
+            timestamp: signup.timestamp,
+            // Log all other properties
+            allProperties: { ...signup }
+          })));
+        }
         
         if (event.raidComposition) {
           console.log('Loading saved raid composition:', event.raidComposition);
@@ -467,7 +556,8 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                         characterClass: raidHelperSignup.className || 'Unknown',
                         characterRole: raidHelperSignup.role || 'DPS',
                         originalDiscordName: raidHelperSignup.name,
-                        discordNickname: matchingUser?.discordSignupNickname
+                        discordNickname: matchingUser?.discordSignupNickname,
+                        spec: raidHelperSignup.specName || undefined
                       };
                     }
                     return null;
@@ -762,15 +852,46 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   };
 
   const PlayerCard = ({ player, index = 0 }: { player: SignupPlayer; index: number }) => {
+    console.log(player);
     const isAssigned = assignedPlayers.has(player.characterId);
-    const assignedGroup = raidGroups.find(g => g.players.some(p => p.characterId === player.characterId));
     const classColor = getClassColor(player.characterClass || '');
-    const classIcon = player.characterClass ? 
-      CLASS_ICONS[player.characterClass.toUpperCase() as keyof typeof CLASS_ICONS] || CLASS_ICONS.WARRIOR 
-      : CLASS_ICONS.WARRIOR;
+    const getPlayerIcon = () => {
+      if (player.characterRole === 'Tank') {
+        return CLASS_ICONS.TANK;
+      }
+      if (player.spec === 'Fury') {
+        return CLASS_ICONS.FURY;
+      }
+      return CLASS_ICONS[(player.characterClass || 'WARRIOR').toUpperCase() as ClassIconType];
+    };
+    const classIcon = getPlayerIcon();
     const { isOpen: isMenuOpen, onOpen: onMenuOpen, onClose: onMenuClose } = useDisclosure();
 
-    // Update getDisplayName to use the stored nickname
+    // Get gradient colors based on class
+    const getClassGradient = (className: string) => {
+      const baseColor = CLASS_COLORS[className.toUpperCase() as keyof typeof CLASS_COLORS];
+      switch (className.toUpperCase()) {
+        case 'WARRIOR':
+          return `linear-gradient(45deg, ${baseColor}, #8B733E)`;
+        case 'MAGE':
+          return `linear-gradient(45deg, ${baseColor}, #4A8DB0)`;
+        case 'PRIEST':
+          return `linear-gradient(45deg, ${baseColor}, #C0C0C0)`;
+        case 'WARLOCK':
+          return `linear-gradient(45deg, ${baseColor}, #6A5A9C)`;
+        case 'HUNTER':
+          return `linear-gradient(45deg, ${baseColor}, #8BC34A)`;
+        case 'PALADIN':
+          return `linear-gradient(45deg, ${baseColor}, #BE5E89)`;
+        case 'DRUID':
+          return `linear-gradient(45deg, ${baseColor}, #CC5A0A)`;
+        case 'ROGUE':
+          return `linear-gradient(45deg, ${baseColor}, #C0B04A)`;
+        default:
+          return `linear-gradient(45deg, #FFFFFF, #808080)`;
+      }
+    };
+
     const getDisplayName = () => {
       if (event.signupType === 'raidhelper') {
         return player.discordNickname || player.originalDiscordName || player.username;
@@ -791,30 +912,40 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
               ref={provided.innerRef}
               {...provided.draggableProps}
               {...provided.dragHandleProps}
-              bg={snapshot.isDragging ? "background.primary" : "background.secondary"}
-              p={2}
+              bg="rgba(44, 49, 60, 0.95)"
+              p={3}
               borderRadius="md"
-              border="1px solid"
-              borderColor={snapshot.isDragging ? "primary.400" : "border.primary"}
               _hover={{
-                borderColor: "primary.400",
+                bg: "rgba(52, 58, 70, 0.95)",
                 cursor: isAdmin ? "grab" : "default"
               }}
               onClick={onMenuOpen}
             >
-              <HStack spacing={2}>
-                <Image
-                  src={classIcon}
-                  alt={player.characterClass}
-                  boxSize="20px"
-                  objectFit="cover"
-                />
-                <VStack align="start" spacing={0}>
-                  <Text color="white" fontSize="sm">
-                    {getDisplayName()}
-                  </Text>
-                  <Text color={classColor} fontSize="xs">{player.characterClass}</Text>
-                </VStack>
+              <HStack spacing={3} justify="space-between" width="100%">
+                <HStack spacing={3}>
+                  <Box
+                    position="relative"
+                    padding="2px"
+                    borderRadius="full"
+                    background={getClassGradient(player.characterClass)}
+                  >
+                    <Image
+                      src={classIcon}
+                      alt={player.characterClass}
+                      boxSize="24px"
+                      objectFit="cover"
+                      borderRadius="full"
+                    />
+                  </Box>
+                  <VStack align="start" spacing={0}>
+                    <Text color="white" fontSize="sm" fontWeight="medium">
+                      {getDisplayName()}
+                    </Text>
+                    <Text color={classColor} fontSize="xs" textTransform="uppercase">
+                      {player.characterClass}
+                    </Text>
+                  </VStack>
+                </HStack>
               </HStack>
             </MenuButton>
 
@@ -990,23 +1121,23 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
           id: group.id,
           name: group.name,
           players: group.players.map(player => {
-            // Create a clean player object without undefined values
             const cleanPlayer = {
               userId: player.userId,
               username: player.username,
               characterId: player.characterId,
               characterName: player.characterName,
               characterClass: player.characterClass || 'Unknown',
-              characterRole: player.characterRole || 'DPS'
+              characterRole: player.characterRole || 'DPS',
+              spec: player.spec
             };
 
-            // For Discord signups, add Discord-specific fields if they exist
             if (event.signupType === 'raidhelper') {
               return {
                 ...cleanPlayer,
                 originalDiscordName: player.originalDiscordName || player.username,
                 discordNickname: player.discordNickname || null,
-                isDiscordSignup: true
+                isDiscordSignup: true,
+                spec: player.spec
               };
             }
 
@@ -1027,6 +1158,13 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       await updateDoc(doc(db, 'events', event.id), {
         raidComposition
       });
+
+      // Update initial state after successful save
+      setInitialState({
+        raidGroups: JSON.parse(JSON.stringify(raidGroups)),
+        unassignedPlayers: JSON.parse(JSON.stringify(unassignedPlayers))
+      });
+      setHasUnsavedChanges(false);
 
       toast({
         title: "Raid composition saved",
@@ -1089,6 +1227,64 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     return [...unassignedPlayers, ...raidGroups.flatMap(group => group.players)];
   }, [unassignedPlayers, raidGroups]);
 
+  // Add this function to handle exports for specific raid ranges
+  const exportRaidGroup = (startIndex: number, endIndex: number) => {
+    // Process groups in pairs
+    const groupPairs = [];
+    for (let i = startIndex; i < endIndex; i += 2) {
+      const group1 = raidGroups[i];
+      const group2 = raidGroups[i + 1];
+      
+      // Create the paired output for 5 player slots
+      const pairedLines = [];
+      for (let slot = 0; slot < 5; slot++) {
+        const player1 = group1?.players[slot];
+        const player2 = group2?.players[slot];
+        
+        const name1 = player1 ? (player1.discordNickname || player1.characterName) : "-";
+        const name2 = player2 ? (player2.discordNickname || player2.characterName) : "-";
+        
+        pairedLines.push(`${name1}    ${name2}`);
+      }
+      groupPairs.push(pairedLines.join('\n'));
+    }
+
+    const outputString = groupPairs.join('\n\n');
+
+    if (!outputString) {
+      toast({
+        title: "No players in this raid range",
+        description: "There are no players in this raid to export",
+        status: "error",
+        duration: 3000,
+      });
+      return;
+    }
+
+    // Create and trigger download
+    const blob = new Blob([outputString], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${event.title.replace(/\s+/g, '_')}_MRT.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+
+    // Also copy to clipboard for easy pasting
+    navigator.clipboard.writeText(outputString).then(() => {
+      toast({
+        title: "MRT format copied to clipboard",
+        description: "Player list has been copied in MRT format to your clipboard",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+        position: "top"
+      });
+    });
+  };
+
   return (
     <>
       <Global
@@ -1100,7 +1296,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
           ` : ''}
         `}
       />
-      <Modal isOpen={isOpen} onClose={onClose} size="full" blockScrollOnMount={false}>
+      <Modal isOpen={isOpen} onClose={handleModalClose} size="full" blockScrollOnMount={false}>
         <ModalOverlay backdropFilter="blur(10px)" />
         <ModalContent 
           bg="background.secondary"
@@ -1114,61 +1310,162 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
             <Flex justify="space-between" alignItems="center">
               <Text>Slutgiltig Roster - {event.title}</Text>
               {isAdmin && unassignedPlayers.length + raidGroups.reduce((total, group) => total + group.players.length, 0) > 0 && (
-                <Button
-                  leftIcon={<CheckIcon />}
-                  colorScheme="primary"
-                  variant="solid"
-                  size="md"
-                  onClick={handleSaveRaidComp}
-                  isLoading={isSaving}
-                  loadingText="Sparar..."
-                >
-                  Spara Raid Comp
-                </Button>
+                <HStack spacing={2} mr={"3rem"}>
+                  <Menu>
+                    <MenuButton
+                      as={Button}
+                      leftIcon={<DownloadIcon />}
+                      rightIcon={<Icon as={InfoIcon} />}
+                      bg="blue.500"
+                      color="white"
+                      _hover={{ bg: 'blue.600' }}
+                      _active={{ bg: 'blue.700' }}
+                      size="sm"
+                      px={4}
+                      py={1}
+                      fontWeight="semibold"
+                      borderRadius="md"
+                      transition="all 0.2s"
+                    >
+                      Export Roster
+                    </MenuButton>
+                    <MenuList 
+                      bg="gray.800" 
+                      borderColor="gray.700"
+                      boxShadow="lg"
+                      p={1}
+                      minW="180px"
+                    >
+                      <MenuItem
+                        onClick={() => exportRaidGroup(0, 8)}
+                        bg="transparent"
+                        _hover={{ bg: 'gray.700' }}
+                        _focus={{ bg: 'gray.700' }}
+                        color="white"
+                        borderRadius="md"
+                        mb={1}
+                        p={2}
+                        fontSize="sm"
+                        fontWeight="medium"
+                      >
+                        Raid 1-8
+                      </MenuItem>
+                      <MenuItem
+                        onClick={() => exportRaidGroup(8, 16)}
+                        bg="transparent"
+                        _hover={{ bg: 'gray.700' }}
+                        _focus={{ bg: 'gray.700' }}
+                        color="white"
+                        borderRadius="md"
+                        mb={1}
+                        p={2}
+                        fontSize="sm"
+                        fontWeight="medium"
+                      >
+                        Raid 11-18
+                      </MenuItem>
+                      <MenuItem
+                        onClick={() => exportRaidGroup(16, 24)}
+                        bg="transparent"
+                        _hover={{ bg: 'gray.700' }}
+                        _focus={{ bg: 'gray.700' }}
+                        color="white"
+                        borderRadius="md"
+                        mb={1}
+                        p={2}
+                        fontSize="sm"
+                        fontWeight="medium"
+                      >
+                        Raid 21-28
+                      </MenuItem>
+                      <MenuDivider borderColor="gray.700" my={2} />
+                      <MenuItem
+                        onClick={() => exportRaidGroup(0, 24)}
+                        bg="transparent"
+                        _hover={{ bg: 'gray.700' }}
+                        _focus={{ bg: 'gray.700' }}
+                        color="white"
+                        borderRadius="md"
+                        p={2}
+                        fontSize="sm"
+                        fontWeight="medium"
+                      >
+                        All Raids
+                      </MenuItem>
+                    </MenuList>
+                  </Menu>
+                  <Button
+                    leftIcon={<CheckIcon />}
+                    colorScheme="primary"
+                    variant="solid"
+                    size="sm"
+                    px={4}
+                    py={1}
+                    onClick={handleSaveRaidComp}
+                    isLoading={isSaving}
+                    loadingText="Sparar..."
+                  >
+                    Spara Raid Comp
+                  </Button>
+                </HStack>
               )}
             </Flex>
 
+            {event.description && (
+              <Box
+                bg="whiteAlpha.100"
+                borderRadius="xl"
+                p={4}
+                maxW="800px"
+                borderLeft="4px solid"
+                borderLeftColor="primary.400"
+                _dark={{
+                  bg: "rgba(255, 255, 255, 0.06)",
+                }}
+              >
+                <HStack spacing={3}>
+                  <Text
+                    color="primary.400"
+                    fontSize="sm"
+                    fontWeight="semibold"
+                    textTransform="uppercase"
+                    minW="fit-content"
+                  >
+                    Event Description:
+                  </Text>
+                  <Text
+                    color="text.primary"
+                    fontSize="sm"
+                    _dark={{
+                      color: "whiteAlpha.900"
+                    }}
+                  >
+                    {event.description}
+                  </Text>
+                </HStack>
+              </Box>
+            )}
+
             {userCharacterInfo && (
               <VStack align="start" spacing={2}>
-                <Box 
-                  bg="background.tertiary"
-                  p={3}
-                  borderRadius="md"
-                  width="fit-content"
-                  borderLeft="4px solid"
-                  borderLeftColor="primary.400"
+                <Text
+                  color="primary.400"
+                  fontSize="sm"
+                  fontWeight="semibold"
+                  textTransform="uppercase"
+                  minW="fit-content"
                 >
-                  <HStack spacing={2}>
-                    <Icon 
-                      as={InfoIcon}
-                      color="primary.400"
-                    />
-                    <Text color="text.primary" fontSize="sm">
-                      Din karaktär {userCharacterInfo.character?.characterName} är placerad i {userCharacterInfo.group?.name}
-                    </Text>
-                  </HStack>
-                </Box>
-
-                {userCharacterInfo.group && (
-                  <Box 
-                    bg="background.tertiary"
-                    p={3}
-                    borderRadius="md"
-                    width="fit-content"
-                    borderLeft="4px solid"
-                    borderLeftColor="primary.400"
-                  >
-                    <HStack spacing={2}>
-                      <Icon 
-                        as={CheckIcon}
-                        color="primary.400"
-                      />
-                      <Text color="text.primary" fontSize="sm">
-                        Du kommer att raida i {getRaidName(userCharacterInfo.group.id)}
-                      </Text>
-                    </HStack>
-                  </Box>
-                )}
+                  User Character Info:
+                </Text>
+                <Text
+                  color="text.primary"
+                  fontSize="sm"
+                  _dark={{
+                    color: "whiteAlpha.900"
+                  }}
+                >
+                  {userCharacterInfo.character.characterName} is in {userCharacterInfo.group ? userCharacterInfo.group.name : 'an unassigned group'}
+                </Text>
               </VStack>
             )}
           </ModalHeader>
@@ -1237,6 +1534,13 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                             bg={snapshot.isDraggingOver ? "background.secondary" : "transparent"}
                             borderRadius="md"
                             p={2}
+                            sx={{
+                              '&::-webkit-scrollbar': { 
+                                display: 'none'
+                              },
+                              'scrollbarWidth': 'none',
+                              '-ms-overflow-style': 'none'
+                            }}
                           >
                             <VStack align="stretch" spacing={2}>
                               {unassignedPlayers.map((player, index) => (
@@ -1340,6 +1644,80 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
           />
         </ModalContent>
       </Modal>
+
+      {/* Add Alert Dialog */}
+      <AlertDialog
+        isOpen={isAlertOpen}
+        leastDestructiveRef={cancelRef}
+        onClose={onAlertClose}
+        isCentered
+      >
+        <AlertDialogOverlay 
+          bg="rgba(0, 0, 0, 0.4)"
+          backdropFilter="blur(10px)"
+        >
+          <AlertDialogContent 
+            bg="gray.800" 
+            color="white"
+            borderRadius="xl"
+            boxShadow="0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)"
+            mx={4}
+            maxW="400px"
+          >
+            <AlertDialogHeader 
+              fontSize="xl" 
+              fontWeight="bold"
+              pt={6}
+              pb={4}
+              px={6}
+              borderBottom="1px solid"
+              borderColor="gray.700"
+            >
+              Unsaved Changes
+            </AlertDialogHeader>
+
+            <AlertDialogBody
+              py={6}
+              px={6}
+              fontSize="md"
+            >
+              You have unsaved changes in your raid roster. Would you like to save them?
+            </AlertDialogBody>
+
+            <AlertDialogFooter
+              px={6}
+              py={4}
+              borderTop="1px solid"
+              borderColor="gray.700"
+            >
+              <Button 
+                ref={cancelRef} 
+                onClick={closeWithoutSaving}
+                variant="ghost"
+                color="red.400"
+                _hover={{ bg: 'red.900', color: 'red.300' }}
+                _active={{ bg: 'red.800' }}
+                size="md"
+                fontWeight="medium"
+              >
+                Exit without saving
+              </Button>
+              <Button 
+                onClick={saveAndClose}
+                bg="blue.500"
+                color="white"
+                _hover={{ bg: 'blue.600' }}
+                _active={{ bg: 'blue.700' }}
+                ml={3}
+                size="md"
+                fontWeight="medium"
+              >
+                Exit & Save Changes
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </>
   );
 };

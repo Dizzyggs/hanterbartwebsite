@@ -13,10 +13,10 @@ interface BreadcrumbsProps {
 }
 
 const routeLabels: { [key: string]: string } = {
-  '/profile': 'Profil',
+  '/profile': 'Profile',
   '/calendar': 'Raids',
   '/media': 'Media',
-  '/admin/users': 'Hantera användare',
+  '/admin/users': 'Manage users',
   '/admin/audit-logs': 'Logs',
 };
 
@@ -66,7 +66,7 @@ const Breadcrumbs = ({ items }: BreadcrumbsProps) => {
             textShadow: isNeonTheme ? "0 0 15px currentColor" : "none"
           }}
         >
-          Hem
+          Home
         </BreadcrumbLink>
       </BreadcrumbItem>
       {breadcrumbItems.map((item, index) => (

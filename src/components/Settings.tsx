@@ -275,7 +275,7 @@ const Settings = () => {
               bgClip="text"
               letterSpacing="tight"
             >
-              Konto inställningar
+              Account settings
             </Heading>
           </CardHeader>
           <CardBody>
@@ -290,18 +290,18 @@ const Settings = () => {
                   alignItems="center"
                   gap={2}
                 >
-                  Byt användarnamn
+                  Change username
                 </Heading>
                 <Text fontSize="sm" color="text.secondary" mb={4}>
-                  Nuvarande: {user?.username}
+                  Current: {user?.username}
                 </Text>
                 <VStack spacing={4} align="stretch">
                   <FormControl>
-                    <FormLabel color="text.primary">Nytt användarnamn</FormLabel>
+                    <FormLabel color="text.primary">New username</FormLabel>
                     <Input
                       value={newUsername}
                       onChange={(e) => setNewUsername(e.target.value)}
-                      placeholder="Ange nytt användarnamn"
+                      placeholder="Enter new username"
                       bg="background.tertiary"
                       border="1px solid"
                       borderColor="border.primary"
@@ -319,7 +319,7 @@ const Settings = () => {
                     _hover={{ transform: 'translateY(-2px)', boxShadow: 'lg' }}
                     transition="all 0.2s"
                   >
-                    Uppdatera användarnamn
+                    Update username
                   </Button>
                 </VStack>
               </Box>
@@ -329,17 +329,17 @@ const Settings = () => {
               {/* Password Section */}
               <Box>
                 <Heading size="md" color="primary.400" mb={4}>
-                  Byt lösenord
+                  Change password
                 </Heading>
                 <VStack spacing={4} align="stretch">
                   <FormControl>
-                    <FormLabel color="text.primary">Nuvarande lösenord</FormLabel>
+                    <FormLabel color="text.primary">Current password</FormLabel>
                     <InputGroup>
                       <Input
                         type={showCurrentPassword ? 'text' : 'password'}
                         value={currentPassword}
                         onChange={(e) => setCurrentPassword(e.target.value)}
-                        placeholder="Ange nuvarande lösenord"
+                        placeholder="Enter current password"
                         bg="background.tertiary"
                         border="1px solid"
                         borderColor="border.primary"
@@ -361,13 +361,13 @@ const Settings = () => {
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel color="text.primary">Nytt lösenord</FormLabel>
+                    <FormLabel color="text.primary">New password</FormLabel>
                     <InputGroup>
                       <Input
                         type={showNewPassword ? 'text' : 'password'}
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Ange nytt lösenord"
+                        placeholder="Enter new password"
                         bg="background.tertiary"
                         border="1px solid"
                         borderColor="border.primary"
@@ -377,7 +377,7 @@ const Settings = () => {
                       />
                       <InputRightElement>
                         <IconButton
-                          aria-label={showNewPassword ? 'Göm lösenord' : 'Visa lösenord'}
+                          aria-label={showNewPassword ? 'Hide password' : 'Show password'}
                           icon={showNewPassword ? <ViewOffIcon /> : <ViewIcon />}
                           onClick={() => setShowNewPassword(!showNewPassword)}
                           variant="ghost"
@@ -389,13 +389,13 @@ const Settings = () => {
                   </FormControl>
 
                   <FormControl>
-                    <FormLabel color="text.primary">Bekräfta nytt lösenord</FormLabel>
+                    <FormLabel color="text.primary">Confirm new password</FormLabel>
                     <InputGroup>
                       <Input
                         type={showConfirmPassword ? 'text' : 'password'}
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Bekräfta nytt lösenord"
+                        placeholder="Confirm new password"
                         bg="background.tertiary"
                         border="1px solid"
                         borderColor="border.primary"
@@ -405,7 +405,7 @@ const Settings = () => {
                       />
                       <InputRightElement>
                         <IconButton
-                          aria-label={showConfirmPassword ? 'Göm lösenord' : 'Visa lösenord'}
+                          aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
                           icon={showConfirmPassword ? <ViewOffIcon /> : <ViewIcon />}
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                           variant="ghost"
@@ -425,7 +425,7 @@ const Settings = () => {
                     _hover={{ transform: 'translateY(-2px)', boxShadow: 'lg' }}
                     transition="all 0.2s"
                   >
-                    Uppdatera lösenord
+                    Update password
                   </Button>
                 </VStack>
               </Box>
@@ -443,13 +443,13 @@ const Settings = () => {
               bgClip="text"
               letterSpacing="tight"
             >
-              Tema inställningar
+              Theme settings
             </Heading>
           </CardHeader>
           <CardBody>
             <VStack spacing={6} align="stretch">
               <Text color="text.secondary" fontSize="sm">
-                Välj ett tema som passar dig bäst. Temat kommer att appliceras på hela webbplatsen.
+                Select a theme that best suits you. The theme will be applied to the entire website.
               </Text>
               <SimpleGrid columns={3} spacing={4} {...getRootProps()}>
                 {themeNames.map((themeName) => (

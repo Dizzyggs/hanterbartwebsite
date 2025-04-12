@@ -206,7 +206,7 @@ const Navbar = () => {
         <RouterLink to="/profile">
           <HStack spacing={2} className="nav-link">
             <FaUserCircle />
-            <Text>Profil</Text>
+            <Text>Profile</Text>
           </HStack>
         </RouterLink>
       )}
@@ -285,7 +285,7 @@ const Navbar = () => {
                     >
                       <HStack>
                         <SettingsIcon />
-                        <Text>Inställningar</Text>
+                        <Text>Settings</Text>
                       </HStack>
                     </MenuItem>
                   </RouterLink>
@@ -296,7 +296,7 @@ const Navbar = () => {
                     bg="background.secondary"
                     color="white"
                   >
-                    Logga ut
+                    Logout
                   </MenuItem>
 
                   {user.role === 'admin' && (

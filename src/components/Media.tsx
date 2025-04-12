@@ -433,7 +433,7 @@ const Media = () => {
                 isLoading={isUploading}
                 {...neonButtonStyles}
               >
-                Ladda upp Bild
+                Upload image
               </Button>
             )}
             <Input

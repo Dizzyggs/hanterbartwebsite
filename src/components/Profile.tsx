@@ -784,7 +784,7 @@ const Profile = () => {
                     gap={3}
                     textAlign={{ base: "center", md: "left" }}
                   >
-                    Karaktärer
+                    Characters
                     <Badge 
                       colorScheme="primary" 
                       fontSize="md" 

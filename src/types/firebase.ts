@@ -66,6 +66,12 @@ export interface RaidHelperSignup {
   entryTime?: number;
   userId?: string;
   position?: number;
+  specName?: string;
+  specEmoteId?: string;
+  roleName?: string;
+  roleEmoteId?: string;
+  tentative?: boolean;
+  timestamp?: number;
 }
 
 export interface RaidHelperResponse {
