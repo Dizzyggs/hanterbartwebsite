@@ -401,10 +401,20 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   // Set initial state when modal opens
   useEffect(() => {
     if (isOpen && !initialState) {
-      setInitialState(createCleanState());
-      setHasUnsavedChanges(false);
+      // Only set initial state if we have actual data
+      if (raidGroups.length > 0 || unassignedPlayers.length > 0) {
+        const cleanState = {
+          groups: raidGroups.map(group => ({
+            ...group,
+            players: group.players.map(player => ({ ...player }))
+          })),
+          unassigned: unassignedPlayers.map(player => ({ ...player }))
+        };
+        setInitialState(cleanState);
+        setHasUnsavedChanges(false);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, raidGroups, unassignedPlayers]);
 
   // Function to compare players
   const arePlayersEqual = (p1: SignupPlayer, p2: SignupPlayer) => 
@@ -424,25 +434,52 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   useEffect(() => {
     if (!isAdmin || !initialState) return;
 
-    const currentState = createCleanState();
+    // Create a deep copy of current state
+    const currentState = {
+      groups: raidGroups.map(group => ({
+        ...group,
+        players: group.players.map(player => ({ ...player }))
+      })),
+      unassigned: unassignedPlayers.map(player => ({ ...player }))
+    };
 
     // Compare groups that have players
     const currentActiveGroups = currentState.groups.filter(g => g.players.length > 0);
     const initialActiveGroups = initialState.groups.filter(g => g.players.length > 0);
 
-    const hasGroupChanges = 
-      currentActiveGroups.length !== initialActiveGroups.length ||
-      currentActiveGroups.some((group, index) => !areGroupsEqual(group, initialActiveGroups[index]));
+    // Check if the number of active groups has changed
+    if (currentActiveGroups.length !== initialActiveGroups.length) {
+      setHasUnsavedChanges(true);
+      return;
+    }
 
-    // Compare unassigned players
+    // Check if any group's players have changed
+    const hasGroupChanges = currentActiveGroups.some((group, index) => {
+      const initialGroup = initialActiveGroups[index];
+      if (!initialGroup) return true;
+      
+      if (group.players.length !== initialGroup.players.length) return true;
+      
+      return !group.players.every((player, playerIndex) => {
+        const initialPlayer = initialGroup.players[playerIndex];
+        if (!initialPlayer) return false;
+        return arePlayersEqual(player, initialPlayer);
+      });
+    });
+
+    // Check if unassigned players have changed
     const hasUnassignedChanges = 
       currentState.unassigned.length !== initialState.unassigned.length ||
       !currentState.unassigned.every(player => 
         initialState.unassigned.some(p => arePlayersEqual(player, p))
       );
 
-    setHasUnsavedChanges(hasGroupChanges || hasUnassignedChanges);
-  }, [raidGroups, unassignedPlayers, initialState, isAdmin]);
+    // Only set hasUnsavedChanges if we actually have changes
+    const hasChanges = hasGroupChanges || hasUnassignedChanges;
+    if (hasChanges !== hasUnsavedChanges) {
+      setHasUnsavedChanges(hasChanges);
+    }
+  }, [raidGroups, unassignedPlayers, initialState, isAdmin, hasUnsavedChanges]);
 
   // Update handleSaveRaidComp
   const handleSaveRaidComp = async () => {
@@ -940,7 +977,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   };
 
   const PlayerCard = ({ player, index = 0 }: { player: SignupPlayer; index: number }) => {
-    console.log(player);
     const isAssigned = assignedPlayers.has(player.characterId);
     const classColor = getClassColor(player.characterClass || '');
     const getPlayerIcon = () => {
@@ -1004,18 +1040,37 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
               p={3}
               borderRadius="md"
               _hover={{
-                bg: "rgba(52, 58, 70, 0.95)",
-                cursor: isAdmin ? "grab" : "default"
+                bg: snapshot.isDragging ? "rgba(44, 49, 60, 0.95)" : "rgba(52, 58, 70, 0.95)",
+                cursor: isAdmin ? "grab" : "default",
+                boxShadow: snapshot.isDragging ? "none" : "0 0 10px rgba(0, 0, 0, 0.3)",
+                transform: snapshot.isDragging ? "scale(1)" : "translateY(-1px)"
               }}
+              transition={snapshot.isDragging ? "none" : "all 0.2s ease"}
               onClick={onMenuOpen}
+              position="relative"
+              _after={{
+                content: '""',
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                borderRadius: "md",
+                background: snapshot.isDragging ? "none" : `linear-gradient(45deg, ${classColor}22, transparent)`,
+                pointerEvents: "none",
+                opacity: 0.3,
+                transition: "opacity 0.2s ease"
+              }}
             >
               <HStack spacing={3} justify="space-between" width="100%">
                 <HStack spacing={3}>
                   <Box
-              position="relative"
+                    position="relative"
                     padding="2px"
                     borderRadius="full"
                     background={getClassGradient(player.characterClass)}
+                    boxShadow={snapshot.isDragging ? "none" : `0 0 8px ${classColor}80`}
+                    transition="all 0.2s ease"
                   >
                 <Image
                   src={classIcon}
@@ -1026,10 +1081,22 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                     />
                   </Box>
                   <VStack align="start" spacing={0}>
-                    <Text color="white" fontSize="sm" fontWeight="medium">
+                    <Text 
+                      color="white" 
+                      fontSize="sm" 
+                      fontWeight="medium"
+                      textShadow={snapshot.isDragging ? "none" : `0 0 8px ${classColor}80`}
+                      transition="all 0.2s ease"
+                    >
                       {getDisplayName()}
                 </Text>
-                    <Text color={classColor} fontSize="xs" textTransform="uppercase">
+                    <Text 
+                      color={classColor} 
+                      fontSize="xs" 
+                      textTransform="uppercase"
+                      textShadow={snapshot.isDragging ? "none" : `0 0 8px ${classColor}80`}
+                      transition="all 0.2s ease"
+                    >
                       {player.characterClass}
                     </Text>
                   </VStack>
@@ -1042,6 +1109,8 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                   borderRadius="sm"
                   fontSize="xs"
                   textTransform="uppercase"
+                  boxShadow={snapshot.isDragging ? "none" : `0 0 8px ${classColor}40`}
+                  transition="all 0.2s ease"
                 >
                   {player.characterRole}
                 </Badge>
@@ -1193,20 +1262,28 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   );
 
   // Sort unassigned players
-  const sortedUnassignedPlayers = [...unassignedPlayers].sort((a, b) => {
+  const { absencePlayers, regularUnassignedPlayers } = useMemo(() => {
+    const absent = unassignedPlayers.filter(p => p.characterClass === "Absence");
+    const regular = unassignedPlayers.filter(p => p.characterClass !== "Absence");
+    
+    // Sort regular unassigned players
+    const sortedRegular = [...regular].sort((a, b) => {
     if (selectedRole) {
-      // If role is selected, put matching roles first
       if (a.characterRole === selectedRole && b.characterRole !== selectedRole) return -1;
       if (a.characterRole !== selectedRole && b.characterRole === selectedRole) return 1;
     }
-    // Then sort by role (Tank > Healer > DPS)
-    if (a.characterRole !== b.characterRole) {
       const roleOrder: Record<'Tank' | 'Healer' | 'DPS', number> = { Tank: 0, Healer: 1, DPS: 2 };
+      if (a.characterRole !== b.characterRole) {
       return roleOrder[a.characterRole as keyof typeof roleOrder] - roleOrder[b.characterRole as keyof typeof roleOrder];
     }
-    // Finally sort alphabetically by name within each role group
     return a.characterName.localeCompare(b.characterName);
   });
+
+    return {
+      absencePlayers: absent,
+      regularUnassignedPlayers: sortedRegular
+    };
+  }, [unassignedPlayers, selectedRole]);
 
   const userCharacterInfo = getUserCharacterGroup(user, event, raidGroups);
 
@@ -1567,14 +1644,14 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                       borderLeftColor="primary.400"
                     >
                       <Heading size="sm" color="text.primary" mb={3}>
-                        Unassigned Players ({unassignedPlayers.length})
+                        Unassigned Players ({regularUnassignedPlayers.length})
                       </Heading>
                       <StableDroppable id="unassigned">
                         {(provided: DroppableProvided, snapshot) => (
                           <Box
                             ref={provided.innerRef}
                             {...provided.droppableProps}
-                            minH="100px"
+                            minH="0"
                             maxH="calc(100vh - 450px)"
                             overflowY="auto"
                             onWheel={(e) => {
@@ -1595,7 +1672,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                             }}
                           >
                             <VStack align="stretch" spacing={2}>
-                              {unassignedPlayers.map((player, index) => (
+                              {regularUnassignedPlayers.map((player, index) => (
                                 <PlayerCard key={player.characterId} player={player} index={index} />
                               ))}
                             </VStack>
@@ -1604,6 +1681,50 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                         )}
                       </StableDroppable>
                     </Box>
+
+                    {absencePlayers.length > 0 && (
+                      <Box
+                        bg="background.tertiary"
+                        p={4}
+                        borderRadius="lg"
+                        borderLeft="4px solid"
+                        borderLeftColor="red.400"
+                        mt={4}
+                      >
+                        <Heading size="sm" color="text.primary" mb={3}>
+                          Absence ({absencePlayers.length})
+                        </Heading>
+                        <VStack align="stretch" spacing={2}>
+                          {absencePlayers.map((player, index) => (
+                            <Box
+                              key={player.characterId}
+                              bg="rgba(44, 49, 60, 0.95)"
+                              p={3}
+                              borderRadius="md"
+                              borderLeft="3px solid"
+                              borderLeftColor="red.400"
+                            >
+                              <HStack spacing={3} justify="space-between" width="100%">
+                                <Text color="white" fontSize="sm">
+                                  {player.discordNickname || player.originalDiscordName || player.username}
+                                </Text>
+                                <Badge
+                                  bg="red.900"
+                                  color="red.200"
+                                  px={2}
+                                  py={1}
+                                  borderRadius="sm"
+                                  fontSize="xs"
+                                  textTransform="uppercase"
+                                >
+                                  Absence
+                                </Badge>
+                              </HStack>
+                            </Box>
+                          ))}
+                        </VStack>
+                      </Box>
+                    )}
                   </VStack>
                 </Box>
 

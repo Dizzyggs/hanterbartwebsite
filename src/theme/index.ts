@@ -441,7 +441,7 @@ const neonTheme = {
     },
   },
   fonts: {
-    heading: 'Orbitron',
+    heading: 'Oxanium',
     body: 'Inter',
     mono: 'JetBrains Mono',
   },
@@ -476,27 +476,27 @@ const neonTheme = {
     },
     Heading: {
       baseStyle: {
-        fontFamily: 'Orbitron',
+        fontFamily: 'Oxanium',
       },
     },
     Text: {
       baseStyle: {
-        fontFamily: 'inherit',
+        fontFamily: 'Oxanium',
       },
     },
     Modal: {
       baseStyle: {
         dialog: {
-          fontFamily: 'inherit',
+          fontFamily: 'Oxanium',
         },
         header: {
-          fontFamily: 'Orbitron',
+          fontFamily: 'Oxanium',
         },
         body: {
-          fontFamily: 'inherit',
+          fontFamily: 'Oxanium',
         },
         footer: {
-          fontFamily: 'inherit',
+          fontFamily: 'Oxanium',
         },
       },
     },
@@ -533,16 +533,16 @@ const neonTheme = {
         fontFamily: 'Inter',
       },
       'h1, h2, h3, h4, h5, h6': {
-        fontFamily: 'Orbitron',
+        fontFamily: 'Oxanium',
       },
       'button': {
         fontFamily: 'Chakra Petch',
       },
       'input, textarea, p, span, div': {
-        fontFamily: 'inherit',
+        fontFamily: 'Oxanium',
       },
       '.chakra-modal__content *': {
-        fontFamily: 'inherit',
+        fontFamily: 'Oxanium',
       },
       '.nav-link': {
         color: 'text.primary',

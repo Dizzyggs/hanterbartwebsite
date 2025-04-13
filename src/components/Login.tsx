@@ -149,21 +149,21 @@ const Login = () => {
                   bgGradient="linear(to-r, blue.400, purple.400)"
                   bgClip="text"
                 >
-                  Logga in
+                  Login
                 </Heading>
                 <Text
                   textAlign="center"
                   color="gray.400"
                   fontSize="md"
                 >
-                  Logga in för att komma åt din guildprofil
+                  Login to access your guild profile
                 </Text>
               </VStack>
 
               <form onSubmit={handleLogin}>
                 <Stack spacing={4}>
                   <FormControl isInvalid={!!usernameError}>
-                    <FormLabel color="gray.300">Användarnamn</FormLabel>
+                    <FormLabel color="gray.300">Username</FormLabel>
                     <Input
                       type="text"
                       value={username}
@@ -185,13 +185,13 @@ const Login = () => {
                       h="50px"
                       transition="all 0.2s"
                       pattern="[a-zA-Z0-9]+"
-                      title="Användarnamnet kan bara innehålla bokstäver och siffror"
+                      title="Username can only contain letters and numbers" 
                     />
                     <FormErrorMessage>{usernameError}</FormErrorMessage>
                   </FormControl>
 
                   <FormControl isInvalid={!!passwordError}>
-                    <FormLabel color="gray.300">Lösenord</FormLabel>
+                    <FormLabel color="gray.300">Password</FormLabel>
                     <InputGroup size="md">
                       <Input
                         type={showPassword ? "text" : "password"}
@@ -243,7 +243,7 @@ const Login = () => {
                     }}
                     transition="all 0.2s"
                   >
-                    Logga in
+                    Login
                   </Button>
 
                   <Button
@@ -260,7 +260,7 @@ const Login = () => {
                     }}
                     transition="all 0.2s"
                   >
-                    Skapa konto
+                   Create Account
                   </Button>
                 </Stack>
               </form>

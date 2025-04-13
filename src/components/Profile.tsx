@@ -54,7 +54,7 @@ import type { Character, Event } from '../types/firebase';
 import CharacterCreationModal from './CharacterCreationModal';
 import CharacterEditModal from './CharacterEditModal';
 import { motion } from 'framer-motion';
-import { FaDiscord, FaBattleNet, FaCalendarAlt, FaClock } from 'react-icons/fa';
+import { FaDiscord, FaBattleNet, FaCalendarAlt, FaClock, FaQuestionCircle } from 'react-icons/fa';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import { Link as RouterLink } from 'react-router-dom';
@@ -733,7 +733,18 @@ const Profile = () => {
                 {/* Discord Signup Nickname Section */}
                 {isDiscordConnected && (
                   <FormControl>
-                    <FormLabel color="blue.300">Discord Signup Nickname</FormLabel>
+                    <HStack spacing={2}>
+                      <FormLabel color="blue.300">Discord Signup Nickname</FormLabel>
+                      <Tooltip 
+                        label="This is what you will show up as in the calendar when you sign on discord. It makes it easier for admins to identify you."
+                        hasArrow
+                        placement="top"
+                      >
+                        <Box as="span" cursor="help">
+                          <Icon as={FaQuestionCircle} color="blue.300" />
+                        </Box>
+                      </Tooltip>
+                    </HStack>
                     <HStack>
                       <Input
                         value={discordSignupNickname}
@@ -818,7 +829,7 @@ const Profile = () => {
                     }}
                     transition="all 0.2s"
                   >
-                    Skapa karaktär
+                    Create Character
                   </Button>
                 </MotionBox>
               </Flex>
@@ -851,24 +862,8 @@ const Profile = () => {
                         Du har inga karaktärer än
                       </Text>
                       <Text color="text.secondary">
-                        Klicka på "Skapa karaktär" för att skapa din första karaktär
+                        Click "Create Character" to create your first character
                       </Text>
-                      <Button
-                        leftIcon={<AddIcon />}
-                        colorScheme="primary"
-                        onClick={onOpen}
-                        size="lg"
-                        w={{ base: "full", md: "auto" }}
-                        bgGradient="linear(to-r, primary.400, secondary.500)"
-                        _hover={{
-                          bgGradient: "linear(to-r, primary.500, secondary.600)",
-                          transform: 'translateY(-2px)',
-                          boxShadow: 'lg',
-                        }}
-                        transition="all 0.2s"
-                      >
-                        Skapa karaktär
-                      </Button>
                     </VStack>
                   </MotionBox>
                 ) : (

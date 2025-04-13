@@ -15,6 +15,9 @@ import {
   Heading,
   Stack,
   ScaleFade,
+  Tooltip,
+  HStack,
+  Icon,
 } from '@chakra-ui/react';
 import { useState } from 'react';
 import { db } from '../firebase';
@@ -24,6 +27,7 @@ import type { User } from '../types/firebase';
 import { useUser } from '../context/UserContext';
 import { ViewIcon, ViewOffIcon, AddIcon } from '@chakra-ui/icons';
 import { motion } from 'framer-motion';
+import { FaQuestionCircle, FaUser, FaDiscord, FaLock, FaCheck } from 'react-icons/fa';
 
 const MotionBox = motion(Box);
 
@@ -31,12 +35,14 @@ const Register = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [discordSignupNickname, setDiscordSignupNickname] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [usernameError, setUsernameError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [discordSignupNicknameError, setDiscordSignupNicknameError] = useState('');
   
   const toast = useToast({
     position: 'top',
@@ -51,34 +57,46 @@ const Register = () => {
     setUsernameError('');
     setPasswordError('');
     setConfirmPasswordError('');
+    setDiscordSignupNicknameError('');
 
     if (!username.trim()) {
-      setUsernameError('Användarnamn krävs');
+      setUsernameError('Username is required');
       isValid = false;
     } else if (username.length < 3) {
-      setUsernameError('Användarnamnet måste vara minst 3 tecken');
+      setUsernameError('Username must be at least 3 characters');
       isValid = false;
     } else if (username.length > 20) {
-      setUsernameError('Användarnamnet får inte vara längre än 20 tecken');
+      setUsernameError('Username cannot be longer than 20 characters');
       isValid = false;
     } else if (!/^[a-zA-Z0-9]+$/.test(username)) {
-      setUsernameError('Användarnamnet kan bara innehålla bokstäver och siffror');
+      setUsernameError('Username can only contain letters and numbers');
       isValid = false;
     }
 
     if (!password) {
-      setPasswordError('Lösenord krävs');
+      setPasswordError('Password is required');
       isValid = false;
     } else if (password.length < 6) {
-      setPasswordError('Lösenordet måste vara minst 6 tecken');
+      setPasswordError('Password must be at least 6 characters');
       isValid = false;
     }
 
     if (!confirmPassword) {
-      setConfirmPasswordError('Bekräfta lösenordet');
+      setConfirmPasswordError('Confirm password');
       isValid = false;
     } else if (password !== confirmPassword) {
-      setConfirmPasswordError('Lösenorden matchar inte');
+      setConfirmPasswordError('Passwords do not match');
+      isValid = false;
+    }
+
+    if (!discordSignupNickname.trim()) {
+      setDiscordSignupNicknameError('Discord signup nickname krävs');
+      isValid = false;
+    } else if (discordSignupNickname.length < 2) {
+      setDiscordSignupNicknameError('Discord signup nickname måste vara minst 2 tecken');
+      isValid = false;
+    } else if (discordSignupNickname.length > 32) {
+      setDiscordSignupNicknameError('Discord signup nickname får inte vara längre än 32 tecken');
       isValid = false;
     }
 
@@ -101,7 +119,7 @@ const Register = () => {
       const querySnapshot = await getDocs(q);
 
       if (!querySnapshot.empty) {
-        setUsernameError('Användarnamnet är upptaget');
+        setUsernameError('Username is already taken');
         setIsLoading(false);
         return;
       }
@@ -117,7 +135,8 @@ const Register = () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         lastLogin: new Date(),
-        confirmedRaider: false
+        confirmedRaider: false,
+        discordSignupNickname: discordSignupNickname.trim()
       };
 
       await setDoc(doc(usersRef, username.toLowerCase()), newUser);
@@ -126,8 +145,8 @@ const Register = () => {
       login(newUser);
 
       toast({
-        title: 'Konto skapat!',
-        description: 'Välkommen till Hanterbart!',
+        title: 'Account created!',
+        description: 'Welcome to Hanterbart!',
         status: 'success',
       });
       navigate('/profile');
@@ -200,21 +219,24 @@ const Register = () => {
                   bgGradient="linear(to-r, blue.400, teal.400)"
                   bgClip="text"
                 >
-                  Skapa konto
+                  Create Account
                 </Heading>
                 <Text
                   textAlign="center"
                   color="gray.400"
                   fontSize="md"
                 >
-                  Registrera dig för att bli medlem i guilden
+                  Register to become a member of the guild
                 </Text>
               </VStack>
 
               <form onSubmit={handleRegister}>
                 <VStack spacing={4}>
                   <FormControl isInvalid={!!usernameError}>
-                    <FormLabel color="gray.300">Användarnamn</FormLabel>
+                    <HStack spacing={2}>
+                      <Icon as={FaUser} color="gray.300" />
+                      <FormLabel color="gray.300">Username</FormLabel>
+                    </HStack>
                     <Input
                       type="text"
                       value={username}
@@ -239,8 +261,49 @@ const Register = () => {
                     <FormErrorMessage>{usernameError}</FormErrorMessage>
                   </FormControl>
 
+                  <FormControl isInvalid={!!discordSignupNicknameError}>
+                    <HStack spacing={2}>
+                      <Icon as={FaDiscord} color="gray.300" />
+                      <FormLabel color="gray.300">Discord Signup Nickname</FormLabel>
+                      <Tooltip 
+                        label="This is what you will show up as in the calendar when you sign on discord. It makes it easier for admins to identify you."
+                        hasArrow
+                        placement="top"
+                      >
+                        <Box as="span" cursor="help">
+                          <Icon as={FaQuestionCircle} color="gray.300" />
+                        </Box>
+                      </Tooltip>
+                    </HStack>
+                    <Input
+                      type="text"
+                      value={discordSignupNickname}
+                      onChange={(e) => {
+                        setDiscordSignupNickname(e.target.value);
+                        setDiscordSignupNicknameError('');
+                      }}
+                      bg="#2D3748"
+                      color="white"
+                      border="2px solid"
+                      borderColor={discordSignupNicknameError ? "red.500" : "transparent"}
+                      _hover={{ borderColor: "blue.400" }}
+                      _focus={{ 
+                        borderColor: "blue.400",
+                        boxShadow: "0 0 0 1px #63B3ED"
+                      }}
+                      _placeholder={{ color: "gray.500" }}
+                      fontSize="md"
+                      h="50px"
+                      transition="all 0.2s"
+                    />
+                    <FormErrorMessage>{discordSignupNicknameError}</FormErrorMessage>
+                  </FormControl>
+
                   <FormControl isInvalid={!!passwordError}>
-                    <FormLabel color="gray.300">Lösenord</FormLabel>
+                    <HStack spacing={2}>
+                      <Icon as={FaLock} color="gray.300" />
+                      <FormLabel color="gray.300">Password</FormLabel>
+                    </HStack>
                     <InputGroup size="md">
                       <Input
                         type={showPassword ? "text" : "password"}
@@ -278,7 +341,10 @@ const Register = () => {
                   </FormControl>
 
                   <FormControl isInvalid={!!confirmPasswordError}>
-                    <FormLabel color="gray.300">Bekräfta lösenord</FormLabel>
+                    <HStack spacing={2}>
+                      <Icon as={FaCheck} color="gray.300" />
+                      <FormLabel color="gray.300">Confirm Password</FormLabel>
+                    </HStack>
                     <InputGroup size="md">
                       <Input
                         type={showConfirmPassword ? "text" : "password"}
@@ -323,14 +389,14 @@ const Register = () => {
                     w="100%"
                     h="50px"
                     isLoading={isLoading}
-                    loadingText="Skapar konto..."
+                    loadingText="Creating account..."
                     _hover={{
                       transform: "translateY(-2px)",
                       boxShadow: "lg",
                     }}
                     transition="all 0.2s"
                   >
-                    Skapa konto
+                    Create Account
                   </Button>
 
                   <Button
@@ -347,7 +413,7 @@ const Register = () => {
                     }}
                     transition="all 0.2s"
                   >
-                    Tillbaka till login
+                    Back to login
                   </Button>
                 </VStack>
               </form>
