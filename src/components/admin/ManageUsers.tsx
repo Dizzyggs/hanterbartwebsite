@@ -38,6 +38,7 @@ import {
   VStack,
   Flex,
   Select,
+  useMediaQuery,
 } from '@chakra-ui/react';
 import { useEffect, useState, useRef } from 'react';
 import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
@@ -103,6 +104,7 @@ const ManageUsers = () => {
   const toast = useToast();
   const { user: currentUser, logout } = useUser();
   const navigate = useNavigate();
+  const [isMobile] = useMediaQuery('(max-width: 768px)');
 
   useEffect(() => {
     const usersQuery = query(collection(db, 'users'));
@@ -416,22 +418,21 @@ const ManageUsers = () => {
 
   return (
     <Box minH="calc(100vh - 4rem)" bg="background.primary" py={8} pt="80px">
-      <Container maxW="7xl">
+      <Container maxW="7xl" px={{ base: 4, md: 8 }}>
         <Breadcrumbs />
-        <HStack justify="space-between" mb={8}>
+        <VStack align="stretch" spacing={4} mb={8}>
           <Heading
             color="text.primary"
-            fontSize="2xl"
+            fontSize={{ base: "xl", md: "2xl" }}
             bgGradient="linear(to-r, primary.400, primary.600)"
             bgClip="text"
           >
             Manage Users
           </Heading>
-          <HStack spacing={8}>
+          <HStack spacing={4} flexWrap="wrap">
             <Select 
               value={sortField} 
               onChange={(e) => handleSortChange(e.target.value as SortField)} 
-              mb={4}
               icon={<TriangleDownIcon transform={sortAscending ? 'rotate(0deg)' : 'rotate(180deg)'} />}
               color="text.primary"
               _hover={{ borderColor: 'border.secondary' }}
@@ -441,13 +442,15 @@ const ManageUsers = () => {
                   background: 'background.tertiary'
                 }
               }}
+              size={{ base: "sm", md: "md" }}
+              flex={{ base: "1 1 100%", md: "0 1 auto" }}
             >
               <option value="username">Username</option>
               <option value="role">Role</option>
               <option value="joined">Join Date</option>
               <option value="confirmedRaider">Raider Status</option>
             </Select>
-            <InputGroup maxW="300px">
+            <InputGroup maxW={{ base: "100%", md: "300px" }}>
               <InputLeftElement pointerEvents="none">
                 <SearchIcon color="text.secondary" />
               </InputLeftElement>
@@ -462,15 +465,16 @@ const ManageUsers = () => {
                 _placeholder={{ color: 'text.secondary' }}
                 _hover={{ borderColor: 'border.secondary' }}
                 _focus={{ borderColor: 'primary.400', boxShadow: 'outline' }}
+                size={{ base: "sm", md: "md" }}
               />
             </InputGroup>
           </HStack>
-        </HStack>
+        </VStack>
 
         <Box
           bg="background.secondary"
           borderRadius="lg"
-          p={6}
+          p={{ base: 4, md: 6 }}
           overflowX="auto"
           boxShadow="xl"
           maxH={{ base: "calc(100vh - 12rem)", md: "auto" }}
@@ -764,7 +768,7 @@ const ManageUsers = () => {
         </AlertDialogOverlay>
       </AlertDialog>
 
-      <Modal isOpen={charactersModal.isOpen} onClose={charactersModal.onClose} size="lg" isCentered>
+      <Modal isOpen={charactersModal.isOpen} onClose={charactersModal.onClose} size={{ base: "full", md: "lg" }} isCentered>
         <ModalOverlay backdropFilter="blur(10px)" />
         <ModalContent bg="background.secondary" borderColor="border.primary" borderWidth={1}>
           <ModalHeader color="text.primary" borderBottom="1px solid" borderColor="border.primary">
@@ -796,7 +800,7 @@ const ManageUsers = () => {
                             <Badge ml={2} colorScheme="green">Main</Badge>
                           )}
                         </Text>
-                        <HStack spacing={2}>
+                        <HStack spacing={2} flexWrap="wrap">
                           <Text color="text.secondary" fontSize="sm">{character.race}</Text>
                           <Text color="text.secondary" fontSize="sm">•</Text>
                           <Text 

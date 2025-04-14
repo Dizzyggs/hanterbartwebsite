@@ -33,6 +33,7 @@ import {
   Breadcrumb,
   BreadcrumbItem,
   BreadcrumbLink,
+  useMediaQuery,
 } from '@chakra-ui/react';
 import { AddIcon, StarIcon, EditIcon, ExternalLinkIcon, DeleteIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import { useUser } from '../context/UserContext';
@@ -106,6 +107,7 @@ const Profile = () => {
   const [characterToDelete, setCharacterToDelete] = useState<Character | null>(null);
   const deleteAlertDialog = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const [isMobile] = useMediaQuery('(max-width: 768px)');
 
   const fetchCharacters = async () => {
     if (!user) return;
@@ -593,7 +595,7 @@ const Profile = () => {
       py={8}
       pt="80px"
     >
-      <Container maxW="7xl">
+      <Container maxW="7xl" px={{ base: 4, md: 8 }}>
         <Breadcrumbs />
         <Box
           bg="background.secondary"
@@ -613,7 +615,7 @@ const Profile = () => {
               direction={{ base: "column", md: "row" }}
               align="center"
               bg="background.tertiary"
-              p={6}
+              p={{ base: 4, md: 6 }}
               borderRadius="xl"
               border="1px solid"
               borderColor="border.primary"
@@ -621,7 +623,7 @@ const Profile = () => {
               {/* Avatar Section */}
               <Box position="relative">
                 <Avatar
-                  size="2xl"
+                  size={{ base: "xl", md: "2xl" }}
                   src={avatarUrl}
                   name={user.username}
                   cursor="pointer"
@@ -652,8 +654,8 @@ const Profile = () => {
               {/* Enhanced User Info Section */}
               <VStack align={{ base: "center", md: "start" }} spacing={4} flex={1}>
                 <VStack align={{ base: "center", md: "start" }} spacing={1}>
-                  <HStack spacing={3}>
-                    <Heading size="lg" color="text.primary">
+                  <HStack spacing={3} flexWrap="wrap" justify={{ base: "center", md: "start" }}>
+                    <Heading size={{ base: "md", md: "lg" }} color="text.primary">
                       {user.username}
                     </Heading>
                     {user.role === 'admin' && (
@@ -678,7 +680,7 @@ const Profile = () => {
                       </Badge>
                     )}
                   </HStack>
-                  <HStack spacing={2}>
+                  <HStack spacing={2} flexWrap="wrap" justify={{ base: "center", md: "start" }}>
                     <HStack spacing={1}>
                       <Icon as={FaCalendarAlt} color="text.secondary" boxSize={3} />
                       <Text color="text.secondary" fontSize="sm">
@@ -697,7 +699,7 @@ const Profile = () => {
                   </HStack>
                 </VStack>
 
-                <HStack spacing={6}>
+                <HStack spacing={6} justify={{ base: "center", md: "start" }}>
                   <Tooltip label={isDiscordConnected ? `Discord Connected (${user.discordUsername})` : "Connect Discord"} hasArrow>
                     <Box 
                       as="span" 
@@ -732,9 +734,9 @@ const Profile = () => {
 
                 {/* Discord Signup Nickname Section */}
                 {isDiscordConnected && (
-                  <FormControl>
-                    <HStack spacing={2}>
-                      <FormLabel color="blue.300">Discord Signup Nickname</FormLabel>
+                  <FormControl width="100%">
+                    <HStack spacing={2} mb={2}>
+                      <FormLabel color="blue.300" fontSize={{ base: "sm", md: "md" }}>Discord Signup Nickname</FormLabel>
                       <Tooltip 
                         label="This is what you will show up as in the calendar when you sign on discord. It makes it easier for admins to identify you."
                         hasArrow
@@ -745,7 +747,7 @@ const Profile = () => {
                         </Box>
                       </Tooltip>
                     </HStack>
-                    <HStack>
+                    <HStack width="100%">
                       <Input
                         value={discordSignupNickname}
                         onChange={(e) => setDiscordSignupNickname(e.target.value)}
@@ -759,11 +761,13 @@ const Profile = () => {
                           boxShadow: "0 0 0 1px var(--chakra-colors-blue-300)"
                         }}
                         isDisabled={!isEditingNickname && discordSignupNickname !== ''}
+                        size={{ base: "sm", md: "md" }}
                       />
                       <Button
                         colorScheme="blue"
                         onClick={isEditingNickname ? handleUpdateDiscordNickname : () => setIsEditingNickname(true)}
                         isLoading={isUpdatingNickname}
+                        size={{ base: "sm", md: "md" }}
                       >
                         {discordSignupNickname && !isEditingNickname ? 'Edit' : 'Save'}
                       </Button>
@@ -774,100 +778,41 @@ const Profile = () => {
             </MotionFlex>
 
             {/* Characters Section */}
-            <Box>
-              <Flex 
-                justify="space-between" 
-                align="center" 
-                mb={8}
-                direction={{ base: "column", md: "row" }}
-                gap={4}
-              >
-                <MotionBox
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
+            <VStack spacing={6} align="stretch">
+              <HStack justify="space-between" align="center">
+                <Heading size="lg" color="text.primary">
+                  Characters
+                </Heading>
+                <Button
+                  leftIcon={<AddIcon />}
+                  colorScheme="blue"
+                  onClick={onOpen}
+                  size={{ base: "sm", md: "md" }}
                 >
-                  <Heading 
-                    size="xl" 
-                    color="text.primary"
-                    display="flex"
-                    alignItems="center"
-                    gap={3}
-                    textAlign={{ base: "center", md: "left" }}
-                  >
-                    Characters
-                    <Badge 
-                      colorScheme="primary" 
-                      fontSize="md" 
-                      px={3} 
-                      py={1} 
-                      borderRadius="full"
-                    >
-                      {characters.length}
-                    </Badge>
-                  </Heading>
-                </MotionBox>
+                  Add Character
+                </Button>
+              </HStack>
 
-                <MotionBox
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
+              {loading ? (
+                <Flex justify="center" align="center" minH="200px">
+                  <Spinner size="xl" color="blue.400" />
+                </Flex>
+              ) : characters.length === 0 ? (
+                <Box
+                  bg="background.tertiary"
+                  p={6}
+                  borderRadius="xl"
+                  textAlign="center"
+                  border="1px solid"
+                  borderColor="border.primary"
                 >
-                  <Button
-                    leftIcon={<AddIcon />}
-                    colorScheme="primary"
-                    onClick={onOpen}
-                    size="lg"
-                    bgGradient="linear(to-r, primary.400, secondary.500)"
-                    _hover={{
-                      bgGradient: "linear(to-r, primary.500, secondary.600)",
-                      transform: 'translateY(-2px)',
-                      boxShadow: 'lg',
-                    }}
-                    _active={{
-                      bgGradient: "linear(to-r, primary.600, secondary.700)",
-                    }}
-                    transition="all 0.2s"
-                  >
-                    Create Character
-                  </Button>
-                </MotionBox>
-              </Flex>
-
-              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
-                {characters.length === 0 ? (
-                  <MotionBox
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
-                    bg="background.secondary"
-                    p={{ base: 4, md: 8 }}
-                    borderRadius="xl"
-                    boxShadow="dark-lg"
-                    border="1px solid"
-                    borderColor="border.primary"
-                    textAlign="center"
-                    gridColumn="1 / -1"
-                  >
-                    <VStack spacing={6}>
-                      <Box
-                        p={4}
-                        borderRadius="full"
-                        bg="primary.500"
-                        opacity={0.2}
-                      >
-                        <AddIcon w={8} h={8} color="white" />
-                      </Box>
-                      <Text color="text.primary" fontSize="lg" fontWeight="medium">
-                        Du har inga karaktärer än
-                      </Text>
-                      <Text color="text.secondary">
-                        Click "Create Character" to create your first character
-                      </Text>
-                    </VStack>
-                  </MotionBox>
-                ) : (
-                  characters.map((character: Character, index: number) => (
+                  <Text color="text.secondary">
+                    No characters added yet. Click the button above to add your first character!
+                  </Text>
+                </Box>
+              ) : (
+                <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
+                  {characters.map((character: Character, index: number) => (
                     <MotionBox
                       key={character.id}
                       initial={{ opacity: 0, y: 20 }}
@@ -1078,10 +1023,10 @@ const Profile = () => {
                         </Flex>
                       </Box>
                     </MotionBox>
-                  ))
-                )}
-              </SimpleGrid>
-            </Box>
+                  ))}
+                </SimpleGrid>
+              )}
+            </VStack>
           </VStack>
         </Box>
       </Container>

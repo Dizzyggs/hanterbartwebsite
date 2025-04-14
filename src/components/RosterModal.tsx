@@ -36,6 +36,7 @@ import {
   AlertDialogContent,
   AlertDialogOverlay,
   useDisclosure as useAlertDisclosure,
+  useMediaQuery,
 } from '@chakra-ui/react';
 import { Global, css } from '@emotion/react';
 import { Event, RaidHelperSignup as RaidHelperSignupType } from '../types/firebase';
@@ -45,6 +46,8 @@ import { CheckIcon, TimeIcon, InfoIcon, DownloadIcon } from '@chakra-ui/icons';
 import { doc, updateDoc, getDoc, getDocs, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useUser } from '../context/UserContext';
+import { PlayerCard } from './PlayerCard';
+import { CLASS_ICONS, CLASS_COLORS, ClassIconType } from '../utils/classIcons';
 
 // Suppress defaultProps warning from react-beautiful-dnd
 const originalError = console.error;
@@ -53,43 +56,6 @@ console.error = (...args) => {
     return;
   }
   originalError.call(console, ...args);
-};
-
-// Import class icons
-import warriorIcon from '../assets/classes/warrior.png';
-import mageIcon from '../assets/classes/mage.png';
-import priestIcon from '../assets/classes/priest.png';
-import warlockIcon from '../assets/classes/warlock.png';
-import hunterIcon from '../assets/classes/hunter.png';
-import paladinIcon from '../assets/classes/paladin.png';
-import druidIcon from '../assets/classes/druid.png';
-import rogueIcon from '../assets/classes/rogue.png';
-import protIcon from '../assets/classes/prot.png';
-import furyIcon from '../assets/classes/fury.png';
-const CLASS_COLORS = {
-  WARRIOR: '#C79C6E', // light brown
-  MAGE: '#69CCF0',    // light blue
-  PRIEST: '#FFFFFF',  // white
-  WARLOCK: '#9482C9', // purple
-  HUNTER: '#ABD473',  // light green
-  PALADIN: '#F58CBA', // pink
-  DRUID: '#FF7D0A',   // orange
-  ROGUE: '#FFF569',
-};
-
-type ClassIconType = 'WARRIOR' | 'MAGE' | 'PRIEST' | 'WARLOCK' | 'HUNTER' | 'PALADIN' | 'DRUID' | 'ROGUE' | 'TANK' | 'FURY';
-
-const CLASS_ICONS: Record<ClassIconType, string> = {
-  WARRIOR: warriorIcon,
-  MAGE: mageIcon,
-  PRIEST: priestIcon,
-  WARLOCK: warlockIcon,
-  HUNTER: hunterIcon,
-  PALADIN: paladinIcon,
-  DRUID: druidIcon,
-  ROGUE: rogueIcon,
-  TANK: protIcon,
-  FURY: furyIcon
 };
 
 interface SignupPlayer {
@@ -298,6 +264,9 @@ const ClassViewModal = ({ isOpen, onClose, allPlayers, raidGroups }: {
 };
 
 const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
+  // Add mobile detection
+  const [isMobile] = useMediaQuery('(max-width: 768px)');
+  
   // Group signups by role
   const signupEntries = Object.values(event.signups || {}).filter(signup => signup !== null);
   const tanks = signupEntries.filter(signup => signup?.characterRole === 'Tank');
@@ -976,288 +945,70 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     );
   };
 
-  const PlayerCard = ({ player, index = 0 }: { player: SignupPlayer; index: number }) => {
-    const isAssigned = assignedPlayers.has(player.characterId);
-    const classColor = getClassColor(player.characterClass || '');
-    const getPlayerIcon = () => {
-      if (player.characterRole === 'Tank') {
-        return CLASS_ICONS.TANK;
-      }
-      if (player.spec === 'Fury') {
-        return CLASS_ICONS.FURY;
-      }
-      return CLASS_ICONS[(player.characterClass || 'WARRIOR').toUpperCase() as ClassIconType];
-    };
-    const classIcon = getPlayerIcon();
-    const { isOpen: isMenuOpen, onOpen: onMenuOpen, onClose: onMenuClose } = useDisclosure();
-
-    // Get gradient colors based on class
-    const getClassGradient = (className: string) => {
-      const baseColor = CLASS_COLORS[className.toUpperCase() as keyof typeof CLASS_COLORS];
-      switch (className.toUpperCase()) {
-        case 'WARRIOR':
-          return `linear-gradient(45deg, ${baseColor}, #8B733E)`;
-        case 'MAGE':
-          return `linear-gradient(45deg, ${baseColor}, #4A8DB0)`;
-        case 'PRIEST':
-          return `linear-gradient(45deg, ${baseColor}, #C0C0C0)`;
-        case 'WARLOCK':
-          return `linear-gradient(45deg, ${baseColor}, #6A5A9C)`;
-        case 'HUNTER':
-          return `linear-gradient(45deg, ${baseColor}, #8BC34A)`;
-        case 'PALADIN':
-          return `linear-gradient(45deg, ${baseColor}, #BE5E89)`;
-        case 'DRUID':
-          return `linear-gradient(45deg, ${baseColor}, #CC5A0A)`;
-        case 'ROGUE':
-          return `linear-gradient(45deg, ${baseColor}, #C0B04A)`;
-        default:
-          return `linear-gradient(45deg, #FFFFFF, #808080)`;
-      }
-    };
-
-    const getDisplayName = () => {
-      if (event.signupType === 'raidhelper') {
-        return player.discordNickname || player.originalDiscordName || player.username;
-      }
-      return player.characterName;
-    };
-
-    return (
-      <Draggable 
-        draggableId={player.characterId} 
-        index={index}
-        key={player.characterId}
-      >
-        {(provided: DraggableProvided, snapshot) => (
-          <Menu isOpen={isMenuOpen} onClose={onMenuClose}>
-            <MenuButton
-              as={Box}
-              ref={provided.innerRef}
-              {...provided.draggableProps}
-              {...provided.dragHandleProps}
-              bg="rgba(44, 49, 60, 0.95)"
-              p={3}
-              borderRadius="md"
-              _hover={{
-                bg: snapshot.isDragging ? "rgba(44, 49, 60, 0.95)" : "rgba(52, 58, 70, 0.95)",
-                cursor: isAdmin ? "grab" : "default",
-                boxShadow: snapshot.isDragging ? "none" : "0 0 10px rgba(0, 0, 0, 0.3)",
-                transform: snapshot.isDragging ? "scale(1)" : "translateY(-1px)"
-              }}
-              transition={snapshot.isDragging ? "none" : "all 0.2s ease"}
-              onClick={onMenuOpen}
-              position="relative"
-              _after={{
-                content: '""',
-                position: "absolute",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                borderRadius: "md",
-                background: snapshot.isDragging ? "none" : `linear-gradient(45deg, ${classColor}22, transparent)`,
-                pointerEvents: "none",
-                opacity: 0.3,
-                transition: "opacity 0.2s ease"
-              }}
-            >
-              <HStack spacing={3} justify="space-between" width="100%">
-                <HStack spacing={3}>
-                  <Box
-                    position="relative"
-                    padding="2px"
-                    borderRadius="full"
-                    background={getClassGradient(player.characterClass)}
-                    boxShadow={snapshot.isDragging ? "none" : `0 0 8px ${classColor}80`}
-                    transition="all 0.2s ease"
-                  >
-                <Image
-                  src={classIcon}
-                  alt={player.characterClass}
-                  boxSize="24px"
-                  objectFit="cover"
-                      borderRadius="full"
-                    />
-                  </Box>
-                  <VStack align="start" spacing={0}>
-                    <Text 
-                      color="white" 
-                      fontSize="sm" 
-                      fontWeight="medium"
-                      textShadow={snapshot.isDragging ? "none" : `0 0 8px ${classColor}80`}
-                      transition="all 0.2s ease"
-                    >
-                      {getDisplayName()}
-                </Text>
-                    <Text 
-                      color={classColor} 
-                      fontSize="xs" 
-                      textTransform="uppercase"
-                      textShadow={snapshot.isDragging ? "none" : `0 0 8px ${classColor}80`}
-                      transition="all 0.2s ease"
-                    >
-                      {player.characterClass}
-                    </Text>
-                  </VStack>
-                </HStack>
-                <Badge
-                  bg="rgba(30, 34, 42, 0.95)"
-                  color="white"
-                  px={2}
-                  py={1}
-                  borderRadius="sm"
-                  fontSize="xs"
-                  textTransform="uppercase"
-                  boxShadow={snapshot.isDragging ? "none" : `0 0 8px ${classColor}40`}
-                  transition="all 0.2s ease"
-                >
-                  {player.characterRole}
-                </Badge>
-              </HStack>
-            </MenuButton>
-
-            {isAdmin && (
-              <Portal>
-                <MenuList 
-                  bg="background.secondary" 
-                  borderColor="border.primary"
-                  zIndex={2000}
-                  position="relative"
-                  py={1}
-                  boxShadow="dark-lg"
-                >
-                  <MenuItem
-                    _hover={{ bg: 'background.tertiary' }}
-                    _focus={{ bg: 'background.tertiary' }}
-                    color="red.400"
-                    bg="background.secondary"
-                    onClick={() => {
-                      unassignPlayer(player);
-                      onMenuClose();
-                    }}
-                  >
-                    Unassign
-                  </MenuItem>
-                  <MenuDivider borderColor="border.primary" />
-                  <SubMenu label="Raid 1-8">
-                    {raidGroups.slice(0, 8).map((group) => (
-                      <MenuItem
-                        key={group.id}
-                        _hover={{ bg: 'background.tertiary' }}
-                        _focus={{ bg: 'background.tertiary' }}
-                        color="text.primary"
-                        bg="background.secondary"
-                        onClick={() => {
-                          assignPlayerToGroup(player, group.id);
-                          onMenuClose();
-                        }}
-                      >
-                        {group.name} ({group.players.length}/5)
-                      </MenuItem>
-                    ))}
-                  </SubMenu>
-                  <SubMenu label="Raid 11-18">
-                    {raidGroups.slice(8, 16).map((group) => (
-                      <MenuItem
-                        key={group.id}
-                        _hover={{ bg: 'background.tertiary' }}
-                        _focus={{ bg: 'background.tertiary' }}
-                        color="text.primary"
-                        bg="background.secondary"
-                        onClick={() => {
-                          assignPlayerToGroup(player, group.id);
-                          onMenuClose();
-                        }}
-                      >
-                        {group.name} ({group.players.length}/5)
-                      </MenuItem>
-                    ))}
-                  </SubMenu>
-                  <SubMenu label="Raid 21-28">
-                    {raidGroups.slice(16, 24).map((group) => (
-                      <MenuItem
-                        key={group.id}
-                        _hover={{ bg: 'background.tertiary' }}
-                        _focus={{ bg: 'background.tertiary' }}
-                        color="text.primary"
-                        bg="background.secondary"
-                        onClick={() => {
-                          assignPlayerToGroup(player, group.id);
-                          onMenuClose();
-                        }}
-                      >
-                        {group.name} ({group.players.length}/5)
-                      </MenuItem>
-                    ))}
-                  </SubMenu>
-                </MenuList>
-              </Portal>
-            )}
-          </Menu>
-        )}
-      </Draggable>
-    );
-  };
-
   const RaidGroup = ({ group }: { group: RaidGroup }) => (
     <Box
       bg="background.secondary"
-      p={2}
+      p={4}
       borderRadius="md"
       border="1px solid"
       borderColor="border.primary"
-      minH="330px"
-      maxH="330px"
-      position="relative"
-      sx={{
-        msOverflowStyle: 'none',
-        scrollbarWidth: 'none',
-        '::-webkit-scrollbar': { 
-          display: 'none'
-        }
-      }}
-      _hover={{
-        borderColor: "primary.400",
-        boxShadow: "0 0 0 1px var(--chakra-colors-primary-400)"
-      }}
+      minH="100px"
     >
-      <Text color="text.primary" fontSize="sm" mb={1} fontWeight="bold">{group.name}</Text>
-      <StableDroppable id={group.id}>
-        {(provided: DroppableProvided, snapshot) => (
-          <Box
-            ref={provided.innerRef}
-            {...provided.droppableProps}
-            bg="background.tertiary"
-            p={2}
-            borderRadius="md"
-            minH="290px"
-            maxH="290px"
-            overflowY="auto"
-            css={{
-              '&::-webkit-scrollbar': {
-                width: '0px',
-                background: 'transparent'
-              },
-              'scrollbarWidth': 'none',
-              '-ms-overflow-style': 'none'
-            }}
-            onClick={(e) => e.currentTarget.focus()}
-            tabIndex={0}
-            _hover={{
-              borderColor: snapshot.isDraggingOver ? "primary.400" : undefined,
-              bg: snapshot.isDraggingOver ? "background.secondary" : "background.tertiary"
-            }}
-          >
-            <VStack align="stretch" spacing={1}>
-              {group.players.map((player, index) => (
-                <PlayerCard key={player.characterId} player={player} index={index} />
-              ))}
-            </VStack>
-            {provided.placeholder}
-          </Box>
-        )}
-      </StableDroppable>
+      <VStack align="stretch" spacing={4}>
+        <HStack justify="space-between">
+          <Heading size="sm" color="text.primary">
+            {group.name}
+          </Heading>
+          <Text color="text.secondary" fontSize="sm">
+            {group.players.length}/5
+          </Text>
+        </HStack>
+        <Droppable droppableId={group.id} type="player">
+          {(provided) => (
+            <Box
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              bg="background.tertiary"
+              p={4}
+              borderRadius="md"
+              minH="100px"
+              maxH="calc(100vh - 400px)"
+              overflowY="auto"
+              sx={{
+                '&::-webkit-scrollbar': {
+                  width: '4px',
+                },
+                '&::-webkit-scrollbar-track': {
+                  width: '6px',
+                  background: 'background.tertiary',
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  background: 'border.secondary',
+                  borderRadius: '24px',
+                },
+              }}
+            >
+              <VStack spacing={2} align="stretch">
+                {group.players.map((player, index) => (
+                  <PlayerCard
+                    key={player.characterId}
+                    player={player}
+                    index={index}
+                    isMobile={isMobile}
+                    isAdmin={isAdmin}
+                    event={event}
+                    raidGroups={raidGroups}
+                    assignedPlayers={assignedPlayers}
+                    assignPlayerToGroup={assignPlayerToGroup}
+                    unassignPlayer={unassignPlayer}
+                  />
+                ))}
+                {provided.placeholder}
+              </VStack>
+            </Box>
+          )}
+        </Droppable>
+      </VStack>
     </Box>
   );
 
@@ -1425,7 +1176,12 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
           ` : ''}
         `}
       />
-      <Modal isOpen={isOpen} onClose={handleModalClose} size="full" blockScrollOnMount={false}>
+      <Modal 
+        isOpen={isOpen} 
+        onClose={handleModalClose} 
+        size={isMobile ? "full" : "full"} 
+        blockScrollOnMount={false}
+      >
         <ModalOverlay backdropFilter="blur(10px)" />
         <ModalContent 
           bg="background.secondary"
@@ -1435,11 +1191,11 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
           overflow="hidden"
         >
           <ModalCloseButton color="text.primary" size="lg" top={4} right={4} />
-          <ModalHeader color="text.primary" fontSize="2xl" pt={8} px={8} display="flex" flexDirection="column" gap={4}>
-            <Flex justify="space-between" alignItems="center">
+          <ModalHeader color="text.primary" fontSize={isMobile ? "xl" : "2xl"} pt={8} px={8}>
+            <Flex justify="space-between" alignItems="center" flexDir={isMobile ? "column" : "row"} gap={4}>
               <Text>Slutgiltig Roster - {event.title}</Text>
               {isAdmin && unassignedPlayers.length + raidGroups.reduce((total, group) => total + group.players.length, 0) > 0 && (
-                <HStack spacing={2} mr={"3rem"}>
+                <HStack spacing={2} mr={isMobile ? 0 : "3rem"}>
                   <Menu>
                     <MenuButton
                       as={Button}
@@ -1599,32 +1355,18 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
             )}
           </ModalHeader>
           <ModalBody 
-            p={8} 
+            p={isMobile ? 4 : 8} 
             overflowY="auto" 
             height="calc(100vh - 250px)"
-            onWheel={(e) => {
-              e.currentTarget.scrollTop += e.deltaY;
-            }}
-            css={{
-              '&::-webkit-scrollbar': {
-                width: '8px',
-              },
-              '&::-webkit-scrollbar-track': {
-                background: 'var(--chakra-colors-background-tertiary)',
-                borderRadius: '4px',
-              },
-              '&::-webkit-scrollbar-thumb': {
-                background: 'var(--chakra-colors-border-primary)',
-                borderRadius: '4px',
-                '&:hover': {
-                  background: 'var(--chakra-colors-primary-400)',
-                },
-              },
-            }}
           >
             <DragDropContext onDragEnd={handleDragEnd}>
-              <HStack align="start" spacing={8} height="100%">
-                <Box flex="1" height="100%">
+              <VStack 
+                align="stretch" 
+                spacing={8} 
+                height="100%"
+                flexDir={isMobile ? "column" : "row"}
+              >
+                <Box flex={isMobile ? "none" : "1"} width={isMobile ? "100%" : "auto"}>
                   <VStack align="stretch" spacing={4}>
                     <Button
                       colorScheme="blue"
@@ -1646,40 +1388,51 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                       <Heading size="sm" color="text.primary" mb={3}>
                         Unassigned Players ({regularUnassignedPlayers.length})
                       </Heading>
-                      <StableDroppable id="unassigned">
-                        {(provided: DroppableProvided, snapshot) => (
+                      <Droppable droppableId="unassigned" type="player">
+                        {(provided) => (
                           <Box
                             ref={provided.innerRef}
                             {...provided.droppableProps}
-                            minH="0"
-                            maxH="calc(100vh - 450px)"
-                            overflowY="auto"
-                            onWheel={(e) => {
-                              if (e.currentTarget.scrollHeight > e.currentTarget.clientHeight) {
-                                e.stopPropagation();
-                                e.currentTarget.scrollTop += e.deltaY;
-                              }
-                            }}
-                            bg={snapshot.isDraggingOver ? "background.secondary" : "transparent"}
+                            bg="background.tertiary"
+                            p={4}
                             borderRadius="md"
-                            p={2}
+                            minH="100px"
+                            maxH="calc(100vh - 400px)"
+                            overflowY="auto"
                             sx={{
-                              '&::-webkit-scrollbar': { 
-                                display: 'none'
+                              '&::-webkit-scrollbar': {
+                                width: '4px',
                               },
-                              'scrollbarWidth': 'none',
-                              '-ms-overflow-style': 'none'
+                              '&::-webkit-scrollbar-track': {
+                                width: '6px',
+                                background: 'background.tertiary',
+                              },
+                              '&::-webkit-scrollbar-thumb': {
+                                background: 'border.secondary',
+                                borderRadius: '24px',
+                              },
                             }}
                           >
-                            <VStack align="stretch" spacing={2}>
+                            <VStack spacing={2} align="stretch">
                               {regularUnassignedPlayers.map((player, index) => (
-                                <PlayerCard key={player.characterId} player={player} index={index} />
+                                <PlayerCard
+                                  key={player.characterId}
+                                  player={player}
+                                  index={index}
+                                  isMobile={isMobile}
+                                  isAdmin={isAdmin}
+                                  event={event}
+                                  raidGroups={raidGroups}
+                                  assignedPlayers={assignedPlayers}
+                                  assignPlayerToGroup={assignPlayerToGroup}
+                                  unassignPlayer={unassignPlayer}
+                                />
                               ))}
+                              {provided.placeholder}
                             </VStack>
-                            {provided.placeholder}
                           </Box>
                         )}
-                      </StableDroppable>
+                      </Droppable>
                     </Box>
 
                     {absencePlayers.length > 0 && (
@@ -1728,9 +1481,14 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                   </VStack>
                 </Box>
 
-                <Box flex="3" height="100%">
+                <Box flex={isMobile ? "none" : "3"} width={isMobile ? "100%" : "auto"}>
                   <VStack align="stretch" spacing={4}>
-                    <ButtonGroup isAttached variant="outline" alignSelf="flex-end">
+                    <ButtonGroup 
+                      isAttached 
+                      variant="outline" 
+                      alignSelf="flex-end"
+                      flexWrap={isMobile ? "wrap" : "nowrap"}
+                    >
                       <Button
                         onClick={() => setSelectedRaid(null)}
                         colorScheme={selectedRaid === null ? "primary" : "gray"}
@@ -1770,7 +1528,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                         <Heading size="sm" color="text.primary" mb={4}>
                           Raid 1-8 [{getRaidPlayerCount(raidGroups, 0, 8)}/40]
                         </Heading>
-                        <SimpleGrid columns={4} spacing={4}>
+                        <SimpleGrid columns={isMobile ? 1 : 4} spacing={4}>
                           {raidGroups.slice(0, 8).map((group) => (
                             <RaidGroup key={group.id} group={group} />
                           ))}
@@ -1783,7 +1541,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                         <Heading size="sm" color="text.primary" mb={4}>
                           Raid 11-18 [{getRaidPlayerCount(raidGroups, 8, 16)}/40]
                         </Heading>
-                        <SimpleGrid columns={4} spacing={4}>
+                        <SimpleGrid columns={isMobile ? 1 : 4} spacing={4}>
                           {raidGroups.slice(8, 16).map((group) => (
                             <RaidGroup key={group.id} group={group} />
                           ))}
@@ -1796,7 +1554,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                         <Heading size="sm" color="text.primary" mb={4}>
                           Raid 21-28 [{getRaidPlayerCount(raidGroups, 16, 24)}/40]
                         </Heading>
-                        <SimpleGrid columns={4} spacing={4}>
+                        <SimpleGrid columns={isMobile ? 1 : 4} spacing={4}>
                           {raidGroups.slice(16, 24).map((group) => (
                             <RaidGroup key={group.id} group={group} />
                           ))}
@@ -1805,7 +1563,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                     )}
                   </VStack>
                 </Box>
-              </HStack>
+              </VStack>
             </DragDropContext>
           </ModalBody>
 
