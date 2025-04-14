@@ -47,11 +47,11 @@ const Login = () => {
 
     // Validate input
     if (!username.trim()) {
-      setUsernameError('Användarnamn krävs');
+      setUsernameError('Username required');
       return;
     }
     if (!password) {
-      setPasswordError('Lösenord krävs');
+      setPasswordError('Password required');
       return;
     }
 
@@ -62,13 +62,13 @@ const Login = () => {
       const userDoc = await getDoc(userRef);
 
       if (!userDoc.exists()) {
-        setUsernameError('Användaren hittades inte');
+        setUsernameError('User not found');
         return;
       }
 
       const userData = userDoc.data() as User;
       if (userData.password !== password) {
-        setPasswordError('Felaktigt lösenord');
+        setPasswordError('Incorrect password');
         return;
       }
 
@@ -76,14 +76,14 @@ const Login = () => {
       login(userData);
       
       toast(createStyledToast({
-        title: 'Inloggningen lyckades!',
-        description: 'Välkommen tillbaka ' + userData.username,
+        title: 'Login successful!',
+        description: 'Welcome back ' + userData.username,
         status: 'success'
       }));
       navigate('/profile');
     } catch (error: any) {
       toast(createStyledToast({
-        title: 'Inloggningen misslyckades',
+        title: 'Login failed',
         description: error.message,
         status: 'error'
       }));

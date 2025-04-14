@@ -1,11 +1,11 @@
 export interface SignupPlayer {
   userId: string;
+  username: string;
   characterId: string;
   characterName: string;
   characterClass: string;
   characterRole: string;
-  spec?: string;
   discordNickname?: string;
   originalDiscordName?: string;
-  username: string;
+  isDiscordSignup?: boolean;
 } 

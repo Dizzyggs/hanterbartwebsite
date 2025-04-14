@@ -37,7 +37,7 @@ import { useUser } from '../context/UserContext';
 import { FaDiscord, FaImage, FaUserCircle } from 'react-icons/fa';
 import { raidHelperService } from '../services/raidhelper';
 
-const discordInviteLink = 'https://discord.gg/your-invite-link';
+const discordInviteLink = 'https://discord.gg/rBNWd8zM';
 
 const Navbar = () => {
   const { user, logout } = useUser();

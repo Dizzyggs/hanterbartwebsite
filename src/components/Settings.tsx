@@ -153,8 +153,8 @@ const Settings = () => {
 
       if (!querySnapshot.empty) {
         toast({
-          title: 'Användarnamnet är upptaget',
-          description: 'Vänligen välj ett annat användarnamn.',
+          title: 'Username is already taken',
+          description: 'Please choose another username.',
           status: 'error',
         });
         return;

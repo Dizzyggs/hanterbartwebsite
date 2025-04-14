@@ -294,8 +294,8 @@ const Profile = () => {
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       toast({
-        title: 'Filen är för stor',
-        description: 'Vänligen välj en fil under 5MB',
+        title: 'File too large',
+        description: 'Please select a file under 5MB',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -306,8 +306,8 @@ const Profile = () => {
     // Validate file type
     if (!file.type.startsWith('image/')) {
       toast({
-        title: 'Ogiltigt filformat',
-        description: 'Vänligen välj en bildfil',
+        title: 'Invalid file format',
+        description: 'Please select an image file',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -336,7 +336,7 @@ const Profile = () => {
       setAvatarUrl(downloadURL);
       
       toast({
-        title: 'Profilbild uppdaterad',
+        title: 'Profile picture updated',
         status: 'success',
         duration: 3000,
         isClosable: true,
@@ -347,22 +347,22 @@ const Profile = () => {
         fileInputRef.current.value = '';
       }
     } catch (error) {
-      console.error('Error i filuppladdningsprocessen:', error);
-      let errorMessage = 'Vänligen försök igen senare.';
+      console.error('Error in file upload process:', error);
+      let errorMessage = 'Please try again later.';
       
       if (error instanceof Error) {
-        console.error('Feldetaljer:', error.message);
+        console.error('Error details:', error.message);
         if (error.message.includes('storage/unauthorized')) {
-          errorMessage = 'Tillåtelse nekad. Vänligen logga in igen.';
+          errorMessage = 'Permission denied. Please log in again.';
         } else if (error.message.includes('storage/quota-exceeded')) {
-          errorMessage = 'Lagring kvot överskriden. Vänligen kontakta support.';
+          errorMessage = 'Storage quota exceeded. Please contact support.';
         } else if (error.message.includes('cors')) {
-          errorMessage = 'Cross-origin begäran blockerad. Vänligen försök igen.';
+          errorMessage = 'Cross-origin request blocked. Please try again.';
         }
       }
       
       toast({
-        title: 'Fel vid uppdatering av profilbild',
+        title: 'Error updating profile picture',
         description: errorMessage,
         status: 'error',
         duration: 5000,

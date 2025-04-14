@@ -73,7 +73,7 @@ export const PlayerCard = ({
 
   const getDisplayName = () => {
     if (event.signupType === 'raidhelper') {
-      return player.discordNickname || player.originalDiscordName || player.username;
+      return player.discordNickname || player.characterName;
     }
     return player.characterName;
   };
@@ -93,12 +93,15 @@ export const PlayerCard = ({
             {...provided.draggableProps}
             {...provided.dragHandleProps}
             bg="rgba(44, 49, 60, 0.95)"
-            p={3}
+            p={2}
             borderRadius="md"
+            border="1px solid"
+            borderColor={`${classColor}40`}
             _hover={{
               bg: snapshot.isDragging ? "rgba(44, 49, 60, 0.95)" : "rgba(52, 58, 70, 0.95)",
               cursor: isAdmin ? "grab" : "default",
-              boxShadow: snapshot.isDragging ? "none" : "0 0 10px rgba(0, 0, 0, 0.3)",
+              boxShadow: snapshot.isDragging ? "none" : `0 0 10px rgba(0, 0, 0, 0.3)`,
+              borderColor: `${classColor}80`,
               transform: snapshot.isDragging ? "scale(1)" : "translateY(-1px)"
             }}
             transition={snapshot.isDragging ? "none" : "all 0.2s ease"}
@@ -118,11 +121,11 @@ export const PlayerCard = ({
               transition: "opacity 0.2s ease"
             }}
           >
-            <HStack spacing={3} justify="space-between" width="100%">
-              <HStack spacing={3}>
+            <HStack spacing={2} justify="space-between" width="100%">
+              <HStack spacing={2}>
                 <Box
                   position="relative"
-                  padding="2px"
+                  padding="1px"
                   borderRadius="full"
                   background={getClassGradient(player.characterClass)}
                   boxShadow={snapshot.isDragging ? "none" : `0 0 8px ${classColor}80`}
@@ -131,33 +134,30 @@ export const PlayerCard = ({
                   <Image
                     src={classIcon}
                     alt={player.characterClass}
-                    boxSize="24px"
+                    boxSize="20px"
                     objectFit="cover"
                     borderRadius="full"
                   />
                 </Box>
-                <VStack align="start" spacing={0}>
-                  <Text 
-                    color="white" 
-                    fontSize="sm" 
-                    fontWeight="medium"
-                    textShadow={snapshot.isDragging ? "none" : `0 0 8px ${classColor}80`}
-                    transition="all 0.2s ease"
-                  >
-                    {getDisplayName()}
-                  </Text>
-                  <Text 
-                    color={classColor} 
-                    fontSize="xs" 
-                    textTransform="uppercase"
-                    textShadow={snapshot.isDragging ? "none" : `0 0 8px ${classColor}80`}
-                    transition="all 0.2s ease"
-                  >
-                    {player.characterClass}
-                  </Text>
-                </VStack>
+                <Text 
+                  color="white" 
+                  fontSize="sm" 
+                  fontWeight="medium"
+                  textShadow={snapshot.isDragging ? "none" : `0 0 8px ${classColor}80`}
+                  transition="all 0.2s ease"
+                >
+                  {getDisplayName()}
+                </Text>
               </HStack>
-              
+              <Text 
+                color={classColor} 
+                fontSize="xs" 
+                textTransform="uppercase"
+                textShadow={snapshot.isDragging ? "none" : `0 0 8px ${classColor}80`}
+                transition="all 0.2s ease"
+              >
+                {player.characterClass}
+              </Text>
             </HStack>
           </MenuButton>
 

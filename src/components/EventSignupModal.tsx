@@ -240,7 +240,7 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
 
       toast({
         title: 'Success!',
-        description: `Du är anmäld till ${event.title} med ${character.name}`,
+        description: `You signed up for ${event.title} with ${character.name}`,
         status: 'success',
       });
 
@@ -270,7 +270,7 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
 
       toast({
         title: 'Signup Cancelled',
-        description: `Du har avslutat din anmälan till ${event.title}`,
+        description: `You have cancelled your signup for ${event.title}`,
         status: 'info',
       });
 
@@ -603,72 +603,68 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
                     </Text>
                   </HStack>
                   <Text mb={4} fontSize="sm" color="gray.400">
-                    To sign up or view detailed Discord signups, use the RaidHelper bot in Discord.
+                    You can sign up on either discord or here manually with your created characters
                   </Text>
 
                 </Box>
               )}
 
-              {/* Only show manual signup form for manual signup events */}
-              {event.signupType === 'manual' && (
-                <>
-                  {!userSignup && (
-                    <Box>
-                      <Alert status="warning" mb={4}>
-                        <AlertIcon />
-                        OBS! Du har inte signat till detta event ännu.
-                      </Alert>
-                      <FormControl>
-                        <FormLabel color="blue.300">Sign up with character</FormLabel>
-                        <Menu>
-                          <MenuButton
-                            as={Button}
-                            rightIcon={<ChevronDownIcon />}
-                            w="full"
-                            bg="whiteAlpha.50"
-                            color="white"
-                            borderColor="whiteAlpha.200"
-                            _hover={{ 
-                              bg: "whiteAlpha.100",
-                              borderColor: "whiteAlpha.300"
-                            }}
-                            _active={{
-                              bg: "whiteAlpha.200"
-                            }}
-                            _focus={{
-                              borderColor: "blue.300",
-                              boxShadow: "0 0 0 1px var(--chakra-colors-blue-300)"
-                            }}
+              {/* Show manual signup form for all event types */}
+              {!userSignup && (
+                <Box>
+                  <Alert status="info" mb={4}>
+                    <AlertIcon />
+                    You can sign up with one of your characters below
+                  </Alert>
+                  <FormControl>
+                    <FormLabel color="blue.300">Sign up with character</FormLabel>
+                    <Menu>
+                      <MenuButton
+                        as={Button}
+                        rightIcon={<ChevronDownIcon />}
+                        w="full"
+                        bg="whiteAlpha.50"
+                        color="white"
+                        borderColor="whiteAlpha.200"
+                        _hover={{ 
+                          bg: "whiteAlpha.100",
+                          borderColor: "whiteAlpha.300"
+                        }}
+                        _active={{
+                          bg: "whiteAlpha.200"
+                        }}
+                        _focus={{
+                          borderColor: "blue.300",
+                          boxShadow: "0 0 0 1px var(--chakra-colors-blue-300)"
+                        }}
+                      >
+                        {selectedCharacter ? (
+                          <CharacterOption character={selectedCharacter} />
+                        ) : (
+                          "Select character"
+                        )}
+                      </MenuButton>
+                      <MenuList
+                        bg="background.secondary"
+                        borderColor="whiteAlpha.200"
+                        boxShadow="dark-lg"
+                        py={2}
+                      >
+                        {user?.characters?.map((char) => (
+                          <MenuItem
+                            key={char.id}
+                            onClick={() => setSelectedCharacter(char)}
+                            bg="transparent"
+                            _hover={{ bg: "whiteAlpha.200" }}
+                            _focus={{ bg: "whiteAlpha.200" }}
                           >
-                            {selectedCharacter ? (
-                              <CharacterOption character={selectedCharacter} />
-                            ) : (
-                              "Select character"
-                            )}
-                          </MenuButton>
-                          <MenuList
-                            bg="background.secondary"
-                            borderColor="whiteAlpha.200"
-                            boxShadow="dark-lg"
-                            py={2}
-                          >
-                            {user?.characters?.map((char) => (
-                              <MenuItem
-                                key={char.id}
-                                onClick={() => setSelectedCharacter(char)}
-                                bg="transparent"
-                                _hover={{ bg: "whiteAlpha.200" }}
-                                _focus={{ bg: "whiteAlpha.200" }}
-                              >
-                                <CharacterOption character={char} />
-                              </MenuItem>
-                            ))}
-                          </MenuList>
-                        </Menu>
-                      </FormControl>
-                    </Box>
-                  )}
-                </>
+                            <CharacterOption character={char} />
+                          </MenuItem>
+                        ))}
+                      </MenuList>
+                    </Menu>
+                  </FormControl>
+                </Box>
               )}
             </VStack>
           </ModalBody>
@@ -687,13 +683,13 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
               >
                 View raidroster
               </Button>
-              {event.signupType === 'manual' && !userSignup && (
+              {!userSignup && (
                 <Button
                   colorScheme="blue"
                   onClick={handleSignup}
                   isLoading={isSubmitting}
                 >
-                  Anmäl
+                  Sign up
                 </Button>
               )}
             </ButtonGroup>

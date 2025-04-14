@@ -153,8 +153,8 @@ const Register = () => {
     } catch (error) {
       console.error('Error during registration:', error);
       toast({
-        title: 'Registrering misslyckades',
-        description: error instanceof Error ? error.message : 'Ett fel uppstod under registreringen',
+        title: 'Registration failed',
+        description: error instanceof Error ? error.message : 'An error occurred during registration',
         status: 'error',
       });
     } finally {

@@ -36,12 +36,12 @@ import {
 } from '@chakra-ui/react';
 import { useState, useEffect } from 'react';
 import { CheckIcon } from '@chakra-ui/icons';
-import { collection, addDoc, doc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, doc, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useUser } from '../context/UserContext';
 import type { Event } from '../types/firebase';
 import { raidHelperService } from '../services/raidhelper';
-import { getDayInSwedish } from '../tools/tools';
+import { getDayInEnglish } from '../tools/tools';
 import { eventCreationSteps } from '../tools/tools';
 import { FaDiscord, FaCalendarAlt, FaPlus, FaTrash, FaEdit, FaCheck } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
@@ -53,33 +53,13 @@ interface EventCreationModalProps {
   onEventCreated: (event: Event) => void;
 }
 
-// const steps = [
-//   {
-//     title: 'Typ',
-//     description: 'Välj hur spelare ska anmäla sig',
-//   },
-//   {
-//     title: 'Titel',
-//     description: '',
-//   },
-//   {
-//     title: 'Beskrivning',
-//     description: '',
-//   },
-//   {
-//     title: 'Datum & Tid',
-//     description: '',
-//   },
-// ];
-
-
 export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCreationModalProps) => {
   const { activeStep, setActiveStep } = useSteps({
     index: 0,
     count: eventCreationSteps.length,
   });
 
-  const [signupType, setSignupType] = useState<'manual' | 'raidhelper'>('raidhelper');
+  const [signupType, setSignupType] = useState<'raidhelper'>('raidhelper');
   const [eventTitle, setEventTitle] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [eventTime, setEventTime] = useState('');
@@ -180,110 +160,136 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
     }
   };
 
-  const handleNext = async () => {
-    let isValid = false;
+  const validateStep = () => {
     switch (activeStep) {
       case 0:
-        isValid = signupType === 'manual' || signupType === 'raidhelper';
-        break;
+        if (!eventTitle.trim()) {
+          toast({
+            title: 'Title is required',
+            status: 'error',
+            duration: 3000,
+            isClosable: true,
+          });
+          return false;
+        }
+        return true;
       case 1:
-        isValid = eventTitle.trim() !== '';
-        break;
+        if (!eventDescription.trim()) {
+          toast({
+            title: 'Description is required',
+            status: 'error',
+            duration: 3000,
+            isClosable: true,
+          });
+          return false;
+        }
+        return true;
       case 2:
-        isValid = eventDescription.trim() !== '';
-        break;
-      case 3:
-        isValid = eventDate !== '' && eventTime !== '';
-        break;
+        if (!eventDate) {
+          toast({
+            title: 'Please select a date',
+            status: 'error',
+            duration: 3000,
+            isClosable: true,
+          });
+          return false;
+        }
+        if (!eventTime) {
+          toast({
+            title: 'Please select a time',
+            status: 'error',
+            duration: 3000,
+            isClosable: true,
+          });
+          return false;
+        }
+        return true;
       default:
-        isValid = false;
+        return true;
     }
+  };
 
-    if (!isValid) {
+  const handleSubmit = async () => {
+    if (!user) {
       toast({
-        title: 'Validation Error',
-        description: 'Please complete all required fields before proceeding',
-        status: 'warning',
+        title: 'Error',
+        description: 'You must be logged in to create events',
+        status: 'error',
         duration: 3000,
         isClosable: true,
       });
       return;
     }
 
-    if (activeStep === eventCreationSteps.length - 1) {
-      if (!user) {
-        toast({
-          title: 'Error',
-          description: 'You must be logged in to create events',
-          status: 'error',
-          duration: 3000,
-          isClosable: true,
-        });
-        return;
-      }
+    if (!validateStep()) return;
 
-      setIsSubmitting(true);
-      try {
-        const initialDate = new Date(`${eventDate}T${eventTime}`);
-        
-        if (isWeeklyRecurring) {
-          // Create events for the specified number of weeks
-          const events = [];
-          let currentDate = new Date(initialDate);
+    setIsSubmitting(true);
+    try {
+      const initialDate = new Date(`${eventDate}T${eventTime}`);
+      const eventData = {
+        title: eventTitle.trim(),
+        description: eventDescription.trim(),
+        date: initialDate,
+        signupType: 'raidhelper',
+        createdBy: user.id,
+        createdAt: serverTimestamp(),
+      };
 
-          for (let i = 0; i < recurringWeeks; i++) {
-            const event = await createEvent(currentDate);
-            events.push(event);
-            // Add 7 days for next week
-            currentDate = new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-          }
+      if (isWeeklyRecurring) {
+        // Create events for the specified number of weeks
+        const events = [];
+        let currentDate = new Date(initialDate);
 
-          // Notify about all created events
-          toast({
-            title: 'Success',
-            description: `Created ${events.length} recurring events successfully`,
-            status: 'success',
-            duration: 3000,
-            isClosable: true,
-          });
-
-          // Pass the first event to the callback
-          onEventCreated(events[0]);
-        } else {
-          // Create single event
-          const event = await createEvent(initialDate);
-          onEventCreated(event);
-          
-          toast({
-            title: 'Success',
-            description: 'Event created successfully',
-            status: 'success',
-            duration: 3000,
-            isClosable: true,
-          });
+        for (let i = 0; i < recurringWeeks; i++) {
+          const event = await createEvent(currentDate);
+          events.push(event);
+          // Add 7 days for next week
+          currentDate = new Date(currentDate.getTime() + 7 * 24 * 60 * 60 * 1000);
         }
 
-        // Reset form and close modal
-        setEventTitle('');
-        setEventDate('');
-        setEventTime('');
-        setEventDescription('');
-        setIsWeeklyRecurring(false);
-        onClose();
-      } catch (error) {
-        console.error('Error creating event:', error);
+        // Notify about all created events
         toast({
-          title: 'Error',
-          description: 'Failed to create event. Please try again.',
-          status: 'error',
+          title: 'Success',
+          description: `Created ${events.length} recurring events successfully`,
+          status: 'success',
           duration: 3000,
           isClosable: true,
         });
-      } finally {
-        setIsSubmitting(false);
+
+        // Pass the first event to the callback
+        onEventCreated(events[0]);
+      } else {
+        // Create single event
+        const event = await createEvent(initialDate);
+        onEventCreated(event);
+        
+        toast({
+          title: 'Success',
+          description: 'Event created successfully',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
       }
-    } else {
-      setActiveStep(activeStep + 1);
+
+      // Reset form and close modal
+      setEventTitle('');
+      setEventDate('');
+      setEventTime('');
+      setEventDescription('');
+      setIsWeeklyRecurring(false);
+      onClose();
+    } catch (error) {
+      console.error('Error creating event:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create event. Please try again.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -293,15 +299,12 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
     for (let step = 0; step < targetStep; step++) {
       switch (step) {
         case 0:
-          if (!(signupType === 'manual' || signupType === 'raidhelper')) return false;
-          break;
-        case 1:
           if (eventTitle.trim() === '') return false;
           break;
-        case 2:
+        case 1:
           if (eventDescription.trim() === '') return false;
           break;
-        case 3:
+        case 2:
           if (eventDate === '' || eventTime === '') return false;
           break;
       }
@@ -323,30 +326,22 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
     }
   };
 
+  const handleNext = () => {
+    if (validateStep()) {
+      setActiveStep(activeStep + 1);
+    }
+  };
+
   const renderStepContent = () => {
     switch (activeStep) {
       case 0:
         return (
-          <VStack spacing={6} align="stretch">
-            <FormControl isRequired>
-              <FormLabel color="text.primary" fontSize="lg" mb={4}>
-                Anmälningstyp
-              </FormLabel>
-              <SignupTypeStep 
-                signupType={signupType} 
-                setSignupType={(value) => setSignupType(value as 'manual' | 'raidhelper')} 
-              />
-            </FormControl>
-          </VStack>
-        );
-      case 1:
-        return (
           <FormControl isRequired>
-            <FormLabel color="text.primary" fontSize="lg" mb={4}>Titel</FormLabel>
+            <FormLabel color="text.primary" fontSize="lg" mb={4}>Title</FormLabel>
             <Input
               value={eventTitle}
               onChange={(e) => setEventTitle(e.target.value)}
-              placeholder="Ange titel"
+              placeholder="Type a event title"
               size="lg"
               bg="background.tertiary"
               border="1px solid"
@@ -361,16 +356,16 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
             />
           </FormControl>
         );
-      case 2:
+      case 1:
         return (
           <FormControl isRequired>
             <FormLabel color="text.primary" fontSize="lg" mb={4}>
-              Eventbeskrivning
+              Event description
             </FormLabel>
             <Textarea
               value={eventDescription}
               onChange={(e) => setEventDescription(e.target.value)}
-              placeholder="Ange eventbeskrivning"
+              placeholder="Type a event description"
               size="lg"
               bg="background.tertiary"
               border="1px solid"
@@ -386,42 +381,62 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
             />
           </FormControl>
         );
-      case 3:
+      case 2:
         return (
           <VStack spacing={6} align="stretch">
             <FormControl isRequired>
               <FormLabel color="text.primary" fontSize="lg" mb={4}>
-                Datum & Tid
+                Date & Time
               </FormLabel>
-              <VStack spacing={4}>
-                <Input
-                  type="datetime-local"
-                  value={`${eventDate}T${eventTime}`}
-                  onChange={(e) => {
-                    const [date, time] = e.target.value.split('T');
-                    setEventDate(date);
-                    setEventTime(time);
-                  }}
-                  size="lg"
+              <VStack spacing={6}>
+                <Box
                   bg="background.tertiary"
+                  p={4}
+                  borderRadius="xl"
                   border="1px solid"
                   borderColor="border.primary"
-                  color="text.primary"
-                  _hover={{ borderColor: 'primary.500' }}
-                  _focus={{ 
-                    borderColor: 'primary.500',
-                    boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)'
-                  }}
-                />
-                <Box w="100%">
-                  <VStack align="start" spacing={3}>
+                  _hover={{ borderColor: 'primary.500', boxShadow: '0 0 10px var(--chakra-colors-primary-500)' }}
+                  transition="all 0.2s"
+                >
+                  <Input
+                    type="datetime-local"
+                    value={`${eventDate}T${eventTime}`}
+                    onChange={(e) => {
+                      const [date, time] = e.target.value.split('T');
+                      setEventDate(date);
+                      setEventTime(time);
+                    }}
+                    size="lg"
+                    bg="background.secondary"
+                    border="1px solid"
+                    borderColor="border.primary"
+                    color="text.primary"
+                    _hover={{ borderColor: 'primary.500' }}
+                    _focus={{ 
+                      borderColor: 'primary.500',
+                      boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)'
+                    }}
+                  />
+                </Box>
+
+                <Box
+                  w="100%"
+                  bg="background.tertiary"
+                  p={4}
+                  borderRadius="xl"
+                  border="1px solid"
+                  borderColor="border.primary"
+                  _hover={{ borderColor: 'primary.500', boxShadow: '0 0 10px var(--chakra-colors-primary-500)' }}
+                  transition="all 0.2s"
+                >
+                  <VStack align="start" spacing={4}>
                     <Tooltip
                       label={eventDate 
-                        ? `Samma event kommer skapas varje ${getDayInSwedish(eventDate)} för valt antal veckor`
-                        : 'Välj ett datum först'}
+                        ? `The same event will be created every ${getDayInEnglish(eventDate)} for the selected number of weeks`
+                        : 'Select a date first'}
                       hasArrow
                       placement="bottom-start"
-                      bg="background.tertiary"
+                      bg="background.secondary"
                       color="text.primary"
                       px={4}
                       py={2}
@@ -436,7 +451,6 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
                         spacing={3}
                         _hover={{ color: 'primary.400' }}
                         transition="color 0.2s"
-                        pl={1}
                       >
                         <Checkbox
                           isChecked={isWeeklyRecurring}
@@ -445,36 +459,83 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
                           size="lg"
                           color="text.primary"
                         >
-                          Veckovis återkommande
+                          Weekly recurring
                         </Checkbox>
                       </HStack>
                     </Tooltip>
                     
                     {isWeeklyRecurring && (
-                      <HStack spacing={3} pl={10}>
-                        <FormControl w="150px">
-                          <FormLabel color="text.primary" fontSize="sm">
-                            Antal veckor
+                      <Box w="100%" pl={0}>
+                        <FormControl w="200px">
+                          <FormLabel color="text.primary" fontSize="sm" mb={2}>
+                            Number of weeks
                           </FormLabel>
-                          <Input
-                            type="number"
-                            min={1}
-                            max={52}
-                            value={recurringWeeks}
-                            onChange={(e) => setRecurringWeeks(Math.min(52, Math.max(1, parseInt(e.target.value) || 1)))}
-                            size="sm"
-                            bg="background.tertiary"
+                          <HStack
+                            bg="background.secondary"
+                            p={1}
+                            borderRadius="md"
                             border="1px solid"
                             borderColor="border.primary"
-                            color="text.primary"
-                            _hover={{ borderColor: 'primary.500' }}
-                            _focus={{ 
-                              borderColor: 'primary.500',
-                              boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)'
-                            }}
-                          />
+                            spacing={1}
+                          >
+                            <Button
+                              size="sm"
+                              onClick={() => setRecurringWeeks(prev => Math.max(1, prev - 1))}
+                              bg="background.tertiary"
+                              border="1px solid"
+                              borderColor="border.primary"
+                              color="text.primary"
+                              _hover={{ bg: 'background.hover', borderColor: 'primary.500' }}
+                              px={2}
+                            >
+                              -
+                            </Button>
+                            <Input
+                              value={recurringWeeks}
+                              onChange={(e) => {
+                                const value = e.target.value.replace(/[^0-9]/g, '');
+                                if (value === '') {
+                                  setRecurringWeeks(1);
+                                  return;
+                                }
+                                const numValue = parseInt(value);
+                                const finalValue = Math.min(52, numValue);
+                                setRecurringWeeks(finalValue);
+                              }}
+                              onBlur={(e) => {
+                                const value = parseInt(e.target.value);
+                                if (value < 1) {
+                                  setRecurringWeeks(1);
+                                }
+                              }}
+                              size="sm"
+                              bg="transparent"
+                              border="none"
+                              color="text.primary"
+                              textAlign="center"
+                              _hover={{ borderColor: 'primary.500' }}
+                              _focus={{ 
+                                border: 'none',
+                                boxShadow: 'none'
+                              }}
+                              width="60px"
+                              p={0}
+                            />
+                            <Button
+                              size="sm"
+                              onClick={() => setRecurringWeeks(prev => Math.min(52, prev + 1))}
+                              bg="background.tertiary"
+                              border="1px solid"
+                              borderColor="border.primary"
+                              color="text.primary"
+                              _hover={{ bg: 'background.hover', borderColor: 'primary.500' }}
+                              px={2}
+                            >
+                              +
+                            </Button>
+                          </HStack>
                         </FormControl>
-                      </HStack>
+                      </Box>
                     )}
                   </VStack>
                 </Box>
@@ -613,7 +674,7 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
           </Button>
           <Button
             colorScheme="primary"
-            onClick={handleNext}
+            onClick={activeStep === eventCreationSteps.length - 1 ? handleSubmit : handleNext}
             isDisabled={!canNavigateToStep(activeStep)}
             isLoading={isSubmitting}
           >

@@ -1,24 +1,20 @@
-export const getDayInSwedish = (date: string) => {
-  const days = ['Söndag', 'Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag'];
+export const getDayInEnglish = (date: string) => {
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const dayIndex = new Date(date).getDay();
   return days[dayIndex];
 };
 
 export const eventCreationSteps = [
   {
-    title: 'Typ',
-    description: 'Anmälnings typ',
-  },
-  {
-    title: 'Titel',
+    title: 'Title',
     description: '',
   },
   {
-    title: 'Beskrivning',
+    title: 'Description',
     description: '',
   },
   {
-    title: 'Datum & Tid',
+    title: 'Date & Time',
     description: '',
   },
 ];

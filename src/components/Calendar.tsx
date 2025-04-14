@@ -394,7 +394,7 @@ const Calendar = () => {
             bgGradient={`linear(to-r, ${theme.accent}, ${theme.accent}CC)`}
             bgClip="text"
           >
-            Guild Events Kalender
+            Guild Events Calendar
           </MotionHeading>
         </MotionFlex>
 

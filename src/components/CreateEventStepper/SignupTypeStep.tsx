@@ -8,7 +8,7 @@ import {
   Icon,
   Flex,
 } from '@chakra-ui/react';
-import { FaDiscord, FaCalendarAlt } from 'react-icons/fa';
+import { FaDiscord } from 'react-icons/fa';
 
 interface SignupTypeStepProps {
   signupType: string;
@@ -33,19 +33,13 @@ const SignupTypeStep = ({ signupType, setSignupType }: SignupTypeStepProps) => {
       label: 'RaidHelper Discord Bot',
       description: 'Spelare anmäler sig via Discord',
       icon: FaDiscord,
-    },
-    {
-      value: 'manual',
-      label: 'Manual anmälan',
-      description: 'Spelare anmäler sig via kalendern',
-      icon: FaCalendarAlt,
-    },
+    }
   ];
 
   return (
     <VStack spacing={4} align="stretch">
       <HStack {...group} spacing={4}>
-        {options.map((option) => {
+        {options.map(option => {
           const radio = getRadioProps({ value: option.value });
           const isChecked = signupType === option.value;
 
