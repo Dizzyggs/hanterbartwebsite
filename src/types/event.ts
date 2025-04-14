@@ -8,4 +8,5 @@ export interface SignupPlayer {
   discordNickname?: string;
   originalDiscordName?: string;
   isDiscordSignup?: boolean;
+  spec?: string;
 } 
