@@ -877,8 +877,14 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     const targetGroup = raidGroups.find(g => g.id === groupId);
     if (!targetGroup || targetGroup.players.length >= 5) return;
 
-    // Remove from current group if assigned
-    const newGroups = raidGroups.map(group => {
+    // First, remove from unassigned if present
+    setUnassignedPlayers(prev => 
+      prev.filter(p => p.characterId !== player.characterId)
+    );
+
+    // Then, update all groups (remove from current group if assigned and add to target group)
+    setRaidGroups(prevGroups => prevGroups.map(group => {
+      // Remove from any existing group
       if (group.players.some(p => p.characterId === player.characterId)) {
         return {
           ...group,
@@ -893,35 +899,33 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
         };
       }
       return group;
-    });
+    }));
 
-    setRaidGroups(newGroups);
+    // Update assigned players set
     setAssignedPlayers(prev => new Set([...prev, player.characterId]));
-    
-    // Remove from unassigned if present
-    setUnassignedPlayers(prev => 
-      prev.filter(p => p.characterId !== player.characterId)
-    );
   };
 
   const unassignPlayer = (player: SignupPlayer) => {
-    // Remove from groups
-    const newGroups = raidGroups.map(group => ({
+    // First check if player is already in unassigned to prevent duplicates
+    if (unassignedPlayers.some(p => p.characterId === player.characterId)) {
+      return;
+    }
+
+    // Remove from all groups
+    setRaidGroups(prevGroups => prevGroups.map(group => ({
       ...group,
       players: group.players.filter(p => p.characterId !== player.characterId)
-    }));
+    })));
 
-    setRaidGroups(newGroups);
+    // Remove from assigned players set
     setAssignedPlayers(prev => {
       const next = new Set(prev);
       next.delete(player.characterId);
       return next;
     });
 
-    // Add to unassigned if not already there
-    if (!unassignedPlayers.some(p => p.characterId === player.characterId)) {
-      setUnassignedPlayers(prev => [...prev, player]);
-    }
+    // Add to unassigned
+    setUnassignedPlayers(prev => [...prev, player]);
   };
 
   const SubMenu = ({ label = '', children }: { label: string; children: React.ReactNode }) => {
