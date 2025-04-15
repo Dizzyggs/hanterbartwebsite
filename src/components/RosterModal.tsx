@@ -318,15 +318,10 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   const dps = allSignups.filter(signup => signup?.characterRole === 'DPS');
 
   // Create unassigned players array from all signups
-  const [unassignedPlayers, setUnassignedPlayers] = useState<SignupPlayer[]>(allSignups);
+  const [unassignedPlayers, setUnassignedPlayers] = useState<SignupPlayer[]>([]);
 
   // Track which players are assigned to groups
   const [assignedPlayers, setAssignedPlayers] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    // Update unassigned players when signups change
-    setUnassignedPlayers(allSignups);
-  }, [event.signups, event.raidHelperSignups]);
 
   const [raidGroups, setRaidGroups] = useState<RaidGroup[]>([
     { id: 'group1', name: 'Group 1', players: [] },
@@ -683,48 +678,45 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
 
       // Combine all signups
       const allSignups = [...manualSignups, ...discordSignups];
-
+      
       // Initialize empty groups
       const initialGroups = raidGroups.map(group => ({ ...group, players: [] }));
+      const assignedPlayerIds = new Set<string>();
       
       if (event.raidComposition) {
         console.log('Loading saved raid composition:', event.raidComposition);
         const savedGroups = event.raidComposition.groups;
 
-        // Track assigned player IDs
-        const assignedPlayerIds = new Set<string>();
-
         // Update groups with saved players
         const updatedGroups = initialGroups.map(group => {
           const savedGroup = savedGroups.find(g => g.id === group.id);
-          if (savedGroup) {
-            const players = savedGroup.players
-              .map(savedPlayer => {
-                // Find the corresponding signup (either manual or Discord)
-                const matchingSignup = allSignups.find(signup => 
-                  signup.userId === savedPlayer.userId || 
-                  signup.characterId === savedPlayer.characterId
-                );
-                if (matchingSignup) {
-                  assignedPlayerIds.add(matchingSignup.characterId);
-                }
-                return matchingSignup || null;
-              })
-              .filter((player): player is SignupPlayer => player !== null);
+          if (!savedGroup) return group;
 
-            return { ...group, players };
-          }
-          return group;
+          const validPlayers = savedGroup.players
+            .map(savedPlayer => {
+              const matchingSignup = allSignups.find(signup => 
+                signup.userId === savedPlayer.userId || 
+                signup.characterId === savedPlayer.characterId
+              );
+              if (matchingSignup) {
+                assignedPlayerIds.add(matchingSignup.characterId);
+                return matchingSignup;
+              }
+              return null;
+            })
+            .filter((player): player is SignupPlayer => player !== null);
+
+          return { ...group, players: validPlayers };
         });
-
-        setRaidGroups(updatedGroups);
-        setAssignedPlayers(assignedPlayerIds);
 
         // Set unassigned players (those not in any group)
         const unassigned = allSignups.filter(player => 
           !assignedPlayerIds.has(player.characterId)
         );
+
+        setRaidGroups(updatedGroups);
         setUnassignedPlayers(unassigned);
+        setAssignedPlayers(assignedPlayerIds);
       } else {
         // No saved composition, initialize with all players unassigned
         setRaidGroups(initialGroups);
