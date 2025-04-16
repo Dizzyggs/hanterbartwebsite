@@ -100,7 +100,6 @@ interface RosterModalProps {
   onClose: () => void;
   event: Event;
   isAdmin: boolean;
-  onOpen?: () => Promise<void>;
 }
 
 // Update the FirebaseUser interface at the top of the file
@@ -276,32 +275,25 @@ interface RosterModalProps {
   onClose: () => void;
   event: Event;
   isAdmin: boolean;
-  onOpen?: () => Promise<void>;
 }
 
-const RosterModal = ({ isOpen, onClose, event, isAdmin, onOpen }: RosterModalProps) => {
+const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   // Add mobile detection
   const [isMobile] = useMediaQuery('(max-width: 768px)');
   
   // Add loading state
   const [isLoading, setIsLoading] = useState(true);
 
-  // Update the useEffect to handle loading state and call onOpen
+  // Update the useEffect to handle loading state
   useEffect(() => {
     if (isOpen) {
       setIsLoading(true);
-      if (onOpen) {
-        onOpen().finally(() => {
-          setIsLoading(false);
-        });
-      } else {
-        const timer = setTimeout(() => {
-          setIsLoading(false);
-        }, 2000);
-        return () => clearTimeout(timer);
-      }
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 2000);
+      return () => clearTimeout(timer);
     }
-  }, [isOpen, onOpen]);
+  }, [isOpen]);
   
   // Combine manual and Discord signups
   const manualSignups = Object.entries(event.signups || {})
@@ -676,33 +668,12 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin, onOpen }: RosterModalPro
       .reduce((total, group) => total + group.players.length, 0);
   };
 
-  // Reset initialization state when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      // Reset all state when modal closes
-      setHasInitialized(false);
-      setRaidGroups(prev => prev.map(group => ({ ...group, players: [] })));
-      setUnassignedPlayers([]);
-    setAssignedPlayers(new Set());
-      setInitialState(null);
-      setHasUnsavedChanges(false);
-      setSelectedRole(null);
-      setSelectedRaid(null);
-    }
-  }, [isOpen]);
-
-  // Update the useEffect to handle initialization
+  // Update the useEffect to only run on initial open
   useEffect(() => {
     const initializeSignups = async () => {
       if (!isOpen || !event || hasInitialized) return;
 
-      console.log('Initializing signups for event:', {
-        eventId: event.id,
-        hasInitialized,
-        raidComposition: event.raidComposition,
-        signups: event.signups,
-        raidHelperSignups: event.raidHelperSignups
-      });
+      console.log('Initializing signups for event:', event.id);
 
       // Process manual signups first
       const manualSignups = Object.entries(event.signups || {})
@@ -722,11 +693,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin, onOpen }: RosterModalPro
             event.raidHelperSignups.signUps.filter(signup => signup.status === "primary")
           )
         : [];
-
-      console.log('Processed signups:', {
-        manualSignups: manualSignups.length,
-        discordSignups: discordSignups.length
-      });
 
       // Combine all signups
       const allSignups = [...manualSignups, ...discordSignups];
@@ -780,7 +746,20 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin, onOpen }: RosterModalPro
     };
 
     initializeSignups();
-  }, [isOpen, event?.id, event?.signupType, event?.raidHelperSignups, event?.signups, event?.raidComposition, hasInitialized]);
+  }, [isOpen, event?.id, event?.signupType, event?.raidHelperSignups, event?.signups, event?.raidComposition]);
+
+  // Reset initialization state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      // Reset all state when modal closes
+      setHasInitialized(false);
+      setRaidGroups(prev => prev.map(group => ({ ...group, players: [] })));
+      setUnassignedPlayers([]);
+      setAssignedPlayers(new Set());
+      setInitialState(null);
+      setHasUnsavedChanges(false);
+    }
+  }, [isOpen]);
 
   // Update the useEffect to fetch Discord nicknames when component mounts
   useEffect(() => {

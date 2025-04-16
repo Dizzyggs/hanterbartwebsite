@@ -902,15 +902,11 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
       <RosterModal
         isOpen={isRosterModalOpen}
         onClose={onRosterModalClose}
-        event={event}
-        isAdmin={user?.role === 'admin'}
-        onOpen={async () => {
-          if (event.raidHelperId) {
-            await raidHelperService.getEvent(event.raidHelperId);
-          }
-          onRosterModalOpen();
-          return Promise.resolve();
+        event={{
+          ...event,
+          raidHelperSignups: raidHelperSignups || undefined
         }}
+        isAdmin={user?.role === 'admin'}
       />
 
       {/* Add Absence Modal */}
