@@ -30,7 +30,7 @@ export const SettingsPage = () => {
       backgroundImage="radial-gradient(circle at 10% 20%, rgba(0, 0, 255, 0.05) 0%, transparent 40%)"
     >
       <Container maxW="container.xl" py={12}>
-        {/* Header Section with Gradient */}
+        {/* Header Section with Gradient x*/}
         <Box
           mb={12}
           p={8}
