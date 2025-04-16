@@ -1,5 +1,3 @@
-import { serverId, channelId } from '../config/discord';
-
 interface RaidHelperEvent {
   title: string;
   description: string;
@@ -16,54 +14,49 @@ interface RaidHelperEvent {
 }
 
 class RaidHelperService {
-  private readonly baseUrl = 'https://raid-helper.dev/api/v2';
-  private readonly apiKey: string;
+  private baseUrl: string;
 
   constructor() {
-    this.apiKey = process.env.REACT_APP_RAIDHELPER_API_KEY || '';
+    // Use port 8888 for Netlify Functions in development
+    this.baseUrl = process.env.NODE_ENV === 'development'
+      ? 'http://localhost:8888/.netlify/functions/raidhelper'
+      : '/.netlify/functions/raidhelper';
   }
 
-  async createEvent(eventData: any) {
+  async createEvent(event: RaidHelperEvent) {
     try {
-      const response = await fetch(`${this.baseUrl}/events`, {
+      const response = await fetch(`${this.baseUrl}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
         },
-        body: JSON.stringify({
-          ...eventData,
-          serverId,
-          channelId
-        })
+        body: JSON.stringify(event),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create RaidHelper event');
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`RaidHelper API error: ${response.statusText || errorText}`);
       }
 
       return await response.json();
     } catch (error) {
-      console.error('RaidHelper createEvent error:', error);
+      console.error('Failed to create RaidHelper event:', error);
       throw error;
     }
   }
 
   async getEvent(eventId: string) {
     try {
-      const response = await fetch(`${this.baseUrl}/events/${eventId}`, {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`
-        }
-      });
+      const response = await fetch(`${this.baseUrl}?eventId=${eventId}`);
 
       if (!response.ok) {
-        throw new Error('Failed to fetch RaidHelper event');
+        throw new Error(`RaidHelper API error: ${response.statusText}`);
       }
 
       return await response.json();
     } catch (error) {
-      console.error('RaidHelper getEvent error:', error);
+      console.error('Failed to fetch RaidHelper event:', error);
       throw error;
     }
   }
@@ -85,20 +78,19 @@ class RaidHelperService {
 
   async deleteEvent(eventId: string) {
     try {
-      const response = await fetch(`${this.baseUrl}/events/${eventId}`, {
+      const response = await fetch(`${this.baseUrl}?action=deleteEvent&eventId=${eventId}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`
-        }
       });
 
       if (!response.ok) {
-        throw new Error('Failed to delete RaidHelper event');
+        const errorText = await response.text();
+        console.error('RaidHelper API error response:', errorText);
+        throw new Error(`RaidHelper API error: ${errorText || response.statusText}`);
       }
 
-      return true;
+      return await response.json();
     } catch (error) {
-      console.error('RaidHelper deleteEvent error:', error);
+      console.error('Failed to delete RaidHelper event:', error);
       throw error;
     }
   }
