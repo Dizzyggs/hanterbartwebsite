@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Box,
   SimpleGrid,
@@ -42,6 +42,8 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ images, columns = 3 }) => {
   const [selectedImage, setSelectedImage] = useState<number>(0);
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set());
   const [showInfo, setShowInfo] = useState(false);
+  const [isImageLoading, setIsImageLoading] = useState<boolean>(false);
+  const imageRefs = useRef<(HTMLImageElement | null)[]>([]);
   
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const overlayBg = useColorModeValue('rgba(255,255,255,0.9)', 'rgba(0,0,0,0.8)');
@@ -53,6 +55,12 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ images, columns = 3 }) => {
     setSelectedImage(index);
     setShowInfo(false);
     onOpen();
+
+    // Start loading the clicked image with high priority
+    if (imageRefs.current[index]) {
+      imageRefs.current[index]?.setAttribute('loading', 'eager');
+      imageRefs.current[index]?.setAttribute('fetchPriority', 'high');
+    }
   };
 
   const handleImageLoad = (index: number) => {
@@ -111,7 +119,7 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ images, columns = 3 }) => {
               whileHover={{ scale: 1.02 }}
               onClick={() => handleImageClick(index)}
             >
-              <AspectRatio ratio={1}>
+              <AspectRatio ratio={4/3}>
                 <Box position="relative" width="100%" height="100%">
                   {!loadedImages.has(index) && (
                     <Flex
@@ -135,11 +143,13 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ images, columns = 3 }) => {
                     </Flex>
                   )}
                   <Image
+                    ref={el => imageRefs.current[index] = el}
                     src={image.url}
                     alt={image.title || `Image ${index + 1}`}
                     objectFit="cover"
                     width="100%"
                     height="100%"
+                    loading="lazy"
                     onLoad={() => handleImageLoad(index)}
                     opacity={loadedImages.has(index) ? 1 : 0}
                     transition="opacity 0.3s"
@@ -245,6 +255,8 @@ const MediaGallery: React.FC<MediaGalleryProps> = ({ images, columns = 3 }) => {
                   maxW="90vw"
                   borderRadius="lg"
                   boxShadow="2xl"
+                  loading="eager"
+                  fetchPriority="high"
                 />
                 
                 <HStack 

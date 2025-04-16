@@ -27,8 +27,8 @@ import {
 import { useState, useRef, useEffect } from 'react';
 import { useUser } from '../context/UserContext';
 import { storage, db } from '../firebase';
-import { ref, uploadBytes, getDownloadURL, listAll } from 'firebase/storage';
-import { collection, addDoc, query, onSnapshot, Timestamp, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, listAll, deleteObject } from 'firebase/storage';
+import { collection, addDoc, query, onSnapshot, Timestamp, orderBy, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { DeleteIcon, AddIcon, DownloadIcon, ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import { format } from 'date-fns';
 import { sv } from 'date-fns/locale';
@@ -383,6 +383,43 @@ const Media = () => {
     );
   };
 
+  const handleDeleteImage = async (item: MediaItem) => {
+    try {
+      // Delete from Firestore first
+      await deleteDoc(doc(db, 'media', item.id));
+      
+      // Extract the file path from the URL
+      const urlPath = decodeURIComponent(item.url.split('/o/')[1].split('?')[0]);
+      const storageRef = ref(storage, urlPath);
+      await deleteObject(storageRef);
+      
+      toast({
+        title: 'Image deleted successfully',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+
+      // Close modal if the deleted image was being viewed
+      if (selectedImageData?.id === item.id) {
+        onClose();
+      }
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      toast({
+        title: 'Error deleting image',
+        description: 'Please try again later',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const handleImageError = (item: MediaItem) => {
+    // Implementation of handleImageError function
+  };
+
   return (
     <Box 
       minH="calc(100vh - 4rem)"
@@ -518,6 +555,23 @@ const Media = () => {
                   mx="auto"
                   {...neonButtonStyles}
                 >
+                  {user?.role === 'admin' && (
+                    <IconButton
+                      aria-label="Delete image"
+                      icon={<DeleteIcon />}
+                      size="sm"
+                      position="absolute"
+                      top={2}
+                      right={2}
+                      zIndex={2}
+                      colorScheme="red"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteImage(item);
+                      }}
+                      _hover={{ bg: 'red.600' }}
+                    />
+                  )}
                   <AspectRatio ratio={4/3} w="100%">
                     <>
                       {(loadingImages[item.id] !== false) && (

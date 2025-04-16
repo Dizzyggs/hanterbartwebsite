@@ -140,135 +140,6 @@ const StableDroppable = memo(({
 
 StableDroppable.displayName = 'StableDroppable';
 
-// Add ClassViewModal component
-const ClassViewModal = ({ isOpen, onClose, allPlayers, raidGroups }: {
-  isOpen: boolean;
-  onClose: () => void;
-  allPlayers: SignupPlayer[];
-  raidGroups: RaidGroup[];
-}) => {
-  const [selectedClass, setSelectedClass] = useState<string>('');
-  
-  const getPlayerGroup = (player: SignupPlayer) => {
-    for (const group of raidGroups) {
-      if (group.players.some(p => p.userId === player.userId)) {
-        return group.name;
-      }
-    }
-    return 'Unassigned';
-  };
-
-  const getDisplayName = (player: SignupPlayer) => {
-    return player.discordNickname || player.originalDiscordName || player.characterName;
-  };
-
-  const filteredPlayers = selectedClass
-    ? allPlayers.filter(player => player.characterClass.toUpperCase() === selectedClass)
-    : [];
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} size="xl">
-      <ModalOverlay />
-      <ModalContent bg="gray.800">
-        <ModalHeader color="white">View Classes</ModalHeader>
-        <ModalCloseButton color="white" />
-        <ModalBody pb={6}>
-          <VStack spacing={4} align="stretch">
-            <Menu>
-              <MenuButton
-                as={Button}
-                rightIcon={<Icon as={InfoIcon} />}
-                bg="gray.700"
-                color="white"
-                width="100%"
-                textAlign="left"
-                _hover={{ bg: 'gray.600' }}
-                _active={{ bg: 'gray.600' }}
-              >
-                {selectedClass || 'Select a class'}
-              </MenuButton>
-              <MenuList bg="gray.700" borderColor="gray.600">
-                <MenuItem
-                  onClick={() => setSelectedClass('')}
-                  bg="gray.700"
-                  _hover={{ bg: 'gray.600' }}
-                  color="white"
-                >
-                  Select a class
-                </MenuItem>
-                <MenuDivider />
-                {Object.keys(CLASS_COLORS).map(className => (
-                  <MenuItem
-                    key={className}
-                    onClick={() => setSelectedClass(className)}
-                    bg="gray.700"
-                    _hover={{ bg: 'gray.600' }}
-                  >
-                    <HStack>
-                      <Image
-                        src={CLASS_ICONS[className as keyof typeof CLASS_ICONS]}
-                        boxSize="24px"
-                        alt={className}
-                      />
-                      <Text color={CLASS_COLORS[className as keyof typeof CLASS_COLORS]}>
-                        {className}
-                      </Text>
-                    </HStack>
-                  </MenuItem>
-                ))}
-              </MenuList>
-            </Menu>
-
-            {selectedClass && (
-              <VStack
-                spacing={2}
-                align="stretch"
-                maxH="400px"
-                overflowY="auto"
-                css={{
-                  '&::-webkit-scrollbar': {
-                    width: '8px',
-                  },
-                  '&::-webkit-scrollbar-track': {
-                    background: 'gray.700',
-                  },
-                  '&::-webkit-scrollbar-thumb': {
-                    background: 'gray.600',
-                    borderRadius: '4px',
-                  },
-                }}
-              >
-                {filteredPlayers.map((player) => (
-                  <HStack
-                    key={player.userId}
-                    bg="gray.700"
-                    p={3}
-                    borderRadius="md"
-                    justify="space-between"
-                  >
-                    <HStack>
-                      <Image
-                        src={CLASS_ICONS[player.characterClass.toUpperCase() as keyof typeof CLASS_ICONS]}
-                        boxSize="24px"
-                        alt={player.characterClass}
-                      />
-                      <Text color="white">{getDisplayName(player)}</Text>
-                    </HStack>
-                    <Badge
-                      colorScheme={getPlayerGroup(player) === 'Unassigned' ? 'red' : 'green'}
-                    >
-                      {getPlayerGroup(player)}
-                    </Badge>
-                  </HStack>
-                ))}
-              </VStack>
-            )}
-          </VStack>
-        </ModalBody>
-      </ModalContent>
-    </Modal>
-  );
-};
 
 interface RosterModalProps {
   isOpen: boolean;
@@ -279,6 +150,7 @@ interface RosterModalProps {
 
 const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   // Add mobile detection
+  const isTesting = false;
   const [isMobile] = useMediaQuery('(max-width: 768px)');
   
   // Add loading state
@@ -299,7 +171,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   const manualSignups = Object.entries(event.signups || {})
     .filter((entry): entry is [string, NonNullable<typeof entry[1]>] => entry[1] !== null)
     .map(([userId, signup]): SignupPlayer => {
-      console.log("Website signup absenceReason:", signup.username, signup.absenceReason);
       return {
         userId,
         username: signup.username || '',
@@ -550,7 +421,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
               return {
                 ...cleanPlayer,
                 originalDiscordName: player.originalDiscordName || player.username || '',
-                discordNickname: player.discordNickname || null,
+                discordNickname: player.discordNickname || undefined,
                 isDiscordSignup: true
               };
             }
@@ -1046,29 +917,68 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     </Box>
   );
 
-  // Sort and filter players
+  // Replace the View Classes button with Filter List menu
+  const [selectedFilter, setSelectedFilter] = useState<{
+    type: 'class' | 'name' | 'role' | null;
+    value: string | null;
+  }>({ type: null, value: null });
+
+  // Update the regularUnassignedPlayers filtering
   const { absencePlayers, regularUnassignedPlayers } = useMemo(() => {
-    // Get all absences from both unassigned and groups
     const allPlayers = [...unassignedPlayers, ...raidGroups.flatMap(group => group.players)];
     
     const absent = allPlayers.filter(p => {
-      // Website signups will have characterClass === "Absence"
       if (!p.isDiscordSignup) {
         return p.characterClass === "Absence";
       }
-      // Discord absences have characterClass === "ABSENCE"
       return p.characterClass?.toUpperCase() === "ABSENCE";
     });
     
-    const regular = unassignedPlayers.filter(p => {
+    let regular = unassignedPlayers.filter(p => {
       if (!p.isDiscordSignup) {
         return p.characterClass !== "Absence";
       }
       return p.characterClass?.toUpperCase() !== "ABSENCE";
     });
-    
+
+    // Duplicate players 5 times if in testing mode
+    if (isTesting) {
+      const originalPlayers = [...regular];
+      regular = [];
+      for (let i = 0; i < 26; i++) {
+        regular.push(...originalPlayers.map(player => ({
+          ...player,
+          characterId: `${player.characterId}-${i}`,
+          userId: `${player.userId}-${i}`,
+        })));
+      }
+    }
+
+    // Apply filters
+    if (selectedFilter.type === 'class' && selectedFilter.value) {
+      regular = regular.filter(p => p.characterClass.toUpperCase() === selectedFilter.value);
+    } else if (selectedFilter.type === 'name') {
+      regular = [...regular].sort((a, b) => {
+        const nameA = (a.discordNickname || a.characterName).toLowerCase();
+        const nameB = (b.discordNickname || b.characterName).toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+    } else if (selectedFilter.type === 'role' && selectedFilter.value) {
+      regular = regular.filter(p => {
+        if (selectedFilter.value === 'Tank') {
+          return p.characterRole === 'Tank' || 
+                 (p.characterClass.toUpperCase() === 'DRUID' && p.spec?.toUpperCase() === 'FERAL');
+        }
+        return p.characterRole === selectedFilter.value;
+      });
+    }
+
     // Sort regular unassigned players
     const sortedRegular = [...regular].sort((a, b) => {
+      if (selectedFilter.type === 'name') {
+        return 0; // Skip role sorting if we're sorting by name
+      }
+      
     if (selectedRole) {
       if (a.characterRole === selectedRole && b.characterRole !== selectedRole) return -1;
       if (a.characterRole !== selectedRole && b.characterRole === selectedRole) return 1;
@@ -1084,7 +994,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       absencePlayers: absent,
       regularUnassignedPlayers: sortedRegular
     };
-  }, [unassignedPlayers, selectedRole, raidGroups]);
+  }, [unassignedPlayers, selectedRole, raidGroups, selectedFilter, isTesting]);
 
   const userCharacterInfo = getUserCharacterGroup(user, event, raidGroups);
 
@@ -1179,30 +1089,45 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     try {
       const usersSnapshot = await getDocs(collection(db, 'users'));
       const firebaseUsers = new Map<string, FirebaseUser>();
+      const discordIdToUser = new Map<string, FirebaseUser>();
       
-      // First, create a map of Discord IDs to user data
+      // Create maps for both username and Discord ID lookups
       usersSnapshot.docs.forEach(doc => {
         const data = doc.data();
+        firebaseUsers.set(doc.id, { id: doc.id, ...data });
         if (data.discordId) {
-          firebaseUsers.set(data.discordId, { id: doc.id, ...data });
+          discordIdToUser.set(data.discordId, { id: doc.id, ...data });
         }
+      });
+
+      console.log('Matching Discord signups with users:', {
+        totalSignups: discordSignups.length,
+        totalUsers: firebaseUsers.size,
+        usersWithDiscordId: discordIdToUser.size
       });
 
       const validSignups = discordSignups
         .filter((signup: RaidHelperSignupType) => signup.status === "primary")
         .map((signup: RaidHelperSignupType): SignupPlayer => {
-          console.log("Discord signup absenceReason:", signup.name, signup.absenceReason);
-          const matchingUser = signup.userId ? firebaseUsers.get(signup.userId) : undefined;
+          // Try to find the user by Discord ID first
+          const matchingUser = signup.userId ? discordIdToUser.get(signup.userId) : undefined;
           
+          console.log('Processing signup:', {
+            name: signup.name,
+            userId: signup.userId,
+            foundUser: matchingUser ? true : false,
+            hasNickname: matchingUser?.discordSignupNickname ? true : false
+          });
+
           const player: SignupPlayer = {
-            userId: signup.userId || '',
-            username: signup.name || '',
+            userId: matchingUser?.id || signup.userId || signup.name,
+            username: matchingUser?.username || signup.name,
             characterId: signup.id.toString(),
-            characterName: signup.name || '',
+            characterName: matchingUser?.discordSignupNickname || signup.name,
             characterClass: signup.className || '',
             characterRole: signup.role || '',
             originalDiscordName: signup.name,
-            discordNickname: matchingUser?.discordSignupNickname || signup.name,
+            discordNickname: matchingUser?.discordSignupNickname || undefined,
             spec: signup.spec || '',
             isDiscordSignup: true
           };
@@ -1497,16 +1422,85 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                   >
                     <Box flex={isMobile ? "none" : "1"} width={isMobile ? "100%" : "auto"}>
                   <VStack align="stretch" spacing={4}>
-                        <Button
-                          colorScheme="blue"
-                          size="sm"
-                          onClick={onClassViewOpen}
-                          leftIcon={<Icon as={InfoIcon} />}
-                          width="fit-content"
-                          mt={"6rem"}
-                        >
-                          View Classes
-                        </Button>
+                        <Menu>
+                          <MenuButton
+                            as={Button}
+                            rightIcon={<Icon as={InfoIcon} />}
+                            colorScheme="blue"
+                            size="sm"
+                            width="fit-content"
+                            mt={"6rem"}
+                          >
+                            Filter List {selectedFilter.value ? `(${selectedFilter.value})` : ''}
+                          </MenuButton>
+                          <MenuList bg="gray.800" borderColor="gray.700">
+                            <MenuItem
+                              onClick={() => setSelectedFilter({ type: null, value: null })}
+                              bg="gray.800"
+                              _hover={{ bg: 'gray.700' }}
+                              color="white"
+                            >
+                              Show All
+                            </MenuItem>
+                            <MenuDivider />
+                            {Object.keys(CLASS_COLORS).map(className => (
+                              <MenuItem
+                                key={className}
+                                onClick={() => setSelectedFilter({ type: 'class', value: className })}
+                                bg="gray.800"
+                                _hover={{ bg: 'gray.700' }}
+                              >
+                                <HStack>
+                                  <Image
+                                    src={CLASS_ICONS[className as keyof typeof CLASS_ICONS]}
+                                    boxSize="24px"
+                                    alt={className}
+                                  />
+                                  <Text color={CLASS_COLORS[className as keyof typeof CLASS_COLORS]}>
+                                    {className}
+                                  </Text>
+                                </HStack>
+                              </MenuItem>
+                            ))}
+                            <MenuDivider />
+                            <MenuItem
+                              onClick={() => setSelectedFilter({ type: 'name', value: null })}
+                              bg="gray.800"
+                              _hover={{ bg: 'gray.700' }}
+                              color="white"
+                            >
+                              Sort Alphabetically
+                            </MenuItem>
+                            <MenuDivider />
+                            <Text px={3} py={2} color="gray.400" fontSize="sm">
+                              Role filtering
+                            </Text>
+                            <MenuItem
+                              onClick={() => setSelectedFilter({ type: 'role', value: 'Tank' })}
+                              bg="gray.800"
+                              _hover={{ bg: 'gray.700' }}
+                              color="white"
+                            >
+                              Tank
+                            </MenuItem>
+                            <MenuItem
+                              onClick={() => setSelectedFilter({ type: 'role', value: 'Healer' })}
+                              bg="gray.800"
+                              _hover={{ bg: 'gray.700' }}
+                              color="white"
+                            >
+                              Healer
+                            </MenuItem>
+                            <MenuItem
+                              onClick={() => setSelectedFilter({ type: 'role', value: 'DPS' })}
+                              bg="gray.800"
+                              _hover={{ bg: 'gray.700' }}
+                              color="white"
+                            >
+                              DPS
+                            </MenuItem>
+                          </MenuList>
+                        </Menu>
                     <Box
                       bg="background.tertiary"
                       p={4}
@@ -1522,44 +1516,44 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                           <Box
                             ref={provided.innerRef}
                             {...provided.droppableProps}
-                                bg="background.tertiary"
-                                p={4}
+                            bg="background.tertiary"
+                            p={4}
                             borderRadius="md"
-                                minH="100px"
-                                maxH="calc(100vh - 400px)"
-                                overflowY="auto"
-                                onWheel={(e) => e.stopPropagation()}
-                                sx={{
-                                  '&::-webkit-scrollbar': {
-                                    width: '4px',
-                                  },
-                                  '&::-webkit-scrollbar-track': {
-                                    width: '6px',
-                                    background: 'background.tertiary',
-                                  },
-                                  '&::-webkit-scrollbar-thumb': {
-                                    background: 'border.secondary',
-                                    borderRadius: '24px',
-                                  },
-                                }}
-                              >
-                                <VStack spacing={2} align="stretch">
-                                  {regularUnassignedPlayers.map((player, index) => (
-                                    <PlayerCard
-                                      key={player.characterId}
-                                      player={player}
-                                      index={index}
-                                      isMobile={isMobile}
-                                      isAdmin={isAdmin}
-                                      event={event}
-                                      raidGroups={raidGroups}
-                                      assignedPlayers={assignedPlayers}
-                                      assignPlayerToGroup={assignPlayerToGroup}
-                                      unassignPlayer={unassignPlayer}
-                                    />
-                                  ))}
+                            minH="100px"
+                            maxH="calc(100vh - 400px)"
+                            overflowY="auto"
+                            onWheel={(e) => e.stopPropagation()}
+                            sx={{
+                              '&::-webkit-scrollbar': {
+                                width: '4px',
+                              },
+                              '&::-webkit-scrollbar-track': {
+                                width: '6px',
+                                background: 'background.tertiary',
+                              },
+                              '&::-webkit-scrollbar-thumb': {
+                                background: 'border.secondary',
+                                borderRadius: '24px',
+                              },
+                            }}
+                          >
+                            <SimpleGrid columns={2} spacing={2}>
+                              {regularUnassignedPlayers.map((player, index) => (
+                                <PlayerCard
+                                  key={player.characterId}
+                                  player={player}
+                                  index={index}
+                                  isMobile={isMobile}
+                                  isAdmin={isAdmin}
+                                  event={event}
+                                  raidGroups={raidGroups}
+                                  assignedPlayers={assignedPlayers}
+                                  assignPlayerToGroup={assignPlayerToGroup}
+                                  unassignPlayer={unassignPlayer}
+                                />
+                              ))}
                             {provided.placeholder}
-                                </VStack>
+                            </SimpleGrid>
                           </Box>
                         )}
                           </Droppable>
@@ -1676,13 +1670,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                   </VStack>
             </DragDropContext>
           </ModalBody>
-
-              <ClassViewModal
-                isOpen={isClassViewOpen}
-                onClose={onClassViewClose}
-                allPlayers={allPlayers}
-                raidGroups={raidGroups}
-              />
             </>
           )}
         </ModalContent>
