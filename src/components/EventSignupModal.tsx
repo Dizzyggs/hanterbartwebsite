@@ -134,6 +134,7 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
   const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
   const [absenceReason, setAbsenceReason] = useState('');
   const [selectedAbsenceCharacter, setSelectedAbsenceCharacter] = useState<Character | null>(null);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
   
   const toast = useToast({
     position: 'top',
@@ -233,6 +234,17 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
       });
     }
   }, [isOpen, userSignup, raidHelperSignups, user]);
+
+  // Add this effect to handle the 2-second loading state
+  useEffect(() => {
+    if (isOpen) {
+      setIsInitialLoading(true);
+      const timer = setTimeout(() => {
+        setIsInitialLoading(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   const handleSignup = async () => {
     if (!user || !selectedCharacter) return;
@@ -654,207 +666,226 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
 
           <ModalBody p={4}>
             <VStack spacing={4} align="stretch" width="100%">
-              {/* Current Signup Status */}
-              {(userSignup || raidHelperSignups?.signUps?.some(signup => 
-                signup.userId === user?.discordId && 
-                (signup.status === "primary" || signup.status === "absence" || signup.className === "Absence")
-              )) && (
+              {isInitialLoading ? (
                 <Box
                   bg="background.tertiary"
-                  p={4}
+                  p={6}
                   borderRadius="lg"
                   borderLeft="4px solid"
-                  borderLeftColor={raidHelperSignups?.signUps?.some(signup => 
-                    signup.userId === user?.discordId
-                  ) ? "#5865F2" : "blue.400"}
+                  borderColor="blue.400"
                 >
-                  <VStack spacing={2} align="stretch">
-                    {/* Discord Signup Status */}
-                    {raidHelperSignups?.signUps?.some(signup => 
-                      signup.userId === user?.discordId && 
-                      (signup.status === "primary" || signup.status === "absence" || signup.className === "Absence")
-                    ) && (
-                      <>
-                        <Text color="text.primary" fontSize="sm">
-                          {raidHelperSignups.signUps.find(signup => 
-                            signup.userId === user?.discordId
-                          )?.className === "Absence" 
-                            ? (
-                              <>
-                                You are currently signed as{" "}
-                                <Text as="span" color="red.400" fontWeight="bold">
-                                  ABSENT
-                                </Text>
-                                {" "}through Discord as{" "}
-                              </>
-                            )
-                            : "You are currently signed up through Discord as "}
-                          <Text as="span" color="#5865F2" fontWeight="bold">
-                            {user?.discordSignupNickname}
-                          </Text>
-                        </Text>
-                        <Text color="text.secondary" fontSize="sm">
-                          Please use Discord to modify your attendance
-                        </Text>
-                      </>
-                    )}
-
-                    {/* Website Signup Status */}
-                    {userSignup && (
-                      <>
-                        <Text color="text.primary" fontSize="sm">
-                          {userSignup.absenceReason 
-                            ? "You are currently marked as absent through website"
-                            : `You are currently signed up with ${userSignup.characterName}`}
-                        </Text>
-                        <Text color="text.secondary" fontSize="sm">
-                          Use the options below to modify your attendance
-                        </Text>
-                      </>
-                    )}
-                  </VStack>
+                  <HStack spacing={4}>
+                    <Spinner size="sm" color="blue.400" />
+                    <Text color="text.secondary">
+                      Loading event details...
+                    </Text>
+                  </HStack>
                 </Box>
-              )}
-
-              {/* Only show signup options if not signed through Discord */}
-              {!raidHelperSignups?.signUps?.some(signup => 
-                signup.userId === user?.discordId && 
-                (signup.status === "primary" || signup.status === "absence" || signup.className === "Absence")
-              ) && (
+              ) : (
                 <>
-                  {/* Absence Section */}
-                  <Box
-                    bg="background.tertiary"
-                    p={4}
-                    borderRadius="lg"
-                    borderLeft="4px solid"
-                    borderLeftColor="red.400"
-                  >
-                    <VStack spacing={2} align="stretch">
-                      <Text color="text.primary" fontSize="sm" fontWeight="semibold">
-                        Can't make it to the event?
-                      </Text>
-                      <Button
-                        onClick={() => setIsAbsenceModalOpen(true)}
-                        width="100%"
-                        colorScheme="red"
-                        variant="outline"
-                        size="md"
-                        leftIcon={<TimeIcon />}
-                      >
-                        Sign as absence
-                      </Button>
-                    </VStack>
-                  </Box>
+                  {/* Current Signup Status */}
+                  {(userSignup || raidHelperSignups?.signUps?.some(signup => 
+                    signup.userId === user?.discordId && 
+                    (signup.status === "primary" || signup.status === "absence" || signup.className === "Absence")
+                  )) && (
+                    <Box
+                      bg="background.tertiary"
+                      p={4}
+                      borderRadius="lg"
+                      borderLeft="4px solid"
+                      borderLeftColor={raidHelperSignups?.signUps?.some(signup => 
+                        signup.userId === user?.discordId
+                      ) ? "#5865F2" : "blue.400"}
+                    >
+                      <VStack spacing={2} align="stretch">
+                        {/* Discord Signup Status */}
+                        {raidHelperSignups?.signUps?.some(signup => 
+                          signup.userId === user?.discordId && 
+                          (signup.status === "primary" || signup.status === "absence" || signup.className === "Absence")
+                        ) && (
+                          <>
+                            <Text color="text.primary" fontSize="sm">
+                              {raidHelperSignups.signUps.find(signup => 
+                                signup.userId === user?.discordId
+                              )?.className === "Absence" 
+                                ? (
+                                  <>
+                                    You are currently signed as{" "}
+                                    <Text as="span" color="red.400" fontWeight="bold">
+                                      ABSENT
+                                    </Text>
+                                    {" "}through Discord as{" "}
+                                  </>
+                                )
+                                : "You are currently signed up through Discord as "}
+                              <Text as="span" color="#5865F2" fontWeight="bold">
+                                {user?.discordSignupNickname}
+                              </Text>
+                            </Text>
+                            <Text color="text.secondary" fontSize="sm">
+                              Please use Discord to modify your attendance
+                            </Text>
+                          </>
+                        )}
 
-                  {/* Only show character signup section if not already signed up through website */}
-                  {!userSignup && (
+                        {/* Website Signup Status */}
+                        {userSignup && (
+                          <>
+                            <Text color="text.primary" fontSize="sm">
+                              {userSignup.absenceReason 
+                                ? "You are currently marked as absent through website"
+                                : `You are currently signed up with ${userSignup.characterName}`}
+                            </Text>
+                            <Text color="text.secondary" fontSize="sm">
+                              Use the options below to modify your attendance
+                            </Text>
+                          </>
+                        )}
+                      </VStack>
+                    </Box>
+                  )}
+
+                  {/* Only show signup options if not signed through Discord */}
+                  {!raidHelperSignups?.signUps?.some(signup => 
+                    signup.userId === user?.discordId && 
+                    (signup.status === "primary" || signup.status === "absence" || signup.className === "Absence")
+                  ) && (
                     <>
-                      <Divider borderColor="border.primary" />
-
-                      {/* Character Signup Section */}
+                      {/* Absence Section */}
                       <Box
                         bg="background.tertiary"
                         p={4}
                         borderRadius="lg"
                         borderLeft="4px solid"
-                        borderLeftColor="blue.400"
+                        borderLeftColor="red.400"
                       >
                         <VStack spacing={2} align="stretch">
                           <Text color="text.primary" fontSize="sm" fontWeight="semibold">
-                            Sign up with character
+                            Can't make it to the event?
                           </Text>
-                          <Box>
-                            <Text color="blue.200" fontSize="sm" mb={2}>
-                              You can sign up with one of your characters below
-                            </Text>
-                            <Menu>
-                              <MenuButton
-                                as={Button}
-                                rightIcon={<ChevronDownIcon />}
-                                w="full"
-                                bg="background.secondary"
-                                color="text.primary"
-                                borderColor="border.primary"
-                                size="md"
-                                fontSize="sm"
-                                _hover={{ 
-                                  bg: "background.tertiary",
-                                  borderColor: "border.hover"
-                                }}
-                                _active={{
-                                  bg: "background.tertiary"
-                                }}
-                              >
-                                {selectedCharacter ? (
-                                  <CharacterOption character={selectedCharacter} />
-                                ) : (
-                                  "Select character"
-                                )}
-                              </MenuButton>
-                              <MenuList
-                                bg="background.secondary"
-                                borderColor="border.primary"
-                                py={2}
-                              >
-                                {user?.characters?.map((char) => (
-                                  <MenuItem
-                                    key={char.id}
-                                    onClick={() => setSelectedCharacter(char)}
-                                    bg="transparent"
-                                    _hover={{ bg: "background.tertiary" }}
-                                    _focus={{ bg: "background.tertiary" }}
-                                  >
-                                    <CharacterOption character={char} />
-                                  </MenuItem>
-                                ))}
-                              </MenuList>
-                            </Menu>
-                          </Box>
+                          <Button
+                            onClick={() => setIsAbsenceModalOpen(true)}
+                            width="100%"
+                            colorScheme="red"
+                            variant="outline"
+                            size="md"
+                            leftIcon={<TimeIcon />}
+                          >
+                            Sign as absence
+                          </Button>
                         </VStack>
                       </Box>
+
+                      {/* Only show character signup section if not already signed up through website */}
+                      {!userSignup && (
+                        <>
+                          <Divider borderColor="border.primary" />
+
+                          {/* Character Signup Section */}
+                          <Box
+                            bg="background.tertiary"
+                            p={4}
+                            borderRadius="lg"
+                            borderLeft="4px solid"
+                            borderLeftColor="blue.400"
+                          >
+                            <VStack spacing={2} align="stretch">
+                              <Text color="text.primary" fontSize="sm" fontWeight="semibold">
+                                Sign up with character
+                              </Text>
+                              <Box>
+                                <Text color="blue.200" fontSize="sm" mb={2}>
+                                  You can sign up with one of your characters below
+                                </Text>
+                                <Menu>
+                                  <MenuButton
+                                    as={Button}
+                                    rightIcon={<ChevronDownIcon />}
+                                    w="full"
+                                    bg="background.secondary"
+                                    color="text.primary"
+                                    borderColor="border.primary"
+                                    size="md"
+                                    fontSize="sm"
+                                    _hover={{ 
+                                      bg: "background.tertiary",
+                                      borderColor: "border.hover"
+                                    }}
+                                    _active={{
+                                      bg: "background.tertiary"
+                                    }}
+                                  >
+                                    {selectedCharacter ? (
+                                      <CharacterOption character={selectedCharacter} />
+                                    ) : (
+                                      "Select character"
+                                    )}
+                                  </MenuButton>
+                                  <MenuList
+                                    bg="background.secondary"
+                                    borderColor="border.primary"
+                                    py={2}
+                                  >
+                                    {user?.characters?.map((char) => (
+                                      <MenuItem
+                                        key={char.id}
+                                        onClick={() => setSelectedCharacter(char)}
+                                        bg="transparent"
+                                        _hover={{ bg: "background.tertiary" }}
+                                        _focus={{ bg: "background.tertiary" }}
+                                      >
+                                        <CharacterOption character={char} />
+                                      </MenuItem>
+                                    ))}
+                                  </MenuList>
+                                </Menu>
+                              </Box>
+                            </VStack>
+                          </Box>
+                        </>
+                      )}
                     </>
                   )}
+
+                  {/* Action Buttons */}
+                  <HStack justify="flex-end" spacing={3} mt={2}>
+                    <Button
+                      leftIcon={<ViewIcon />}
+                      onClick={onRosterModalOpen}
+                      variant="ghost"
+                      color="text.primary"
+                      _hover={{ bg: "background.hover" }}
+                      size="sm"
+                    >
+                      View raidroster
+                    </Button>
+                    <Button
+                      onClick={onClose}
+                      variant="ghost"
+                      color="text.primary"
+                      _hover={{ bg: "background.hover" }}
+                      size="sm"
+                    >
+                      Cancel
+                    </Button>
+                    {!raidHelperSignups?.signUps?.some(signup => 
+                      signup.userId === user?.discordId && 
+                      (signup.status === "primary" || signup.status === "absence" || signup.className === "Absence")
+                    ) && userSignup === undefined && (
+                      <Button
+                        onClick={handleSignup}
+                        colorScheme="blue"
+                        isLoading={isSubmitting}
+                        loadingText="Signing up..."
+                        isDisabled={!selectedCharacter}
+                        size="sm"
+                      >
+                        Sign up
+                      </Button>
+                    )}
+                  </HStack>
                 </>
               )}
-
-              {/* Action Buttons */}
-              <HStack justify="flex-end" spacing={3} mt={2}>
-                <Button
-                  leftIcon={<ViewIcon />}
-                  onClick={onRosterModalOpen}
-                  variant="ghost"
-                  color="text.primary"
-                  _hover={{ bg: "background.hover" }}
-                  size="sm"
-                >
-                  View raidroster
-                </Button>
-                <Button
-                  onClick={onClose}
-                  variant="ghost"
-                  color="text.primary"
-                  _hover={{ bg: "background.hover" }}
-                  size="sm"
-                >
-                  Cancel
-                </Button>
-                {!raidHelperSignups?.signUps?.some(signup => 
-                  signup.userId === user?.discordId && 
-                  (signup.status === "primary" || signup.status === "absence" || signup.className === "Absence")
-                ) && userSignup === undefined && (
-                  <Button
-                    onClick={handleSignup}
-                    colorScheme="blue"
-                    isLoading={isSubmitting}
-                    loadingText="Signing up..."
-                    isDisabled={!selectedCharacter}
-                    size="sm"
-                  >
-                    Sign up
-                  </Button>
-                )}
-              </HStack>
             </VStack>
           </ModalBody>
         </ModalContent>
