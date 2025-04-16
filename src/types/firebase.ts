@@ -72,6 +72,8 @@ export interface RaidHelperSignup {
   roleEmoteId?: string;
   tentative?: boolean;
   timestamp?: number;
+  spec?: string;
+  absenceReason?: string;
 }
 
 export interface RaidHelperResponse {
@@ -99,6 +101,7 @@ export interface Event {
     characterName: string;
     characterClass: string;
     characterRole: string;
+    absenceReason?: string;
   } | null>;
   raidHelperSignups?: RaidHelperResponse;
   raidComposition?: {
@@ -147,4 +150,18 @@ export interface RaidGroup {
     characterClass: string;
     characterRole: string;
   }[];
+}
+
+export interface SignupPlayer {
+  userId: string;
+  username: string;
+  characterId: string;
+  characterName: string;
+  characterClass: string;
+  characterRole: string;
+  originalDiscordName?: string;
+  discordNickname?: string;
+  spec?: string;
+  absenceReason?: string;
+  isDiscordSignup?: boolean;
 } 

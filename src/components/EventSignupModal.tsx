@@ -42,13 +42,15 @@ import {
   FormControl,
   FormLabel,
   Icon,
+  Input,
+  Divider,
 } from '@chakra-ui/react';
 import { useState, useEffect, useRef } from 'react';
 import { useUser } from '../context/UserContext';
 import { doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Event, Character } from '../types/firebase';
-import { ChevronDownIcon, DeleteIcon, ViewIcon } from '@chakra-ui/icons';
+import { ChevronDownIcon, DeleteIcon, ViewIcon, TimeIcon } from '@chakra-ui/icons';
 import { logAdminAction } from '../utils/auditLogger';
 import RosterModal from './RosterModal';
 import { raidHelperService } from '../services/raidhelper';
@@ -129,6 +131,9 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
   const { isOpen: isRosterModalOpen, onOpen: onRosterModalOpen, onClose: onRosterModalClose } = useDisclosure();
   const { isOpen: isDeleteAlertOpen, onOpen: onDeleteAlertOpen, onClose: onDeleteAlertClose } = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
+  const [absenceReason, setAbsenceReason] = useState('');
+  const [selectedAbsenceCharacter, setSelectedAbsenceCharacter] = useState<Character | null>(null);
   
   const toast = useToast({
     position: 'top',
@@ -152,15 +157,6 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
 
   // Check if user is already signed up
   const userSignup = user ? event.signups?.[user.username] : undefined;
-
-  // Log event data when roster modal opens
-  useEffect(() => {
-    if (isRosterModalOpen) {
-      console.log('Opening roster modal with event:', event);
-      console.log('Event signups:', event.signups);
-      console.log('Valid signups:', Object.values(event.signups || {}).filter(signup => signup !== null));
-    }
-  }, [isRosterModalOpen, event]);
 
   // Add new function to fetch Discord signup nicknames
   const fetchDiscordNicknames = async (signups: RaidHelperSignup[]) => {
@@ -198,6 +194,13 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
           throw new Error('No response from RaidHelper API');
         }
 
+        console.log('[Debug] RaidHelper Signups:', {
+          eventId: event.raidHelperId,
+          signups: response.signUps,
+          currentUser: user?.username,
+          userDiscordId: user?.discordId
+        });
+
         setRaidHelperSignups(response);
         
         // Fetch Discord nicknames for all signups
@@ -216,8 +219,29 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
     }
   }, [isOpen, isRosterModalOpen, event.raidHelperId, event.signupType]);
 
+  // Debug log for user signup status
+  useEffect(() => {
+    if (isOpen) {
+      console.log('[Debug] Current Signup Status:', {
+        userSignup,
+        discordSignup: raidHelperSignups?.signUps?.find(signup => 
+          signup.userId === user?.discordId
+        ),
+        username: user?.username,
+        discordId: user?.discordId,
+        discordNickname: user?.discordSignupNickname
+      });
+    }
+  }, [isOpen, userSignup, raidHelperSignups, user]);
+
   const handleSignup = async () => {
     if (!user || !selectedCharacter) return;
+
+    console.log('[Debug] Attempting Website Signup:', {
+      user: user.username,
+      character: selectedCharacter,
+      event: event.title
+    });
 
     setIsSubmitting(true);
     try {
@@ -260,6 +284,12 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
 
   const handleCancelSignup = async () => {
     if (!user || !userSignup) return;
+
+    console.log('[Debug] Cancelling Website Signup:', {
+      user: user.username,
+      signup: userSignup,
+      event: event.title
+    });
 
     setIsSubmitting(true);
     try {
@@ -514,186 +544,319 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
     }
   };
 
+  const handleAbsenceSubmit = async () => {
+    if (!user || !selectedAbsenceCharacter) return;
+
+    console.log('[Debug] Attempting Website Absence:', {
+      user: user.username,
+      character: selectedAbsenceCharacter,
+      reason: absenceReason,
+      event: event.title
+    });
+
+    setIsSubmitting(true);
+    try {
+      // Update event document with absence signup
+      await updateDoc(doc(db, 'events', event.id), {
+        [`signups.${user.username}`]: {
+          userId: user.username,
+          username: user.username,
+          characterId: selectedAbsenceCharacter.id,
+          characterName: selectedAbsenceCharacter.name,
+          characterClass: 'Absence',
+          characterRole: 'Absence',
+          absenceReason: absenceReason.trim()
+        }
+      });
+
+      toast({
+        title: 'Absence Registered',
+        description: `Your absence has been registered for ${event.title}`,
+        status: 'info',
+      });
+
+      setIsAbsenceModalOpen(false);
+      onClose();
+      onSignupChange(event);
+    } catch (error) {
+      console.error('Error registering absence:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to register absence. Please try again.',
+        status: 'error',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <>
       <Modal isOpen={isOpen} onClose={onClose} size="xl" isCentered>
         <ModalOverlay backdropFilter="blur(10px)" />
-        <ModalContent bg="background.secondary" boxShadow="dark-lg">
-          <ModalCloseButton color="text.primary" />
-          {user?.role === 'admin' && (
-            <IconButton
-              aria-label="Delete event"
-              icon={<DeleteIcon />}
-              onClick={onDeleteAlertOpen}
-              colorScheme="red"
-              variant="ghost"
-              position="absolute"
-              right="50px"
-              top="4px"
-              zIndex="1"
-            />
-          )}
-          <ModalHeader 
-            color="text.primary" 
-            borderBottom="1px solid" 
-            borderColor="border.primary"
-            fontSize="2xl"
+        <ModalContent
+          bg="background.primary"
+          maxW="600px"
+          borderRadius="xl"
+          boxShadow="xl"
+        >
+          <ModalHeader
+            bg="background.secondary"
+            borderTopRadius="xl"
+            p={4}
+            display="flex"
+            flexDirection="column"
+            gap={3}
           >
-            {event.title}
+            <HStack justify="space-between" width="100%">
+              <Heading size="md" color="text.primary">{event.title}</Heading>
+              <HStack>
+                {user?.role === 'admin' && (
+                  <IconButton
+                    aria-label="Delete event"
+                    icon={<DeleteIcon />}
+                    onClick={onDeleteAlertOpen}
+                    variant="ghost"
+                    color="red.400"
+                    _hover={{ bg: "background.hover" }}
+                    size="sm"
+                  />
+                )}
+                <ModalCloseButton position="static" color="text.primary" />
+              </HStack>
+            </HStack>
+            
+            <VStack align="start" spacing={1} width="100%">
+              <Text color="text.secondary" fontSize="sm" fontWeight="medium">
+                Datum & Tid
+              </Text>
+              <HStack spacing={2}>
+                <Text color="text.primary" fontSize="md">
+                  {event.date}
+                </Text>
+                <Text color="text.primary" fontSize="md">
+                  {event.time}
+                </Text>
+              </HStack>
+            </VStack>
+
+            {event.description && (
+              <VStack align="start" spacing={1} width="100%">
+                <Text color="text.secondary" fontSize="sm" fontWeight="medium">
+                  Beskrivning
+                </Text>
+                <Text color="text.primary" fontSize="sm">
+                  {event.description}
+                </Text>
+              </VStack>
+            )}
           </ModalHeader>
-          <ModalBody>
-            {/* Event Details */}
-            <VStack spacing={4} align="stretch">
-              <Box>
-                <Text fontWeight="bold" mb={2} color="blue.300">Datum & Tid</Text>
-                <Text color="white">{new Date(`${event.date}T${event.time}`).toLocaleString()}</Text>
-              </Box>
 
-              <Box>
-                <Text fontWeight="bold" mb={2} color="blue.300">Beskrivning</Text>
-                <Text color="gray.100">{event.description}</Text>
-              </Box>
+          <ModalBody p={4}>
+            <VStack spacing={4} align="stretch" width="100%">
+              {/* Current Signup Status */}
+              {(userSignup || raidHelperSignups?.signUps?.some(signup => 
+                signup.userId === user?.discordId && 
+                (signup.status === "primary" || signup.status === "absence" || signup.className === "Absence")
+              )) && (
+                <Box
+                  bg="background.tertiary"
+                  p={4}
+                  borderRadius="lg"
+                  borderLeft="4px solid"
+                  borderLeftColor={raidHelperSignups?.signUps?.some(signup => 
+                    signup.userId === user?.discordId
+                  ) ? "#5865F2" : "blue.400"}
+                >
+                  <VStack spacing={2} align="stretch">
+                    {/* Discord Signup Status */}
+                    {raidHelperSignups?.signUps?.some(signup => 
+                      signup.userId === user?.discordId && 
+                      (signup.status === "primary" || signup.status === "absence" || signup.className === "Absence")
+                    ) && (
+                      <>
+                        <Text color="text.primary" fontSize="sm">
+                          {raidHelperSignups.signUps.find(signup => 
+                            signup.userId === user?.discordId
+                          )?.className === "Absence" 
+                            ? (
+                              <>
+                                You are currently signed as{" "}
+                                <Text as="span" color="red.400" fontWeight="bold">
+                                  ABSENT
+                                </Text>
+                                {" "}through Discord as{" "}
+                              </>
+                            )
+                            : "You are currently signed up through Discord as "}
+                          <Text as="span" color="#5865F2" fontWeight="bold">
+                            {user?.discordSignupNickname}
+                          </Text>
+                        </Text>
+                        <Text color="text.secondary" fontSize="sm">
+                          Please use Discord to modify your attendance
+                        </Text>
+                      </>
+                    )}
 
-              {/* Only show Calendar Signups for manual signup events */}
-              {event.signupType === 'manual' && (
-                <Box>
-                  <Text fontWeight="bold" mb={2} color="blue.300">Calendar Signups</Text>
-                  <HStack spacing={4}>
-                    <VStack align="start">
-                      <Text color="gray.300">Total</Text>
-                      <Text color="white" fontSize="lg" fontWeight="bold">
-                        {Object.keys(event.signups || {}).length}
-                      </Text>
-                    </VStack>
-                    <VStack align="start">
-                      <Text color="blue.200">Tanks</Text>
-                      <Text color="white" fontSize="lg" fontWeight="bold">
-                        {groupedSignups.Tank.length}
-                      </Text>
-                    </VStack>
-                    <VStack align="start">
-                      <Text color="green.200">Healers</Text>
-                      <Text color="white" fontSize="lg" fontWeight="bold">
-                        {groupedSignups.Healer.length}
-                      </Text>
-                    </VStack>
-                    <VStack align="start">
-                      <Text color="red.200">DPS</Text>
-                      <Text color="white" fontSize="lg" fontWeight="bold">
-                        {groupedSignups.DPS.length}
-                      </Text>
-                    </VStack>
-                  </HStack>
+                    {/* Website Signup Status */}
+                    {userSignup && (
+                      <>
+                        <Text color="text.primary" fontSize="sm">
+                          {userSignup.absenceReason 
+                            ? "You are currently marked as absent through website"
+                            : `You are currently signed up with ${userSignup.characterName}`}
+                        </Text>
+                        <Text color="text.secondary" fontSize="sm">
+                          Use the options below to modify your attendance
+                        </Text>
+                      </>
+                    )}
+                  </VStack>
                 </Box>
               )}
 
-              {/* Discord Bot Signups section - always show for RaidHelper events */}
-              {event.signupType === 'raidhelper' && (
-                <Box>
-                  <Text fontWeight="bold" mb={2} color="blue.300">
-                    <HStack spacing={2}>
-                      <Icon as={FaDiscord} />
-                      <Text>Discord Bot Signups</Text>
-                    </HStack>
-                  </Text>
-                  <HStack spacing={3} mb={2}>
-                    <Text color="gray.300">Total:</Text>
-                    <Text color="white" fontSize="lg" fontWeight="bold">
-                      {raidHelperSignups?.signUps?.length || 0}
-                    </Text>
-                  </HStack>
-                  <Text mb={4} fontSize="sm" color="gray.400">
-                    You can sign up on either discord or here manually with your created characters
-                  </Text>
-
-                </Box>
-              )}
-
-              {/* Show manual signup form for all event types */}
-              {!userSignup && (
-                <Box>
-                  <Alert status="info" mb={4}>
-                    <AlertIcon />
-                    You can sign up with one of your characters below
-                  </Alert>
-                  <FormControl>
-                    <FormLabel color="blue.300">Sign up with character</FormLabel>
-                    <Menu>
-                      <MenuButton
-                        as={Button}
-                        rightIcon={<ChevronDownIcon />}
-                        w="full"
-                        bg="whiteAlpha.50"
-                        color="white"
-                        borderColor="whiteAlpha.200"
-                        _hover={{ 
-                          bg: "whiteAlpha.100",
-                          borderColor: "whiteAlpha.300"
-                        }}
-                        _active={{
-                          bg: "whiteAlpha.200"
-                        }}
-                        _focus={{
-                          borderColor: "blue.300",
-                          boxShadow: "0 0 0 1px var(--chakra-colors-blue-300)"
-                        }}
+              {/* Only show signup options if not signed through Discord */}
+              {!raidHelperSignups?.signUps?.some(signup => 
+                signup.userId === user?.discordId && 
+                (signup.status === "primary" || signup.status === "absence" || signup.className === "Absence")
+              ) && (
+                <>
+                  {/* Absence Section */}
+                  <Box
+                    bg="background.tertiary"
+                    p={4}
+                    borderRadius="lg"
+                    borderLeft="4px solid"
+                    borderLeftColor="red.400"
+                  >
+                    <VStack spacing={2} align="stretch">
+                      <Text color="text.primary" fontSize="sm" fontWeight="semibold">
+                        Can't make it to the event?
+                      </Text>
+                      <Button
+                        onClick={() => setIsAbsenceModalOpen(true)}
+                        width="100%"
+                        colorScheme="red"
+                        variant="outline"
+                        size="md"
+                        leftIcon={<TimeIcon />}
                       >
-                        {selectedCharacter ? (
-                          <CharacterOption character={selectedCharacter} />
-                        ) : (
-                          "Select character"
-                        )}
-                      </MenuButton>
-                      <MenuList
-                        bg="background.secondary"
-                        borderColor="whiteAlpha.200"
-                        boxShadow="dark-lg"
-                        py={2}
+                        Sign as absence
+                      </Button>
+                    </VStack>
+                  </Box>
+
+                  {/* Only show character signup section if not already signed up through website */}
+                  {!userSignup && (
+                    <>
+                      <Divider borderColor="border.primary" />
+
+                      {/* Character Signup Section */}
+                      <Box
+                        bg="background.tertiary"
+                        p={4}
+                        borderRadius="lg"
+                        borderLeft="4px solid"
+                        borderLeftColor="blue.400"
                       >
-                        {user?.characters?.map((char) => (
-                          <MenuItem
-                            key={char.id}
-                            onClick={() => setSelectedCharacter(char)}
-                            bg="transparent"
-                            _hover={{ bg: "whiteAlpha.200" }}
-                            _focus={{ bg: "whiteAlpha.200" }}
-                          >
-                            <CharacterOption character={char} />
-                          </MenuItem>
-                        ))}
-                      </MenuList>
-                    </Menu>
-                  </FormControl>
-                </Box>
+                        <VStack spacing={2} align="stretch">
+                          <Text color="text.primary" fontSize="sm" fontWeight="semibold">
+                            Sign up with character
+                          </Text>
+                          <Box>
+                            <Text color="blue.200" fontSize="sm" mb={2}>
+                              You can sign up with one of your characters below
+                            </Text>
+                            <Menu>
+                              <MenuButton
+                                as={Button}
+                                rightIcon={<ChevronDownIcon />}
+                                w="full"
+                                bg="background.secondary"
+                                color="text.primary"
+                                borderColor="border.primary"
+                                size="md"
+                                fontSize="sm"
+                                _hover={{ 
+                                  bg: "background.tertiary",
+                                  borderColor: "border.hover"
+                                }}
+                                _active={{
+                                  bg: "background.tertiary"
+                                }}
+                              >
+                                {selectedCharacter ? (
+                                  <CharacterOption character={selectedCharacter} />
+                                ) : (
+                                  "Select character"
+                                )}
+                              </MenuButton>
+                              <MenuList
+                                bg="background.secondary"
+                                borderColor="border.primary"
+                                py={2}
+                              >
+                                {user?.characters?.map((char) => (
+                                  <MenuItem
+                                    key={char.id}
+                                    onClick={() => setSelectedCharacter(char)}
+                                    bg="transparent"
+                                    _hover={{ bg: "background.tertiary" }}
+                                    _focus={{ bg: "background.tertiary" }}
+                                  >
+                                    <CharacterOption character={char} />
+                                  </MenuItem>
+                                ))}
+                              </MenuList>
+                            </Menu>
+                          </Box>
+                        </VStack>
+                      </Box>
+                    </>
+                  )}
+                </>
               )}
+
+              {/* Action Buttons */}
+              <HStack justify="flex-end" spacing={3} mt={2}>
+                <Button
+                  leftIcon={<ViewIcon />}
+                  onClick={onRosterModalOpen}
+                  variant="ghost"
+                  color="text.primary"
+                  _hover={{ bg: "background.hover" }}
+                  size="sm"
+                >
+                  View raidroster
+                </Button>
+                <Button
+                  onClick={onClose}
+                  variant="ghost"
+                  color="text.primary"
+                  _hover={{ bg: "background.hover" }}
+                  size="sm"
+                >
+                  Cancel
+                </Button>
+                {!raidHelperSignups?.signUps?.some(signup => 
+                  signup.userId === user?.discordId && 
+                  (signup.status === "primary" || signup.status === "absence" || signup.className === "Absence")
+                ) && userSignup === undefined && (
+                  <Button
+                    onClick={handleSignup}
+                    colorScheme="blue"
+                    isLoading={isSubmitting}
+                    loadingText="Signing up..."
+                    isDisabled={!selectedCharacter}
+                    size="sm"
+                  >
+                    Sign up
+                  </Button>
+                )}
+              </HStack>
             </VStack>
           </ModalBody>
-
-          <ModalFooter>
-            <ButtonGroup spacing={3}>
-              <Button
-                leftIcon={<ViewIcon />}
-                colorScheme="blue"
-                variant="outline"
-                onClick={onRosterModalOpen}
-                color="white"
-                _hover={{
-                  bg: "whiteAlpha.200"
-                }}
-              >
-                View raidroster
-              </Button>
-              {!userSignup && (
-                <Button
-                  colorScheme="blue"
-                  onClick={handleSignup}
-                  isLoading={isSubmitting}
-                >
-                  Sign up
-                </Button>
-              )}
-            </ButtonGroup>
-          </ModalFooter>
         </ModalContent>
       </Modal>
 
@@ -739,12 +902,112 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
       <RosterModal
         isOpen={isRosterModalOpen}
         onClose={onRosterModalClose}
-        event={{
-          ...event,
-          raidHelperSignups: raidHelperSignups || undefined
-        }}
+        event={event}
         isAdmin={user?.role === 'admin'}
+        onOpen={async () => {
+          if (event.raidHelperId) {
+            await raidHelperService.getEvent(event.raidHelperId);
+          }
+          onRosterModalOpen();
+          return Promise.resolve();
+        }}
       />
+
+      {/* Add Absence Modal */}
+      <Modal isOpen={isAbsenceModalOpen} onClose={() => setIsAbsenceModalOpen(false)} isCentered size="md">
+        <ModalOverlay backdropFilter="blur(10px)" />
+        <ModalContent bg="background.secondary" boxShadow="dark-lg">
+          <ModalHeader color="text.primary" borderBottom="1px solid" borderColor="border.primary">
+            Register Absence
+          </ModalHeader>
+          <ModalCloseButton color="text.primary" />
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <FormControl>
+                <FormLabel color="blue.300">Sign absence with character</FormLabel>
+                <Menu>
+                  <MenuButton
+                    as={Button}
+                    rightIcon={<ChevronDownIcon />}
+                    w="full"
+                    bg="whiteAlpha.50"
+                    color="white"
+                    borderColor="whiteAlpha.200"
+                    _hover={{ 
+                      bg: "whiteAlpha.100",
+                      borderColor: "whiteAlpha.300"
+                    }}
+                    _active={{
+                      bg: "whiteAlpha.200"
+                    }}
+                    _focus={{
+                      borderColor: "blue.300",
+                      boxShadow: "0 0 0 1px var(--chakra-colors-blue-300)"
+                    }}
+                  >
+                    {selectedAbsenceCharacter ? (
+                      <CharacterOption character={selectedAbsenceCharacter} />
+                    ) : (
+                      "Select character"
+                    )}
+                  </MenuButton>
+                  <MenuList
+                    bg="background.secondary"
+                    borderColor="whiteAlpha.200"
+                    boxShadow="dark-lg"
+                    py={2}
+                  >
+                    {user?.characters?.map((char) => (
+                      <MenuItem
+                        key={char.id}
+                        onClick={() => setSelectedAbsenceCharacter(char)}
+                        bg="transparent"
+                        _hover={{ bg: "whiteAlpha.200" }}
+                        _focus={{ bg: "whiteAlpha.200" }}
+                      >
+                        <CharacterOption character={char} />
+                      </MenuItem>
+                    ))}
+                  </MenuList>
+                </Menu>
+              </FormControl>
+              <FormControl>
+                <FormLabel color="blue.300">Reason</FormLabel>
+                <Input
+                  value={absenceReason}
+                  onChange={(e) => setAbsenceReason(e.target.value)}
+                  placeholder="Enter your reason here..."
+                  bg="whiteAlpha.50"
+                  color="white"
+                  borderColor="whiteAlpha.200"
+                  _hover={{ borderColor: "whiteAlpha.300" }}
+                  _focus={{ borderColor: "blue.300" }}
+                />
+              </FormControl>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <ButtonGroup spacing={3}>
+              <Button
+                variant="ghost"
+                onClick={() => setIsAbsenceModalOpen(false)}
+                color="white"
+                _hover={{ bg: "whiteAlpha.200" }}
+              >
+                Cancel
+              </Button>
+              <Button
+                colorScheme="yellow"
+                onClick={handleAbsenceSubmit}
+                isLoading={isSubmitting}
+                isDisabled={!absenceReason.trim() || !selectedAbsenceCharacter}
+              >
+                Register Absence
+              </Button>
+            </ButtonGroup>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </>
   );
 }; 

@@ -39,9 +39,10 @@ import {
   useMediaQuery,
   Spinner,
   Center,
+  Tooltip,
 } from '@chakra-ui/react';
 import { Global, css } from '@emotion/react';
-import { Event, RaidHelperSignup as RaidHelperSignupType } from '../types/firebase';
+import { Event, RaidHelperSignup as RaidHelperSignupType, SignupPlayer } from '../types/firebase';
 import { DragDropContext, Droppable, Draggable, DroppableProvided, DraggableProvided, DropResult, DroppableStateSnapshot } from 'react-beautiful-dnd';
 import { useState, useEffect, memo, ReactElement, useMemo, useRef } from 'react';
 import { CheckIcon, TimeIcon, InfoIcon, DownloadIcon } from '@chakra-ui/icons';
@@ -50,6 +51,7 @@ import { db } from '../firebase';
 import { useUser } from '../context/UserContext';
 import { PlayerCard } from './PlayerCard';
 import { CLASS_ICONS, CLASS_COLORS, ClassIconType } from '../utils/classIcons';
+import AbsencePlayer from './AbsencePlayer';
 
 // Suppress defaultProps warning from react-beautiful-dnd
 const originalError = console.error;
@@ -60,16 +62,19 @@ console.error = (...args) => {
   originalError.call(console, ...args);
 };
 
-interface SignupPlayer {
-  userId: string;
-  username: string;
-  characterId: string;
-  characterName: string;
-  characterClass: string;
-  characterRole: string;
-  originalDiscordName?: string;
-  discordNickname?: string;
+interface RaidHelperSignup {
+  id: string | number;
+  name: string;
+  status: string;
+  class?: string;
+  role?: string;
+  classEmoteId?: string;
+  className?: string;
+  entryTime?: number;
+  userId?: string;
+  position?: number;
   spec?: string;
+  absenceReason?: string;
 }
 
 // Update the type guard to not require originalDiscordName for manual signups
@@ -95,6 +100,7 @@ interface RosterModalProps {
   onClose: () => void;
   event: Event;
   isAdmin: boolean;
+  onOpen?: () => Promise<void>;
 }
 
 // Update the FirebaseUser interface at the top of the file
@@ -265,39 +271,57 @@ const ClassViewModal = ({ isOpen, onClose, allPlayers, raidGroups }: {
   );
 };
 
-const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
+interface RosterModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  event: Event;
+  isAdmin: boolean;
+  onOpen?: () => Promise<void>;
+}
+
+const RosterModal = ({ isOpen, onClose, event, isAdmin, onOpen }: RosterModalProps) => {
   // Add mobile detection
   const [isMobile] = useMediaQuery('(max-width: 768px)');
   
   // Add loading state
   const [isLoading, setIsLoading] = useState(true);
 
-  // Update the useEffect to handle loading state
+  // Update the useEffect to handle loading state and call onOpen
   useEffect(() => {
     if (isOpen) {
       setIsLoading(true);
-      const timer = setTimeout(() => {
-        setIsLoading(false);
-      }, 2000);
-      return () => clearTimeout(timer);
+      if (onOpen) {
+        onOpen().finally(() => {
+          setIsLoading(false);
+        });
+      } else {
+        const timer = setTimeout(() => {
+          setIsLoading(false);
+        }, 2000);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, onOpen]);
   
   // Combine manual and Discord signups
   const manualSignups = Object.entries(event.signups || {})
     .filter((entry): entry is [string, NonNullable<typeof entry[1]>] => entry[1] !== null)
-    .map(([userId, signup]) => ({
-      userId,
-      username: signup.username || '',
-      characterId: signup.characterId || userId,
-      characterName: signup.characterName || signup.username || '',
-      characterClass: signup.characterClass || 'WARRIOR',
-      characterRole: signup.characterRole || 'DPS'
-    }));
+    .map(([userId, signup]): SignupPlayer => {
+      console.log("Website signup absenceReason:", signup.username, signup.absenceReason);
+      return {
+        userId,
+        username: signup.username || '',
+        characterId: signup.characterId || userId,
+        characterName: signup.characterName || signup.username || '',
+        characterClass: signup.characterClass || 'WARRIOR',
+        characterRole: signup.characterRole || 'DPS',
+        absenceReason: signup.absenceReason
+      };
+    });
 
   const discordSignups = (event.raidHelperSignups?.signUps || [])
     .filter(signup => signup.status === "primary")
-    .map(signup => ({
+    .map((signup): SignupPlayer => ({
       userId: signup.name,
       username: signup.name,
       characterId: signup.id.toString(),
@@ -306,10 +330,12 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       characterRole: signup.role || 'DPS',
       discordNickname: signup.name,
       originalDiscordName: signup.name,
-      isDiscordSignup: true
+      isDiscordSignup: true,
+      spec: signup.spec,
+      absenceReason: signup.absenceReason
     }));
 
-  // Combine both types of signups
+  // Combine both types of signups, but filter out absences from regular signups
   const allSignups = [...manualSignups, ...discordSignups];
 
   // Group all signups by role
@@ -650,12 +676,33 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       .reduce((total, group) => total + group.players.length, 0);
   };
 
-  // Update the useEffect to only run on initial open
+  // Reset initialization state when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      // Reset all state when modal closes
+      setHasInitialized(false);
+      setRaidGroups(prev => prev.map(group => ({ ...group, players: [] })));
+      setUnassignedPlayers([]);
+    setAssignedPlayers(new Set());
+      setInitialState(null);
+      setHasUnsavedChanges(false);
+      setSelectedRole(null);
+      setSelectedRaid(null);
+    }
+  }, [isOpen]);
+
+  // Update the useEffect to handle initialization
   useEffect(() => {
     const initializeSignups = async () => {
       if (!isOpen || !event || hasInitialized) return;
 
-      console.log('Initializing signups for event:', event.id);
+      console.log('Initializing signups for event:', {
+        eventId: event.id,
+        hasInitialized,
+        raidComposition: event.raidComposition,
+        signups: event.signups,
+        raidHelperSignups: event.raidHelperSignups
+      });
 
       // Process manual signups first
       const manualSignups = Object.entries(event.signups || {})
@@ -676,6 +723,11 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
           )
         : [];
 
+      console.log('Processed signups:', {
+        manualSignups: manualSignups.length,
+        discordSignups: discordSignups.length
+      });
+
       // Combine all signups
       const allSignups = [...manualSignups, ...discordSignups];
       
@@ -683,13 +735,13 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       const initialGroups = raidGroups.map(group => ({ ...group, players: [] }));
       const assignedPlayerIds = new Set<string>();
       
-      if (event.raidComposition) {
-        console.log('Loading saved raid composition:', event.raidComposition);
-        const savedGroups = event.raidComposition.groups;
+    if (event.raidComposition) {
+      console.log('Loading saved raid composition:', event.raidComposition);
+      const savedGroups = event.raidComposition.groups;
 
-        // Update groups with saved players
-        const updatedGroups = initialGroups.map(group => {
-          const savedGroup = savedGroups.find(g => g.id === group.id);
+      // Update groups with saved players
+      const updatedGroups = initialGroups.map(group => {
+        const savedGroup = savedGroups.find(g => g.id === group.id);
           if (!savedGroup) return group;
 
           const validPlayers = savedGroup.players
@@ -715,11 +767,11 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
         );
 
         setRaidGroups(updatedGroups);
-        setUnassignedPlayers(unassigned);
+      setUnassignedPlayers(unassigned);
         setAssignedPlayers(assignedPlayerIds);
-      } else {
+    } else {
         // No saved composition, initialize with all players unassigned
-        setRaidGroups(initialGroups);
+      setRaidGroups(initialGroups);
         setUnassignedPlayers(allSignups);
         setAssignedPlayers(new Set());
       }
@@ -728,20 +780,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     };
 
     initializeSignups();
-  }, [isOpen, event?.id, event?.signupType, event?.raidHelperSignups, event?.signups, event?.raidComposition]);
-
-  // Reset initialization state when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      // Reset all state when modal closes
-      setHasInitialized(false);
-      setRaidGroups(prev => prev.map(group => ({ ...group, players: [] })));
-      setUnassignedPlayers([]);
-      setAssignedPlayers(new Set());
-      setInitialState(null);
-      setHasUnsavedChanges(false);
-    }
-  }, [isOpen]);
+  }, [isOpen, event?.id, event?.signupType, event?.raidHelperSignups, event?.signups, event?.raidComposition, hasInitialized]);
 
   // Update the useEffect to fetch Discord nicknames when component mounts
   useEffect(() => {
@@ -917,7 +956,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     });
 
     // Add to unassigned
-    setUnassignedPlayers(prev => [...prev, player]);
+      setUnassignedPlayers(prev => [...prev, player]);
   };
 
   const SubMenu = ({ label = '', children }: { label: string; children: React.ReactNode }) => {
@@ -1028,10 +1067,26 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     </Box>
   );
 
-  // Sort unassigned players
+  // Sort and filter players
   const { absencePlayers, regularUnassignedPlayers } = useMemo(() => {
-    const absent = unassignedPlayers.filter(p => p.characterClass === "Absence");
-    const regular = unassignedPlayers.filter(p => p.characterClass !== "Absence");
+    // Get all absences from both unassigned and groups
+    const allPlayers = [...unassignedPlayers, ...raidGroups.flatMap(group => group.players)];
+    
+    const absent = allPlayers.filter(p => {
+      // Website signups will have characterClass === "Absence"
+      if (!p.isDiscordSignup) {
+        return p.characterClass === "Absence";
+      }
+      // Discord absences have characterClass === "ABSENCE"
+      return p.characterClass?.toUpperCase() === "ABSENCE";
+    });
+    
+    const regular = unassignedPlayers.filter(p => {
+      if (!p.isDiscordSignup) {
+        return p.characterClass !== "Absence";
+      }
+      return p.characterClass?.toUpperCase() !== "ABSENCE";
+    });
     
     // Sort regular unassigned players
     const sortedRegular = [...regular].sort((a, b) => {
@@ -1050,7 +1105,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       absencePlayers: absent,
       regularUnassignedPlayers: sortedRegular
     };
-  }, [unassignedPlayers, selectedRole]);
+  }, [unassignedPlayers, selectedRole, raidGroups]);
 
   const userCharacterInfo = getUserCharacterGroup(user, event, raidGroups);
 
@@ -1144,34 +1199,35 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   const matchDiscordSignupsWithUsers = async (discordSignups: RaidHelperSignupType[]) => {
     try {
       const usersSnapshot = await getDocs(collection(db, 'users'));
-      const firebaseUsers = new Map<string, FirebaseUser>(
-        usersSnapshot.docs
-          .map(doc => {
-            const data = doc.data();
-            const discordId = data.discordId;
-            if (discordId) {
-              return [discordId, { id: doc.id, ...data } as FirebaseUser];
-            }
-            return null;
-          })
-          .filter((entry): entry is [string, FirebaseUser] => entry !== null)
-      );
+      const firebaseUsers = new Map<string, FirebaseUser>();
+      
+      // First, create a map of Discord IDs to user data
+      usersSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.discordId) {
+          firebaseUsers.set(data.discordId, { id: doc.id, ...data });
+        }
+      });
 
       const validSignups = discordSignups
         .filter((signup: RaidHelperSignupType) => signup.status === "primary")
         .map((signup: RaidHelperSignupType): SignupPlayer => {
+          console.log("Discord signup absenceReason:", signup.name, signup.absenceReason);
           const matchingUser = signup.userId ? firebaseUsers.get(signup.userId) : undefined;
-    return {
-            userId: signup.userId || signup.name,
-            username: signup.name,
+          
+          const player: SignupPlayer = {
+            userId: signup.userId || '',
+            username: signup.name || '',
             characterId: signup.id.toString(),
-            characterName: signup.name,
-            characterClass: signup.className || 'Unknown',
-            characterRole: signup.role || 'DPS',
+            characterName: signup.name || '',
+            characterClass: signup.className || '',
+            characterRole: signup.role || '',
             originalDiscordName: signup.name,
-            discordNickname: matchingUser?.discordSignupNickname,
-            spec: signup.specName || undefined
+            discordNickname: matchingUser?.discordSignupNickname || signup.name,
+            spec: signup.spec || '',
+            isDiscordSignup: true
           };
+          return player;
         });
 
       return validSignups;
@@ -1180,6 +1236,48 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       return [];
     }
   };
+
+  const handleUnsign = async () => {
+    if (!user || !event.id) return;
+
+    try {
+      // Create a new signups object without the user's signup
+      const updatedSignups = { ...event.signups };
+      delete updatedSignups[user.username];
+
+      // Update the event document
+      await updateDoc(doc(db, 'events', event.id), {
+        signups: updatedSignups
+      });
+
+      toast({
+        title: "Successfully unsigned",
+        description: "You have been removed from this event",
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+        position: "top"
+      });
+
+      onClose();
+    } catch (error) {
+      console.error('Error unsigning from event:', error);
+      toast({
+        title: "Error unsigning",
+        description: "There was an error removing you from this event",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+        position: "top"
+      });
+    }
+  };
+
+  // Add check for if user has signed up through website
+  const hasWebsiteSignup = useMemo(() => {
+    if (!user || !event.signups) return false;
+    return !!event.signups[user.username];
+  }, [user, event.signups]);
 
   return (
     <>
@@ -1230,10 +1328,20 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
             </Center>
           ) : (
             <>
-              <ModalCloseButton color="text.primary" size="lg" top={4} right={4} />
+          <ModalCloseButton color="text.primary" size="lg" top={4} right={4} />
               <ModalHeader color="text.primary" fontSize={isMobile ? "xl" : "2xl"} pt={8} px={8}>
                 <Flex justify="space-between" alignItems="center" flexDir={isMobile ? "column" : "row"} gap={4}>
-                  <Text>Slutgiltig Roster - {event.title}</Text>
+              <Text>Slutgiltig Roster - {event.title}</Text>
+                  {hasWebsiteSignup && (
+                    <Button
+                      colorScheme="red"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleUnsign}
+                    >
+                      Unsign
+                    </Button>
+                  )}
                   {isAdmin && unassignedPlayers.length + raidGroups.reduce((total, group) => total + group.players.length, 0) > 0 && (
                     <HStack spacing={2} mr={isMobile ? 0 : "3rem"}>
                       <Menu>
@@ -1319,22 +1427,22 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                           </MenuItem>
                         </MenuList>
                       </Menu>
-                    <Button
-                      leftIcon={<CheckIcon />}
-                      colorScheme="primary"
-                      variant="solid"
+                <Button
+                  leftIcon={<CheckIcon />}
+                  colorScheme="primary"
+                  variant="solid"
                         size="sm"
                         px={4}
                         py={1}
-                      onClick={handleSaveRaidComp}
-                      isLoading={isSaving}
-                      loadingText="Sparar..."
-                    >
-                      Spara Raid Comp
-                    </Button>
+                  onClick={handleSaveRaidComp}
+                  isLoading={isSaving}
+                  loadingText="Sparar..."
+                >
+                  Spara Raid Comp
+                </Button>
                     </HStack>
-                  )}
-                </Flex>
+              )}
+            </Flex>
 
                 {event.description && (
                   <Box
@@ -1343,22 +1451,22 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                     p={4}
                     mt={4}
                     maxW="800px"
-                      borderLeft="4px solid"
-                      borderLeftColor="primary.400"
+                  borderLeft="4px solid"
+                  borderLeftColor="primary.400"
                     _dark={{
                       bg: "rgba(255, 255, 255, 0.06)",
                     }}
-                    >
+                >
                     <HStack spacing={3}>
                       <Text
-                          color="primary.400"
+                      color="primary.400"
                         fontSize="sm"
                         fontWeight="semibold"
                         textTransform="uppercase"
                         minW="fit-content"
                       >
                         Event Description:
-                        </Text>
+                    </Text>
                       <Text
                         color="text.primary"
                         fontSize="sm"
@@ -1367,10 +1475,10 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                         }}
                       >
                         {event.description}
-                          </Text>
-                        </HStack>
-                      </Box>
-                    )}
+                      </Text>
+                    </HStack>
+                  </Box>
+                )}
 
                 {userCharacterInfo && (
                   <VStack align="start" spacing={2} mt={4}>
@@ -1390,18 +1498,18 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                         color: "whiteAlpha.900"
                       }}
                     >
-                      {userCharacterInfo.character.characterName} is assigned to {userCharacterInfo.group ? userCharacterInfo.group.name : 'an unassigned group'}
+                      {userCharacterInfo.group ? 'You are assigned to ' + userCharacterInfo.group.name : 'You are not assigned to any group'}
                     </Text>
-                  </VStack>
-                )}
-              </ModalHeader>
+              </VStack>
+            )}
+          </ModalHeader>
               <ModalBody 
                 p={isMobile ? 4 : 8} 
                 overflowY="auto" 
                 height="calc(100vh - 250px)"
                 onWheel={(e) => e.stopPropagation()}
               >
-                <DragDropContext onDragEnd={handleDragEnd}>
+            <DragDropContext onDragEnd={handleDragEnd}>
                   <VStack 
                     align="stretch" 
                     spacing={8} 
@@ -1409,7 +1517,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                     flexDir={isMobile ? "column" : "row"}
                   >
                     <Box flex={isMobile ? "none" : "1"} width={isMobile ? "100%" : "auto"}>
-                      <VStack align="stretch" spacing={4}>
+                  <VStack align="stretch" spacing={4}>
                         <Button
                           colorScheme="blue"
                           size="sm"
@@ -1420,24 +1528,24 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                         >
                           View Classes
                         </Button>
-                        <Box
-                          bg="background.tertiary"
-                          p={4}
-                          borderRadius="lg"
-                          borderLeft="4px solid"
-                          borderLeftColor="primary.400"
-                        >
-                          <Heading size="sm" color="text.primary" mb={3}>
+                    <Box
+                      bg="background.tertiary"
+                      p={4}
+                      borderRadius="lg"
+                      borderLeft="4px solid"
+                      borderLeftColor="primary.400"
+                    >
+                      <Heading size="sm" color="text.primary" mb={3}>
                             Unassigned Players ({regularUnassignedPlayers.length})
-                          </Heading>
+                      </Heading>
                           <Droppable droppableId="unassigned" type="player">
                             {(provided) => (
-                              <Box
-                                ref={provided.innerRef}
-                                {...provided.droppableProps}
+                          <Box
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
                                 bg="background.tertiary"
                                 p={4}
-                                borderRadius="md"
+                            borderRadius="md"
                                 minH="100px"
                                 maxH="calc(100vh - 400px)"
                                 overflowY="auto"
@@ -1471,12 +1579,12 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                                       unassignPlayer={unassignPlayer}
                                     />
                                   ))}
-                                {provided.placeholder}
+                            {provided.placeholder}
                                 </VStack>
-                              </Box>
-                            )}
+                          </Box>
+                        )}
                           </Droppable>
-                        </Box>
+                    </Box>
 
                         {absencePlayers.length > 0 && (
                           <Box
@@ -1491,124 +1599,104 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                               Absence ({absencePlayers.length})
                             </Heading>
                             <VStack align="stretch" spacing={2}>
-                              {absencePlayers.map((player, index) => (
-                                <Box
+                              {absencePlayers.map((player) => (
+                                <AbsencePlayer
                                   key={player.characterId}
-                                  bg="rgba(44, 49, 60, 0.95)"
-                                  p={3}
-                                  borderRadius="md"
-                                  borderLeft="3px solid"
-                                  borderLeftColor="red.400"
-                                >
-                                  <HStack spacing={3} justify="space-between" width="100%">
-                                    <Text color="white" fontSize="sm">
-                                      {player.discordNickname || player.originalDiscordName || player.username}
-                                    </Text>
-                                    <Badge
-                                      bg="red.900"
-                                      color="red.200"
-                                      px={2}
-                                      py={1}
-                                      borderRadius="sm"
-                                      fontSize="xs"
-                                      textTransform="uppercase"
-                                    >
-                                      Absence
-                                    </Badge>
-                                  </HStack>
-                                </Box>
+                                  player={player}
+                                  userNicknames={userNicknames}
+                                />
                               ))}
                             </VStack>
                           </Box>
                         )}
-                      </VStack>
-                    </Box>
+                  </VStack>
+                </Box>
 
                     <Box flex={isMobile ? "none" : "3"} width={isMobile ? "100%" : "auto"}>
-                      <VStack align="stretch" spacing={4}>
+                  <VStack align="stretch" spacing={4}>
                         <ButtonGroup 
                           isAttached 
                           variant="outline" 
                           alignSelf="flex-end"
                           flexWrap={isMobile ? "wrap" : "nowrap"}
                         >
-                          <Button
-                            onClick={() => setSelectedRaid(null)}
-                            colorScheme={selectedRaid === null ? "primary" : "gray"}
-                            size="sm"
-                            color="text.primary"
-                          >
-                            Visa alla
-                          </Button>
-                          <Button
-                            onClick={() => setSelectedRaid('1-8')}
-                            colorScheme={selectedRaid === '1-8' ? "primary" : "gray"}
-                            size="sm"
-                            color="text.primary"
-                          >
-                            Raid 1-8
-                          </Button>
-                          <Button
-                            onClick={() => setSelectedRaid('11-18')}
-                            colorScheme={selectedRaid === '11-18' ? "primary" : "gray"}
-                            size="sm"
-                            color="text.primary"
-                          >
-                            Raid 11-18
-                          </Button>
-                          <Button
-                            onClick={() => setSelectedRaid('21-28')}
-                            colorScheme={selectedRaid === '21-28' ? "primary" : "gray"}
-                            size="sm"
-                            color="text.primary"
-                          >
-                            Raid 21-28
-                          </Button>
-                        </ButtonGroup>
+                      <Button
+                        onClick={() => setSelectedRaid(null)}
+                        colorScheme={selectedRaid === null ? "primary" : "gray"}
+                        size="sm"
+                        color="text.primary"
+                      >
+                        Visa alla
+                      </Button>
+                      <Button
+                        onClick={() => setSelectedRaid('1-8')}
+                        colorScheme={selectedRaid === '1-8' ? "primary" : "gray"}
+                        size="sm"
+                        color="text.primary"
+                      >
+                        Raid 1-8
+                      </Button>
+                      <Button
+                        onClick={() => setSelectedRaid('11-18')}
+                        colorScheme={selectedRaid === '11-18' ? "primary" : "gray"}
+                        size="sm"
+                        color="text.primary"
+                      >
+                        Raid 11-18
+                      </Button>
+                      <Button
+                        onClick={() => setSelectedRaid('21-28')}
+                        colorScheme={selectedRaid === '21-28' ? "primary" : "gray"}
+                        size="sm"
+                        color="text.primary"
+                      >
+                        Raid 21-28
+                      </Button>
+                    </ButtonGroup>
 
-                        {(!selectedRaid || selectedRaid === '1-8') && (
-                          <>
-                            <Heading size="sm" color="text.primary" mb={4}>
+                    {(!selectedRaid || selectedRaid === '1-8') && (
+                      <>
+                        <Heading size="sm" color="text.primary" mb={4}>
                               Raid 1-8 [{getRaidPlayerCount(raidGroups, 0, 8)}/40]
-                            </Heading>
+                        </Heading>
                             <SimpleGrid columns={isMobile ? 1 : 4} spacing={4}>
-                              {raidGroups.slice(0, 8).map((group) => (
-                                <RaidGroup key={group.id} group={group} />
-                              ))}
-                            </SimpleGrid>
-                          </>
-                        )}
+                          {raidGroups.slice(0, 8).map((group) => (
+                            <RaidGroup key={group.id} group={group} />
+                          ))}
+                        </SimpleGrid>
+                      </>
+                    )}
 
-                        {(!selectedRaid || selectedRaid === '11-18') && (
-                          <>
-                            <Heading size="sm" color="text.primary" mb={4}>
+                    {(!selectedRaid || selectedRaid === '11-18') && (
+                      <>
+                        <Heading size="sm" color="text.primary" mb={4}>
                               Raid 11-18 [{getRaidPlayerCount(raidGroups, 8, 16)}/40]
-                            </Heading>
+                        </Heading>
                             <SimpleGrid columns={isMobile ? 1 : 4} spacing={4}>
-                              {raidGroups.slice(8, 16).map((group) => (
-                                <RaidGroup key={group.id} group={group} />
-                              ))}
-                            </SimpleGrid>
-                          </>
-                        )}
+                          {raidGroups.slice(8, 16).map((group) => (
+                            <RaidGroup key={group.id} group={group} />
+                          ))}
+                        </SimpleGrid>
+                      </>
+                    )}
 
-                        {(!selectedRaid || selectedRaid === '21-28') && (
-                          <>
-                            <Heading size="sm" color="text.primary" mb={4}>
+                    {(!selectedRaid || selectedRaid === '21-28') && (
+                      <>
+                        <Heading size="sm" color="text.primary" mb={4}>
                               Raid 21-28 [{getRaidPlayerCount(raidGroups, 16, 24)}/40]
-                            </Heading>
+                        </Heading>
                             <SimpleGrid columns={isMobile ? 1 : 4} spacing={4}>
-                              {raidGroups.slice(16, 24).map((group) => (
-                                <RaidGroup key={group.id} group={group} />
-                              ))}
-                            </SimpleGrid>
-                          </>
-                        )}
-                      </VStack>
-                    </Box>
+                          {raidGroups.slice(16, 24).map((group) => (
+                            <RaidGroup key={group.id} group={group} />
+                          ))}
+                        </SimpleGrid>
+                      </>
+                    )}
                   </VStack>
-                </DragDropContext>
-              </ModalBody>
+                </Box>
+                  </VStack>
+            </DragDropContext>
+          </ModalBody>
 
               <ClassViewModal
                 isOpen={isClassViewOpen}
