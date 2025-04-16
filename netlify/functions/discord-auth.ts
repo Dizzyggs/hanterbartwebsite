@@ -35,7 +35,7 @@ interface DiscordUser {
 const handler: Handler = async (event) => {
   const { code, state } = event.queryStringParameters || {};
   
-  // If no code is present, redirect to Discord OAuth
+  // If no code is present, redirect to Discord OAuthx
   if (!code) {
     const clientId = process.env.DISCORD_CLIENT_ID;
     const baseUrl = process.env.URL || 'http://localhost:8888';
