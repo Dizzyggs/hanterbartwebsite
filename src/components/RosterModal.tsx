@@ -761,7 +761,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     }
   }, [isOpen]);
 
-  // Update the useEffect to fetch Discord nicknames when component mounts
+  // Update the useEffect to fetch Calendar nicknames when component mounts
   useEffect(() => {
     const fetchNicknames = async () => {
       if (event.signupType === 'raidhelper') {

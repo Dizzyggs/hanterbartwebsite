@@ -39,11 +39,14 @@ import {
   Flex,
   Select,
   useMediaQuery,
+  FormControl,
+  FormLabel,
+  ModalFooter,
 } from '@chakra-ui/react';
 import { useEffect, useState, useRef } from 'react';
 import { collection, query, onSnapshot, doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { ChevronDownIcon, SearchIcon, DeleteIcon, TriangleDownIcon } from '@chakra-ui/icons';
+import { ChevronDownIcon, SearchIcon, DeleteIcon, TriangleDownIcon, EditIcon } from '@chakra-ui/icons';
 import type { User as FirebaseUser } from '../../types/firebase';
 import { useUser } from '../../context/UserContext';
 import { useNavigate } from 'react-router-dom';
@@ -86,6 +89,7 @@ const CLASS_COLORS = {
 interface User extends Omit<FirebaseUser, 'createdAt'> {
   createdAt: Date;
   confirmedRaider?: boolean;
+  discordSignupNickname?: string;
 }
 
 type SortField = 'username' | 'role' | 'joined' | 'confirmedRaider';
@@ -105,6 +109,10 @@ const ManageUsers = () => {
   const { user: currentUser, logout } = useUser();
   const navigate = useNavigate();
   const [isMobile] = useMediaQuery('(max-width: 768px)');
+  const [isEditingNickname, setIsEditingNickname] = useState(false);
+  const [selectedUserForNickname, setSelectedUserForNickname] = useState<User | null>(null);
+  const [newNickname, setNewNickname] = useState("");
+  const nicknameModal = useDisclosure();
 
   useEffect(() => {
     const usersQuery = query(collection(db, 'users'));
@@ -125,6 +133,7 @@ const ManageUsers = () => {
           lastLogin: data.lastLogin?.toDate() || new Date(),
           avatarUrl: data.avatarUrl,
           confirmedRaider: data.confirmedRaider,
+          discordSignupNickname: data.discordSignupNickname,
         });
       });
       setUsers(newUsers);
@@ -416,6 +425,54 @@ const ManageUsers = () => {
     }
   };
 
+  const handleEditDiscordNickname = (user: User) => {
+    setSelectedUserForNickname(user);
+    setNewNickname(user.discordSignupNickname || "");
+    nicknameModal.onOpen();
+  };
+
+  const handleSaveDiscordNickname = async () => {
+    if (!selectedUserForNickname) return;
+    setIsUpdating(true);
+
+    try {
+      const userRef = doc(db, 'users', selectedUserForNickname.id);
+      await updateDoc(userRef, {
+        discordSignupNickname: newNickname.trim()
+      });
+
+      // Log the admin action
+      if (currentUser && currentUser.role === 'admin') {
+        await logAdminAction(
+          currentUser.username,
+          currentUser.username,
+          'update',
+          'user',
+          selectedUserForNickname.id,
+          selectedUserForNickname.username,
+          `Changed Calendar nickname of user **${selectedUserForNickname.username}** to **${newNickname.trim()}**`
+        );
+      }
+
+      toast(createStyledToast({
+        title: 'Calendar Nickname Updated',
+        description: `Successfully updated Calendar nickname for ${selectedUserForNickname.username}`,
+        status: 'success'
+      }));
+
+      nicknameModal.onClose();
+    } catch (error) {
+      console.error('Error updating Calendar nickname:', error);
+      toast(createStyledToast({
+        title: 'Error',
+        description: 'Failed to update Calendar nickname',
+        status: 'error'
+      }));
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   return (
     <Box minH="calc(100vh - 4rem)" bg="background.primary" py={8} pt="80px">
       <Container maxW="7xl" px={{ base: 4, md: 8 }}>
@@ -492,6 +549,7 @@ const ManageUsers = () => {
                   <Th color="text.secondary">Role</Th>
                   <Th color="text.secondary">Characters</Th>
                   <Th color="text.secondary">Joined</Th>
+                  <Th color="text.secondary">Calendar Nickname</Th>
                   <Th color="text.secondary">Confirmed Raider</Th>
                   <Th color="text.secondary" textAlign="center">Actions</Th>
                 </Tr>
@@ -517,6 +575,22 @@ const ManageUsers = () => {
                     </Td>
                     <Td color="text.primary">
                       {user.createdAt.toLocaleDateString()}
+                    </Td>
+                    <Td>
+                      <HStack>
+                        <Text color="text.primary">
+                          {user.discordSignupNickname || "Not set"}
+                        </Text>
+                        <IconButton
+                          aria-label="Edit Calendar nickname"
+                          icon={<EditIcon />}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEditDiscordNickname(user)}
+                          color="text.primary"
+                          _hover={{ bg: "background.hover" }}
+                        />
+                      </HStack>
                     </Td>
                     <Td>
                       <Button
@@ -662,6 +736,24 @@ const ManageUsers = () => {
                       >
                         {user.confirmedRaider ? "Confirmed" : "Unconfirmed"}
                       </Button>
+                    </Flex>
+
+                    <Flex justify="space-between" align="center">
+                      <Text color="text.secondary" fontSize="sm">Calendar Nickname:</Text>
+                      <HStack>
+                        <Text color="text.primary">
+                          {user.discordSignupNickname || "Not set"}
+                        </Text>
+                        <IconButton
+                          aria-label="Edit Calendar nickname"
+                          icon={<EditIcon />}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEditDiscordNickname(user)}
+                          color="text.primary"
+                          _hover={{ bg: "background.hover" }}
+                        />
+                      </HStack>
                     </Flex>
 
                     <Flex justify="space-between" gap={2} mt={2}>
@@ -847,6 +939,52 @@ const ManageUsers = () => {
               )}
             </VStack>
           </ModalBody>
+        </ModalContent>
+      </Modal>
+
+      <Modal isOpen={nicknameModal.isOpen} onClose={nicknameModal.onClose} isCentered>
+        <ModalOverlay backdropFilter="blur(10px)" />
+        <ModalContent bg="background.secondary" borderColor="border.primary" borderWidth={1}>
+          <ModalHeader color="text.primary" borderBottom="1px solid" borderColor="border.primary">
+            {selectedUserForNickname?.discordSignupNickname
+              ? "Edit Calendar Nickname"
+              : "Set Calendar Nickname"}
+          </ModalHeader>
+          <ModalCloseButton color="text.primary" />
+          <ModalBody py={6}>
+            <FormControl>
+              <FormLabel color="text.primary">Calendar Nickname</FormLabel>
+              <Input
+                value={newNickname}
+                onChange={(e) => setNewNickname(e.target.value)}
+                placeholder="Enter Calendar nickname"
+                bg="background.tertiary"
+                border="1px solid"
+                borderColor="border.primary"
+                _hover={{ borderColor: "border.hover" }}
+                color="text.primary"
+              />
+            </FormControl>
+          </ModalBody>
+          <ModalFooter borderTop="1px solid" borderColor="border.primary">
+            <Button
+              variant="ghost"
+              mr={3}
+              onClick={nicknameModal.onClose}
+              color="text.primary"
+              _hover={{ bg: "background.hover" }}
+            >
+              Cancel
+            </Button>
+            <Button
+              colorScheme="blue"
+              onClick={handleSaveDiscordNickname}
+              isLoading={isUpdating}
+              isDisabled={!newNickname.trim()}
+            >
+              Save
+            </Button>
+          </ModalFooter>
         </ModalContent>
       </Modal>
     </Box>

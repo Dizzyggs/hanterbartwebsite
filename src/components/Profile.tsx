@@ -736,7 +736,7 @@ const Profile = () => {
                 {isDiscordConnected && (
                   <FormControl width="100%">
                     <HStack spacing={2} mb={2}>
-                      <FormLabel color="blue.300" fontSize={{ base: "sm", md: "md" }}>Discord Signup Nickname</FormLabel>
+                      <FormLabel color="blue.300" fontSize={{ base: "sm", md: "md" }}>Calendar Nickname (Your ingame name)</FormLabel>
                       <Tooltip 
                         label="This is what you will show up as in the calendar when you sign on discord. It makes it easier for admins to identify you."
                         hasArrow
@@ -751,7 +751,7 @@ const Profile = () => {
                       <Input
                         value={discordSignupNickname}
                         onChange={(e) => setDiscordSignupNickname(e.target.value)}
-                        placeholder="Enter your Discord signup nickname"
+                        placeholder="Enter your calendar nickname (Your ingame name)"
                         bg="whiteAlpha.50"
                         color="white"
                         borderColor="whiteAlpha.200"
