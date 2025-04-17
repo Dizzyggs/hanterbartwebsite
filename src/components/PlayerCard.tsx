@@ -47,6 +47,8 @@ const PlayerCardComponent = ({
   assignPlayerToGroup, 
   unassignPlayer 
 }: PlayerCardProps) => {
+
+
   const isAssigned = assignedPlayers.has(player.characterId);
   const classColor = getClassColor(player.characterClass || '');
   const { isOpen: isMenuOpen, onOpen: onMenuOpen, onClose: onMenuClose } = useDisclosure();

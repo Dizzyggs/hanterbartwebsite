@@ -1000,10 +1000,19 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     } else if (selectedFilter.type === 'role' && selectedFilter.value) {
       regular = regular.filter(p => {
         if (selectedFilter.value === 'Tank') {
-          return p.characterRole === 'Tank' || 
-                 (p.characterClass.toUpperCase() === 'DRUID' && p.spec?.toUpperCase() === 'FERAL');
+          const isTank = 
+            p.characterRole?.toLowerCase() === 'tank' || 
+            p.characterClass?.toLowerCase() === 'tank';
+          const isFeralDruid = 
+            p.characterClass?.toLowerCase() === 'druid' && 
+            p.spec?.toLowerCase() === 'feral';
+          
+          return isTank || isFeralDruid;
+        } else if (selectedFilter.value === 'Healer') {
+           console.log("selected healer filter");
+           console.log("here is the player", p);
         }
-        return p.characterRole === selectedFilter.value;
+        return (p.characterRole?.toLowerCase() === selectedFilter.value?.toLowerCase() || p.characterClass == "Priest" || p.characterClass == "Paladin" || p.characterClass == "Druid")
       });
     }
 
