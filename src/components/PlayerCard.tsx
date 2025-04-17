@@ -3,6 +3,7 @@ import { Draggable, DraggableProvided } from 'react-beautiful-dnd';
 import { SignupPlayer } from '../types/event';
 import { CLASS_ICONS, CLASS_COLORS, ClassIconType } from '../utils/classIcons';
 import { SubMenu } from './SubMenu';
+import { memo } from 'react';
 
 interface PlayerCardProps {
   player: SignupPlayer;
@@ -16,11 +17,26 @@ interface PlayerCardProps {
   unassignPlayer: (player: SignupPlayer) => void;
 }
 
+// Comparison function for React.memo
+const arePropsEqual = (prevProps: PlayerCardProps, nextProps: PlayerCardProps) => {
+  return (
+    prevProps.player.characterId === nextProps.player.characterId &&
+    prevProps.player.characterName === nextProps.player.characterName &&
+    prevProps.player.characterClass === nextProps.player.characterClass &&
+    prevProps.player.characterRole === nextProps.player.characterRole &&
+    prevProps.player.discordNickname === nextProps.player.discordNickname &&
+    prevProps.index === nextProps.index &&
+    prevProps.isMobile === nextProps.isMobile &&
+    prevProps.isAdmin === nextProps.isAdmin &&
+    prevProps.assignedPlayers.has(prevProps.player.characterId) === nextProps.assignedPlayers.has(nextProps.player.characterId)
+  );
+};
+
 const getClassColor = (className: string) => {
   return CLASS_COLORS[className.toUpperCase() as keyof typeof CLASS_COLORS] || '#FFFFFF';
 };
 
-export const PlayerCard = ({ 
+const PlayerCardComponent = ({ 
   player, 
   index, 
   isMobile, 
@@ -242,4 +258,6 @@ export const PlayerCard = ({
       )}
     </Draggable>
   );
-}; 
+};
+
+export const PlayerCard = memo(PlayerCardComponent, arePropsEqual); 

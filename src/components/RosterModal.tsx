@@ -148,6 +148,108 @@ interface RosterModalProps {
   isAdmin: boolean;
 }
 
+// Add this before the RosterModal component
+interface RaidGroupProps {
+  group: RaidGroup;
+  isMobile: boolean;
+  isAdmin: boolean;
+  event: Event;
+  raidGroups: RaidGroup[];
+  assignedPlayers: Set<string>;
+  assignPlayerToGroup: (player: SignupPlayer, groupId: string) => void;
+  unassignPlayer: (player: SignupPlayer) => void;
+}
+
+const MemoizedRaidGroup = memo(({ 
+  group,
+  isMobile,
+  isAdmin,
+  event,
+  raidGroups,
+  assignedPlayers,
+  assignPlayerToGroup,
+  unassignPlayer
+}: RaidGroupProps) => (
+  <Box
+    bg="background.secondary"
+    p={4}
+    borderRadius="md"
+    border="1px solid"
+    borderColor="border.primary"
+    minH="330px"
+    height="330px"
+  >
+    <VStack align="stretch" spacing={3} height="100%">
+      <HStack justify="space-between">
+        <Heading size="sm" color="text.primary">
+          {group.name}
+        </Heading>
+        <Text color="text.secondary" fontSize="sm">
+          {group.players.length}/5
+        </Text>
+      </HStack>
+      <Droppable droppableId={group.id} type="player">
+        {(provided) => (
+          <Box
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            bg="background.tertiary"
+            p={3}
+            borderRadius="md"
+            height="calc(100% - 40px)"
+            overflowY="auto"
+            onWheel={(e) => e.stopPropagation()}
+            sx={{
+              '&::-webkit-scrollbar': {
+                width: '4px',
+              },
+              '&::-webkit-scrollbar-track': {
+                width: '6px',
+                background: 'background.tertiary',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                background: 'border.secondary',
+                borderRadius: '24px',
+              },
+            }}
+          >
+            <VStack spacing={1.5} align="stretch">
+              {group.players.map((player, index) => (
+                <PlayerCard
+                  key={player.characterId}
+                  player={player}
+                  index={index}
+                  isMobile={isMobile}
+                  isAdmin={isAdmin}
+                  event={event}
+                  raidGroups={raidGroups}
+                  assignedPlayers={assignedPlayers}
+                  assignPlayerToGroup={assignPlayerToGroup}
+                  unassignPlayer={unassignPlayer}
+                />
+              ))}
+              {provided.placeholder}
+            </VStack>
+          </Box>
+        )}
+      </Droppable>
+    </VStack>
+  </Box>
+), (prevProps, nextProps) => {
+  // Custom comparison function for memo
+  return (
+    prevProps.group.id === nextProps.group.id &&
+    prevProps.group.players.length === nextProps.group.players.length &&
+    prevProps.group.players.every((player, index) => 
+      player.characterId === nextProps.group.players[index]?.characterId
+    ) &&
+    prevProps.isMobile === nextProps.isMobile &&
+    prevProps.isAdmin === nextProps.isAdmin
+  );
+});
+
+MemoizedRaidGroup.displayName = 'MemoizedRaidGroup';
+
 const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   // Add mobile detection
   const isTesting = false;
@@ -848,74 +950,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       </Box>
     );
   };
-
-  const RaidGroup = ({ group }: { group: RaidGroup }) => (
-    <Box
-      bg="background.secondary"
-      p={4}
-      borderRadius="md"
-      border="1px solid"
-      borderColor="border.primary"
-      minH="330px"
-      height="330px"
-    >
-      <VStack align="stretch" spacing={3} height="100%">
-        <HStack justify="space-between">
-          <Heading size="sm" color="text.primary">
-            {group.name}
-          </Heading>
-          <Text color="text.secondary" fontSize="sm">
-            {group.players.length}/5
-          </Text>
-        </HStack>
-        <Droppable droppableId={group.id} type="player">
-          {(provided) => (
-          <Box
-            ref={provided.innerRef}
-            {...provided.droppableProps}
-            bg="background.tertiary"
-              p={3}
-            borderRadius="md"
-              height="calc(100% - 40px)"
-            overflowY="auto"
-              onWheel={(e) => e.stopPropagation()}
-              sx={{
-              '&::-webkit-scrollbar': {
-                  width: '4px',
-                },
-                '&::-webkit-scrollbar-track': {
-                  width: '6px',
-                  background: 'background.tertiary',
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  background: 'border.secondary',
-                  borderRadius: '24px',
-                },
-              }}
-            >
-              <VStack spacing={1.5} align="stretch">
-              {group.players.map((player, index) => (
-                  <PlayerCard
-                    key={player.characterId}
-                    player={player}
-                    index={index}
-                    isMobile={isMobile}
-                    isAdmin={isAdmin}
-                    event={event}
-                    raidGroups={raidGroups}
-                    assignedPlayers={assignedPlayers}
-                    assignPlayerToGroup={assignPlayerToGroup}
-                    unassignPlayer={unassignPlayer}
-                  />
-                ))}
-            {provided.placeholder}
-              </VStack>
-          </Box>
-        )}
-        </Droppable>
-      </VStack>
-    </Box>
-  );
 
   // Replace the View Classes button with Filter List menu
   const [selectedFilter, setSelectedFilter] = useState<{
@@ -1634,7 +1668,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                         </Heading>
                             <SimpleGrid columns={isMobile ? 1 : 4} spacing={4}>
                           {raidGroups.slice(0, 8).map((group) => (
-                            <RaidGroup key={group.id} group={group} />
+                            <MemoizedRaidGroup key={group.id} group={group} isMobile={isMobile} isAdmin={isAdmin} event={event} raidGroups={raidGroups} assignedPlayers={assignedPlayers} assignPlayerToGroup={assignPlayerToGroup} unassignPlayer={unassignPlayer} />
                           ))}
                         </SimpleGrid>
                       </>
@@ -1647,7 +1681,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                         </Heading>
                             <SimpleGrid columns={isMobile ? 1 : 4} spacing={4}>
                           {raidGroups.slice(8, 16).map((group) => (
-                            <RaidGroup key={group.id} group={group} />
+                            <MemoizedRaidGroup key={group.id} group={group} isMobile={isMobile} isAdmin={isAdmin} event={event} raidGroups={raidGroups} assignedPlayers={assignedPlayers} assignPlayerToGroup={assignPlayerToGroup} unassignPlayer={unassignPlayer} />
                           ))}
                         </SimpleGrid>
                       </>
@@ -1660,7 +1694,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                         </Heading>
                             <SimpleGrid columns={isMobile ? 1 : 4} spacing={4}>
                           {raidGroups.slice(16, 24).map((group) => (
-                            <RaidGroup key={group.id} group={group} />
+                            <MemoizedRaidGroup key={group.id} group={group} isMobile={isMobile} isAdmin={isAdmin} event={event} raidGroups={raidGroups} assignedPlayers={assignedPlayers} assignPlayerToGroup={assignPlayerToGroup} unassignPlayer={unassignPlayer} />
                           ))}
                         </SimpleGrid>
                       </>
