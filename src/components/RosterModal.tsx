@@ -296,7 +296,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       discordNickname: signup.name,
       originalDiscordName: signup.name,
       isDiscordSignup: true,
-      spec: signup.spec,
+      spec: signup.specName || '',
       absenceReason: signup.absenceReason
     }));
 
@@ -990,7 +990,18 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
 
     // Apply filters
     if (selectedFilter.type === 'class' && selectedFilter.value) {
-      regular = regular.filter(p => p.characterClass.toUpperCase() === selectedFilter.value);
+      if(selectedFilter.value === "FURY") {
+        regular = regular.filter(p => {
+          // For Discord signups, check spec directly
+          if (p.isDiscordSignup) {
+            return p.spec?.toUpperCase() === "FURY";
+          }
+          // For website signups, check if they're a Warrior with DPS role
+          return p.characterClass === "Warrior" && p.characterRole === "DPS";
+        });
+      } else {
+        regular = regular.filter(p => p.characterClass.toUpperCase() === selectedFilter.value);
+      }
     } else if (selectedFilter.type === 'name') {
       regular = [...regular].sort((a, b) => {
         const nameA = (a.discordNickname || a.characterName).toLowerCase();
@@ -1009,10 +1020,9 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
           
           return isTank || isFeralDruid;
         } else if (selectedFilter.value === 'Healer') {
-           console.log("selected healer filter");
-           console.log("here is the player", p);
+          return (p.characterRole?.toLowerCase() === selectedFilter.value?.toLowerCase() || p.characterClass == "Priest" || p.characterClass == "Paladin" || p.characterClass == "Druid")
         }
-        return (p.characterRole?.toLowerCase() === selectedFilter.value?.toLowerCase() || p.characterClass == "Priest" || p.characterClass == "Paladin" || p.characterClass == "Druid")
+        return p.characterRole === selectedFilter.value;
       });
     }
 
@@ -1171,7 +1181,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
             characterRole: signup.role || '',
             originalDiscordName: signup.name,
             discordNickname: matchingUser?.discordSignupNickname || undefined,
-            spec: signup.spec || '',
+            spec: signup.specName || '',
             isDiscordSignup: true
           };
           return player;
@@ -1279,16 +1289,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
               <ModalHeader color="text.primary" fontSize={isMobile ? "xl" : "2xl"} pt={8} px={8}>
                 <Flex justify="space-between" alignItems="center" flexDir={isMobile ? "column" : "row"} gap={4}>
               <Text>Slutgiltig Roster - {event.title}</Text>
-                  {hasWebsiteSignup && (
-                    <Button
-                      colorScheme="red"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleUnsign}
-                    >
-                      Unsign
-                    </Button>
-                  )}
                   {isAdmin && unassignedPlayers.length + raidGroups.reduce((total, group) => total + group.players.length, 0) > 0 && (
                     <HStack spacing={2} mr={isMobile ? 0 : "3rem"}>
                       <Menu>
@@ -1486,7 +1486,9 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                               Show All
                             </MenuItem>
                             <MenuDivider />
-                            {Object.keys(CLASS_COLORS).map(className => (
+                            {Object.keys(CLASS_COLORS)
+                              .filter(className => className !== 'TANK') // Filter out TANK from class options
+                              .map(className => (
                               <MenuItem
                                 key={className}
                                 onClick={() => setSelectedFilter({ type: 'class', value: className })}
