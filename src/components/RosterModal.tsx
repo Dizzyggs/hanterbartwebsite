@@ -184,9 +184,12 @@ const MemoizedRaidGroup = memo(({
         <Heading size="sm" color="text.primary">
           {group.name}
         </Heading>
-        <Text color="text.secondary" fontSize="sm">
-          {group.players.length}/5
-        </Text>
+        <HStack spacing={0}>
+          <Text color={group.players.length > 5 ? "orange.400" : "text.secondary"} fontSize="sm">
+            {group.players.length}
+          </Text>
+          <Text color="text.secondary" fontSize="sm">/5</Text>
+        </HStack>
       </HStack>
       <Droppable droppableId={group.id} type="player">
         {(provided) => (
@@ -315,35 +318,27 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   const [assignedPlayers, setAssignedPlayers] = useState<Set<string>>(new Set());
 
   const [raidGroups, setRaidGroups] = useState<RaidGroup[]>([
-    { id: 'group1', name: 'Group 1', players: [] },
-    { id: 'group2', name: 'Group 2', players: [] },
-    { id: 'group3', name: 'Group 3', players: [] },
-    { id: 'group4', name: 'Group 4', players: [] },
-    { id: 'group5', name: 'Group 5', players: [] },
-    { id: 'group6', name: 'Group 6', players: [] },
-    { id: 'group7', name: 'Group 7', players: [] },
-    { id: 'group8', name: 'Group 8', players: [] },
-    { id: 'group11', name: 'Group 11', players: [] },
-    { id: 'group12', name: 'Group 12', players: [] },
-    { id: 'group13', name: 'Group 13', players: [] },
-    { id: 'group14', name: 'Group 14', players: [] },
-    { id: 'group15', name: 'Group 15', players: [] },
-    { id: 'group16', name: 'Group 16', players: [] },
-    { id: 'group17', name: 'Group 17', players: [] },
-    { id: 'group18', name: 'Group 18', players: [] },
-    { id: 'group21', name: 'Group 21', players: [] },
-    { id: 'group22', name: 'Group 22', players: [] },
-    { id: 'group23', name: 'Group 23', players: [] },
-    { id: 'group24', name: 'Group 24', players: [] },
-    { id: 'group25', name: 'Group 25', players: [] },
-    { id: 'group26', name: 'Group 26', players: [] },
-    { id: 'group27', name: 'Group 27', players: [] },
-    { id: 'group28', name: 'Group 28', players: [] },
+    { id: '1', name: 'Group 1', players: [] },
+    { id: '2', name: 'Group 2', players: [] },
+    { id: '3', name: 'Group 3', players: [] },
+    { id: '4', name: 'Group 4', players: [] },
+    { id: '5', name: 'Group 5', players: [] },
+    { id: '6', name: 'Group 6', players: [] },
+    { id: '7', name: 'Group 7', players: [] },
+    { id: '8', name: 'Group 8', players: [] },
+    { id: '11', name: 'Group 1', players: [] },
+    { id: '12', name: 'Group 2', players: [] },
+    { id: '13', name: 'Group 3', players: [] },
+    { id: '14', name: 'Group 4', players: [] },
+    { id: '15', name: 'Group 5', players: [] },
+    { id: '16', name: 'Group 6', players: [] },
+    { id: '17', name: 'Group 7', players: [] },
+    { id: '18', name: 'Group 8', players: [] }
   ]);
 
   const [selectedRole, setSelectedRole] = useState<'Tank' | 'Healer' | 'DPS' | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [selectedRaid, setSelectedRaid] = useState<'1-8' | '11-18' | '21-28' | null>(null);
+  const [selectedRaid, setSelectedRaid] = useState<'1-8' | '11-18' | null>(null);
   const [userNicknames, setUserNicknames] = useState<Record<string, string>>({});
   const { user } = useUser();
 
@@ -627,11 +622,9 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     };
   };
 
-  const getRaidName = (groupId: string) => {
-    const groupNumber = parseInt(groupId.replace('group', ''));
+  const getGroupName = (groupNumber: number) => {
     if (groupNumber >= 1 && groupNumber <= 8) return 'Raid 1-8';
     if (groupNumber >= 11 && groupNumber <= 18) return 'Raid 11-18';
-    if (groupNumber >= 21 && groupNumber <= 28) return 'Raid 21-28';
     return '';
   };
 
@@ -787,7 +780,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     } else {
       const destGroup = raidGroups.find(g => g.id === destination.droppableId);
       if (!destGroup) return;
-      if (destGroup.players.length >= 5 && source.droppableId !== destination.droppableId) {
+      if (destGroup.players.length >= 5 && source.droppableId !== destination.droppableId && !isAdmin) {
         toast({
           title: "Group is full",
           description: "A group can't have more than 5 players",
@@ -1056,62 +1049,21 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     return [...unassignedPlayers, ...raidGroups.flatMap(group => group.players)];
   }, [unassignedPlayers, raidGroups]);
 
-  // Add this function to handle exports for specific raid ranges
-  const exportRaidGroup = (startIndex: number, endIndex: number) => {
-    // Process groups in pairs
-    const groupPairs = [];
-    for (let i = startIndex; i < endIndex; i += 2) {
-      const group1 = raidGroups[i];
-      const group2 = raidGroups[i + 1];
-      
-      // Create the paired output for 5 player slots
-      const pairedLines = [];
-      for (let slot = 0; slot < 5; slot++) {
-        const player1 = group1?.players[slot];
-        const player2 = group2?.players[slot];
-        
-        const name1 = player1 ? (player1.discordNickname || player1.characterName) : "-";
-        const name2 = player2 ? (player2.discordNickname || player2.characterName) : "-";
-        
-        pairedLines.push(`${name1}    ${name2}`);
-      }
-      groupPairs.push(pairedLines.join('\n'));
-    }
+  // Update the MRT export section
+  const getMRTExport = () => {
+    const raid1 = raidGroups.slice(0, 8).map((group, index) => 
+      group.players.map(player => 
+        `${index + 1} ${player.characterName} ${player.characterClass}`
+      ).join('\n')
+    ).join('\n');
+    
+    const raid2 = raidGroups.slice(8, 16).map((group, index) => 
+      group.players.map(player => 
+        `${index + 1} ${player.characterName} ${player.characterClass}`
+      ).join('\n')
+    ).join('\n');
 
-    const outputString = groupPairs.join('\n\n');
-
-    if (!outputString) {
-      toast({
-        title: "No players in this raid range",
-        description: "There are no players in this raid to export",
-        status: "error",
-        duration: 3000,
-      });
-      return;
-    }
-
-    // Create and trigger download
-    const blob = new Blob([outputString], { type: 'text/plain' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${event.title.replace(/\s+/g, '_')}_MRT.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-
-    // Also copy to clipboard for easy pasting
-    navigator.clipboard.writeText(outputString).then(() => {
-      toast({
-        title: "MRT format copied to clipboard",
-        description: "Player list has been copied in MRT format to your clipboard",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-        position: "top"
-      });
-    });
+    return `Raid 1-8 [${getRaidPlayerCount(raidGroups, 0, 8)}/40]\n${raid1}\n\nRaid 11-18 [${getRaidPlayerCount(raidGroups, 8, 16)}/40]\n${raid2}`;
   };
 
   // Add these functions back
@@ -1317,7 +1269,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                           minW="180px"
                         >
                           <MenuItem
-                            onClick={() => exportRaidGroup(0, 8)}
+                            onClick={getMRTExport}
                             bg="transparent"
                             _hover={{ bg: 'gray.700' }}
                             _focus={{ bg: 'gray.700' }}
@@ -1328,49 +1280,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                             fontSize="sm"
                             fontWeight="medium"
                           >
-                            Raid 1-8
-                          </MenuItem>
-                          <MenuItem
-                            onClick={() => exportRaidGroup(8, 16)}
-                            bg="transparent"
-                            _hover={{ bg: 'gray.700' }}
-                            _focus={{ bg: 'gray.700' }}
-                            color="white"
-                            borderRadius="md"
-                            mb={1}
-                            p={2}
-                            fontSize="sm"
-                            fontWeight="medium"
-                          >
-                            Raid 11-18
-                          </MenuItem>
-                          <MenuItem
-                            onClick={() => exportRaidGroup(16, 24)}
-                            bg="transparent"
-                            _hover={{ bg: 'gray.700' }}
-                            _focus={{ bg: 'gray.700' }}
-                            color="white"
-                            borderRadius="md"
-                            mb={1}
-                            p={2}
-                            fontSize="sm"
-                            fontWeight="medium"
-                          >
-                            Raid 21-28
-                          </MenuItem>
-                          <MenuDivider borderColor="gray.700" my={2} />
-                          <MenuItem
-                            onClick={() => exportRaidGroup(0, 24)}
-                            bg="transparent"
-                            _hover={{ bg: 'gray.700' }}
-                            _focus={{ bg: 'gray.700' }}
-                            color="white"
-                            borderRadius="md"
-                            p={2}
-                            fontSize="sm"
-                            fontWeight="medium"
-                          >
-                            All Raids
+                            MRT Export
                           </MenuItem>
                         </MenuList>
                       </Menu>
@@ -1662,14 +1572,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                       >
                         Raid 11-18
                       </Button>
-                      <Button
-                        onClick={() => setSelectedRaid('21-28')}
-                        colorScheme={selectedRaid === '21-28' ? "primary" : "gray"}
-                        size="sm"
-                        color="text.primary"
-                      >
-                        Raid 21-28
-                      </Button>
                     </ButtonGroup>
 
                     {(!selectedRaid || selectedRaid === '1-8') && (
@@ -1692,19 +1594,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                         </Heading>
                             <SimpleGrid columns={isMobile ? 1 : 4} spacing={4}>
                           {raidGroups.slice(8, 16).map((group) => (
-                            <MemoizedRaidGroup key={group.id} group={group} isMobile={isMobile} isAdmin={isAdmin} event={event} raidGroups={raidGroups} assignedPlayers={assignedPlayers} assignPlayerToGroup={assignPlayerToGroup} unassignPlayer={unassignPlayer} />
-                          ))}
-                        </SimpleGrid>
-                      </>
-                    )}
-
-                    {(!selectedRaid || selectedRaid === '21-28') && (
-                      <>
-                        <Heading size="sm" color="text.primary" mb={4}>
-                              Raid 21-28 [{getRaidPlayerCount(raidGroups, 16, 24)}/40]
-                        </Heading>
-                            <SimpleGrid columns={isMobile ? 1 : 4} spacing={4}>
-                          {raidGroups.slice(16, 24).map((group) => (
                             <MemoizedRaidGroup key={group.id} group={group} isMobile={isMobile} isAdmin={isAdmin} event={event} raidGroups={raidGroups} assignedPlayers={assignedPlayers} assignPlayerToGroup={assignPlayerToGroup} unassignPlayer={unassignPlayer} />
                           ))}
                         </SimpleGrid>

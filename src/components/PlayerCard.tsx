@@ -218,53 +218,46 @@ const PlayerCardComponent = ({
                 </MenuItem>
                 <MenuDivider borderColor="border.primary" />
                 <SubMenu label="Raid 1-8">
-                  {raidGroups.slice(0, 8).map((group) => (
+                  {raidGroups.slice(0, 8).map(group => (
                     <MenuItem
                       key={group.id}
-                      _hover={{ bg: 'background.tertiary' }}
-                      _focus={{ bg: 'background.tertiary' }}
-                      color="text.primary"
-                      bg="background.secondary"
                       onClick={() => {
                         assignPlayerToGroup(player, group.id);
                         onMenuClose();
                       }}
+                      bg="transparent"
+                      _hover={{ bg: 'gray.700' }}
+                      _focus={{ bg: 'gray.700' }}
+                      color="white"
+                      borderRadius="md"
+                      mb={1}
+                      p={2}
+                      fontSize="sm"
+                      fontWeight="medium"
                     >
-                      {group.name} ({group.players.length}/5)
+                      {group.name}
                     </MenuItem>
                   ))}
                 </SubMenu>
                 <SubMenu label="Raid 11-18">
-                  {raidGroups.slice(8, 16).map((group) => (
+                  {raidGroups.slice(8, 16).map(group => (
                     <MenuItem
                       key={group.id}
-                      _hover={{ bg: 'background.tertiary' }}
-                      _focus={{ bg: 'background.tertiary' }}
-                      color="text.primary"
-                      bg="background.secondary"
                       onClick={() => {
                         assignPlayerToGroup(player, group.id);
                         onMenuClose();
                       }}
+                      bg="transparent"
+                      _hover={{ bg: 'gray.700' }}
+                      _focus={{ bg: 'gray.700' }}
+                      color="white"
+                      borderRadius="md"
+                      mb={1}
+                      p={2}
+                      fontSize="sm"
+                      fontWeight="medium"
                     >
-                      {group.name} ({group.players.length}/5)
-                    </MenuItem>
-                  ))}
-                </SubMenu>
-                <SubMenu label="Raid 21-28">
-                  {raidGroups.slice(16, 24).map((group) => (
-                    <MenuItem
-                      key={group.id}
-                      _hover={{ bg: 'background.tertiary' }}
-                      _focus={{ bg: 'background.tertiary' }}
-                      color="text.primary"
-                      bg="background.secondary"
-                      onClick={() => {
-                        assignPlayerToGroup(player, group.id);
-                        onMenuClose();
-                      }}
-                    >
-                      {group.name} ({group.players.length}/5)
+                      {group.name}
                     </MenuItem>
                   ))}
                 </SubMenu>
