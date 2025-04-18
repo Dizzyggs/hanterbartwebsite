@@ -52,6 +52,7 @@ import { useUser } from '../context/UserContext';
 import { PlayerCard } from './PlayerCard';
 import { CLASS_ICONS, CLASS_COLORS, ClassIconType } from '../utils/classIcons';
 import AbsencePlayer from './AbsencePlayer';
+import { getMRTExport } from '../hooks/rosterHelpers';
 
 // Suppress defaultProps warning from react-beautiful-dnd
 const originalError = console.error;
@@ -490,11 +491,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     
     setIsSaving(true);
     try {
-      console.log('Starting raid composition save...', {
-        eventId: event.id,
-        signupType: event.signupType,
-        groupCount: raidGroups.filter(group => group.players.length > 0).length
-      });
 
       // Filter out empty groups and clean up the data
       const nonEmptyGroups = raidGroups
@@ -527,11 +523,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
           })
         }));
 
-      console.log('Prepared raid composition data:', {
-        groupCount: nonEmptyGroups.length,
-        totalPlayers: nonEmptyGroups.reduce((sum, group) => sum + group.players.length, 0)
-      });
-
       const raidComposition = {
         lastUpdated: new Date(),
         updatedBy: {
@@ -541,7 +532,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
         groups: nonEmptyGroups
       };
 
-      console.log('Final raid composition data:', raidComposition);
 
       await updateDoc(doc(db, 'events', event.id), {
         raidComposition
@@ -639,8 +629,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     const initializeSignups = async () => {
       if (!isOpen || !event || hasInitialized) return;
 
-      console.log('Initializing signups for event:', event.id);
-
       // Process manual signups first
       const manualSignups = Object.entries(event.signups || {})
         .filter((entry): entry is [string, NonNullable<typeof entry[1]>] => entry[1] !== null)
@@ -668,7 +656,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       const assignedPlayerIds = new Set<string>();
       
     if (event.raidComposition) {
-      console.log('Loading saved raid composition:', event.raidComposition);
       const savedGroups = event.raidComposition.groups;
 
       // Update groups with saved players
@@ -841,12 +828,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     } else if (source.droppableId === 'unassigned') {
       setAssignedPlayers(prev => new Set([...prev, playerBeingMoved.characterId]));
     }
-  };
-
-  const getClassColor = (className: string) => {
-    if (!className) return '#FFFFFF';
-    const normalizedClass = className.toUpperCase();
-    return CLASS_COLORS[normalizedClass as keyof typeof CLASS_COLORS] || '#FFFFFF';
   };
 
   const assignPlayerToGroup = (player: SignupPlayer, groupId: string) => {
@@ -1044,32 +1025,9 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
 
   const userCharacterInfo = getUserCharacterGroup(user, event, raidGroups);
 
-  // Get all players (both assigned and unassigned)
-  const allPlayers = useMemo(() => {
-    return [...unassignedPlayers, ...raidGroups.flatMap(group => group.players)];
-  }, [unassignedPlayers, raidGroups]);
 
-  // Update the MRT export section
-  const getMRTExport = () => {
-    const raid1 = raidGroups.slice(0, 8).map((group, index) => 
-      group.players.map(player => 
-        `${index + 1} ${player.characterName} ${player.characterClass}`
-      ).join('\n')
-    ).join('\n');
-    
-    const raid2 = raidGroups.slice(8, 16).map((group, index) => 
-      group.players.map(player => 
-        `${index + 1} ${player.characterName} ${player.characterClass}`
-      ).join('\n')
-    ).join('\n');
-
-    return `Raid 1-8 [${getRaidPlayerCount(raidGroups, 0, 8)}/40]\n${raid1}\n\nRaid 11-18 [${getRaidPlayerCount(raidGroups, 8, 16)}/40]\n${raid2}`;
-  };
-
-  // Add these functions back
   const fetchDiscordNicknames = async (signups: SignupPlayer[]) => {
     try {
-      console.log('Fetching Discord nicknames for signups:', signups);
       const userDocs = await Promise.all(
         signups.map(signup => getDoc(doc(db, 'users', signup.userId)))
       );
@@ -1105,24 +1063,11 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
         }
       });
 
-      console.log('Matching Discord signups with users:', {
-        totalSignups: discordSignups.length,
-        totalUsers: firebaseUsers.size,
-        usersWithDiscordId: discordIdToUser.size
-      });
-
       const validSignups = discordSignups
         .filter((signup: RaidHelperSignupType) => signup.status === "primary")
         .map((signup: RaidHelperSignupType): SignupPlayer => {
           // Try to find the user by Discord ID first
           const matchingUser = signup.userId ? discordIdToUser.get(signup.userId) : undefined;
-          
-          console.log('Processing signup:', {
-            name: signup.name,
-            userId: signup.userId,
-            foundUser: matchingUser ? true : false,
-            hasNickname: matchingUser?.discordSignupNickname ? true : false
-          });
 
           const player: SignupPlayer = {
             userId: matchingUser?.id || signup.userId || signup.name,
@@ -1269,7 +1214,26 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                           minW="180px"
                         >
                           <MenuItem
-                            onClick={getMRTExport}
+                            onClick={() => {
+                              const content = getMRTExport(raidGroups, 'Raid 1-8');
+                              const blob = new Blob([content], { type: 'text/plain' });
+                              const url = window.URL.createObjectURL(blob);
+                              const link = document.createElement('a');
+                              link.href = url;
+                              link.download = `raid-1-8-${event.title}.txt`;
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                              window.URL.revokeObjectURL(url);
+                              
+                              toast({
+                                title: "Raid 1-8 roster downloaded",
+                                status: "success",
+                                duration: 3000,
+                                isClosable: true,
+                                position: "top"
+                              });
+                            }}
                             bg="transparent"
                             _hover={{ bg: 'gray.700' }}
                             _focus={{ bg: 'gray.700' }}
@@ -1280,7 +1244,72 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                             fontSize="sm"
                             fontWeight="medium"
                           >
-                            MRT Export
+                            Export Raid 1-8
+                          </MenuItem>
+                          <MenuItem
+                            onClick={() => {
+                              const content = getMRTExport(raidGroups, 'Raid 11-18');
+                              const blob = new Blob([content], { type: 'text/plain' });
+                              const url = window.URL.createObjectURL(blob);
+                              const link = document.createElement('a');
+                              link.href = url;
+                              link.download = `raid-11-18-${event.title}.txt`;
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                              window.URL.revokeObjectURL(url);
+                              
+                              toast({
+                                title: "Raid 11-18 roster downloaded",
+                                status: "success",
+                                duration: 3000,
+                                isClosable: true,
+                                position: "top"
+                              });
+                            }}
+                            bg="transparent"
+                            _hover={{ bg: 'gray.700' }}
+                            _focus={{ bg: 'gray.700' }}
+                            color="white"
+                            borderRadius="md"
+                            mb={1}
+                            p={2}
+                            fontSize="sm"
+                            fontWeight="medium"
+                          >
+                            Export Raid 11-18
+                          </MenuItem>
+                          <MenuItem
+                            onClick={() => {
+                              const content = getMRTExport(raidGroups);
+                              const blob = new Blob([content], { type: 'text/plain' });
+                              const url = window.URL.createObjectURL(blob);
+                              const link = document.createElement('a');
+                              link.href = url;
+                              link.download = `full-roster-${event.title}.txt`;
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                              window.URL.revokeObjectURL(url);
+                              
+                              toast({
+                                title: "Full roster downloaded",
+                                status: "success",
+                                duration: 3000,
+                                isClosable: true,
+                                position: "top"
+                              });
+                            }}
+                            bg="transparent"
+                            _hover={{ bg: 'gray.700' }}
+                            _focus={{ bg: 'gray.700' }}
+                            color="white"
+                            borderRadius="md"
+                            p={2}
+                            fontSize="sm"
+                            fontWeight="medium"
+                          >
+                            Export Full Roster
                           </MenuItem>
                         </MenuList>
                       </Menu>
