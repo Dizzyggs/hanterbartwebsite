@@ -995,6 +995,9 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
           return isTank || isFeralDruid;
         } else if (selectedFilter.value === 'Healer') {
           return (p.characterRole?.toLowerCase() === selectedFilter.value?.toLowerCase() || p.characterClass == "Priest" || p.characterClass == "Paladin" || p.characterClass == "Druid")
+        } else if (selectedFilter.value === 'DPS') {
+          const DPS_SPECS = ['frost', 'arcane', 'fury', 'fire', 'arms', 'beastmastery', 'survival', "assassination", 'combat', 'subtlety', 'affliction', 'demonology', 'destruction', 'shadow']
+          return (DPS_SPECS.includes(p.spec?.toLowerCase() || '') || p?.characterRole?.toLowerCase() == "dps")
         }
         return p.characterRole === selectedFilter.value;
       });

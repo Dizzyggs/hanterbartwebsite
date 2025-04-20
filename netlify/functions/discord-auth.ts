@@ -59,15 +59,6 @@ const handler: Handler = async (event) => {
     
     const discordAuthUrl = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodedRedirectUri}&response_type=code&scope=${scope}&state=${state}`;
     
-    console.log('Discord auth configuration:', {
-      clientId: clientId.substring(0, 4) + '...',  // Log only first 4 chars for security
-      baseUrl,
-      redirectUri,
-      hasCode: !!code,
-      hasState: !!state,
-      authUrl: discordAuthUrl
-    });
-    
     return {
       statusCode: 302,
       headers: {
@@ -78,7 +69,6 @@ const handler: Handler = async (event) => {
   }
 
   try {
-    console.log('Received callback with code:', code);
     const baseUrl = process.env.URL || 'http://localhost:8888';
     const redirectUri = `${baseUrl}/.netlify/functions/discord-auth`;
     
@@ -131,14 +121,12 @@ const handler: Handler = async (event) => {
     }
 
     const discordUser: DiscordUser = await userResponse.json();
-    console.log('Got Discord user:', discordUser);
 
     // Update user in Firestore with Discord info
     const redirectUrl = new URL('/profile', baseUrl);
     redirectUrl.searchParams.set('discord_id', discordUser.id);
     redirectUrl.searchParams.set('discord_username', discordUser.username);
     
-    console.log('Redirecting to:', redirectUrl.toString());
     
     return {
       statusCode: 302,

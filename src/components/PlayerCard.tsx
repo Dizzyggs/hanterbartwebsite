@@ -54,7 +54,6 @@ const PlayerCardComponent = ({
   const { isOpen: isMenuOpen, onOpen: onMenuOpen, onClose: onMenuClose } = useDisclosure();
 
   const getPlayerIcon = () => {
-    console.log("xd", player);
 
     // Tank check
     if (player.characterRole === 'Tank') {
@@ -63,18 +62,15 @@ const PlayerCardComponent = ({
 
     // Fury Warrior check for Discord signups
     if (event.signupType === 'raidhelper' && player.spec === 'Fury') {
-      console.log('Using Fury icon (Discord signup)');
       return CLASS_ICONS.FURY;
     }
 
     // Fury Warrior check for website signups
     if (player.characterClass === 'Warrior' && player.characterRole === 'DPS') {
-      console.log('Using Fury icon (Website signup)');
       return CLASS_ICONS.FURY;
     }
 
     // Default class icon
-    console.log('Using default class icon:', player.characterClass);
     return CLASS_ICONS[(player.characterClass || 'WARRIOR').toUpperCase() as ClassIconType];
   };
 

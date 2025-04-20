@@ -108,8 +108,6 @@ const CharacterCreationModal = ({ isOpen, onClose, onCharacterCreated }: Charact
   };
 
   const handleCreateCharacter = async () => {
-    console.log('Creating character...');
-    
     if (!user) {
       toast({
         title: 'Authentication Error',

@@ -46,12 +46,6 @@ var handler = function (event, context) { return __awaiter(void 0, void 0, void 
     return __generator(this, function (_c) {
         switch (_c.label) {
             case 0:
-                console.log('Function invoked with event:', {
-                    httpMethod: event.httpMethod,
-                    path: event.path,
-                    queryStringParameters: event.queryStringParameters,
-                    body: event.body ? JSON.parse(event.body) : null
-                });
                 headers = {
                     'Access-Control-Allow-Origin': '*',
                     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
@@ -68,12 +62,6 @@ var handler = function (event, context) { return __awaiter(void 0, void 0, void 
                 apiKey = process.env.RAIDHELPER_API_KEY;
                 serverId = process.env.DISCORD_SERVER_ID;
                 channelId = process.env.DISCORD_CHANNEL_ID;
-                console.log('Environment variables check:', {
-                    hasApiKey: !!apiKey,
-                    hasServerId: !!serverId,
-                    hasChannelId: !!channelId,
-                    nodeEnv: process.env.NODE_ENV
-                });
                 if (!apiKey || !serverId || !channelId) {
                     console.error('Missing required environment variables');
                     return [2 /*return*/, {
@@ -100,7 +88,6 @@ var handler = function (event, context) { return __awaiter(void 0, void 0, void 
                 return [3 /*break*/, 12];
             case 2:
                 eventData = JSON.parse(event.body || '{}');
-                console.log('Creating event with data:', eventData);
                 return [4 /*yield*/, (0, node_fetch_1.default)("https://raid-helper.dev/api/v2/servers/".concat(serverId, "/channels/").concat(channelId, "/event"), {
                         method: 'POST',
                         headers: {
@@ -114,7 +101,6 @@ var handler = function (event, context) { return __awaiter(void 0, void 0, void 
                 return [4 /*yield*/, response.text()];
             case 4:
                 responseText = _c.sent();
-                console.log('RaidHelper API raw response:', responseText);
                 data = void 0;
                 try {
                     data = JSON.parse(responseText);
@@ -123,7 +109,6 @@ var handler = function (event, context) { return __awaiter(void 0, void 0, void 
                     console.error('Failed to parse RaidHelper API response:', e);
                     throw new Error('Invalid response from RaidHelper API');
                 }
-                console.log('RaidHelper API parsed response:', data);
                 if (!response.ok) {
                     throw new Error(data.error || data.message || "Failed to create event: ".concat(response.statusText));
                 }

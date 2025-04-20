@@ -23,12 +23,6 @@ interface RaidHelperResponse {
 }
 
 export const handler: Handler = async (event, context) => {
-  console.log('Function invoked with event:', {
-    httpMethod: event.httpMethod,
-    path: event.path,
-    queryStringParameters: event.queryStringParameters,
-    body: event.body ? JSON.parse(event.body) : null
-  });
   
   const headers = {
     'Access-Control-Allow-Origin': '*',

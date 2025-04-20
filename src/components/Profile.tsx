@@ -287,7 +287,6 @@ const Profile = () => {
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !user) {
-      console.log('No file selected or user not logged in');
       return;
     }
 

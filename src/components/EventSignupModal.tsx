@@ -195,13 +195,6 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
           throw new Error('No response from RaidHelper API');
         }
 
-        console.log('[Debug] RaidHelper Signups:', {
-          eventId: event.raidHelperId,
-          signups: response.signUps,
-          currentUser: user?.username,
-          userDiscordId: user?.discordId
-        });
-
         setRaidHelperSignups(response);
         
         // Fetch Discord nicknames for all signups
@@ -220,21 +213,6 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
     }
   }, [isOpen, isRosterModalOpen, event.raidHelperId, event.signupType]);
 
-  // Debug log for user signup status
-  useEffect(() => {
-    if (isOpen) {
-      console.log('[Debug] Current Signup Status:', {
-        userSignup,
-        discordSignup: raidHelperSignups?.signUps?.find(signup => 
-          signup.userId === user?.discordId
-        ),
-        username: user?.username,
-        discordId: user?.discordId,
-        discordNickname: user?.discordSignupNickname
-      });
-    }
-  }, [isOpen, userSignup, raidHelperSignups, user]);
-
   // Add this effect to handle the 2-second loading state
   useEffect(() => {
     if (isOpen) {
@@ -249,11 +227,6 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
   const handleSignup = async () => {
     if (!user || !selectedCharacter) return;
 
-    console.log('[Debug] Attempting Website Signup:', {
-      user: user.username,
-      character: selectedCharacter,
-      event: event.title
-    });
 
     setIsSubmitting(true);
     try {

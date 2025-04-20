@@ -66,7 +66,6 @@ const Navbar = () => {
       };
 
       const result = await raidHelperService.createEvent(testEvent);
-      console.log('Event created:', result);
       
     } catch (error) {
       console.error('Test failed:', error);
