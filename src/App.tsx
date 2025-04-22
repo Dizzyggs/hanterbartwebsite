@@ -16,6 +16,7 @@ import { Box, Flex } from '@chakra-ui/react';
 import { UserProvider, useUser } from './context/UserContext';
 import AuditLogs from './components/admin/AuditLogs';
 import ManageUsers from './components/admin/ManageUsers';
+import RaidSettings from './components/admin/RaidSettings';
 import { ThemeProvider } from './context/ThemeContext';
 import RaiderRoute from './components/RaiderRoute';
 
@@ -105,6 +106,14 @@ function App() {
                     element={
                       <AdminRoute>
                         <ManageUsers />
+                      </AdminRoute>
+                    } 
+                  />
+                  <Route 
+                    path="raid-settings" 
+                    element={
+                      <AdminRoute>
+                        <RaidSettings />
                       </AdminRoute>
                     } 
                   />

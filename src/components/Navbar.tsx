@@ -31,6 +31,7 @@ import {
   TimeIcon,
   LockIcon,
   ChevronDownIcon,
+  StarIcon,
 } from '@chakra-ui/icons';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
@@ -152,6 +153,13 @@ const Navbar = () => {
                 <HStack spacing={2} className="nav-link">
                   <TimeIcon />
                   <Text>Audit Logs</Text>
+                </HStack>
+              </RouterLink>
+
+              <RouterLink to="/admin/raid-settings" onClick={onClose}>
+                <HStack spacing={2} className="nav-link">
+                  <StarIcon />
+                  <Text>Raid Settings</Text>
                 </HStack>
               </RouterLink>
             </>
@@ -323,13 +331,16 @@ const Navbar = () => {
                           Audit Logs
                         </MenuItem>
                       </RouterLink>
-                      <MenuItem
-                        _hover={{ bg: 'background.tertiary' }}
-                        bg="background.secondary"
-                        color="text.primary"
-                        onClick={testRaidHelper}
-                      >
-                      </MenuItem>
+                      <RouterLink to="/admin/raid-settings">
+                        <MenuItem
+                          icon={<StarIcon color="primary.400" />}
+                          _hover={{ bg: 'background.tertiary' }}
+                          bg="background.secondary"
+                          color="white"
+                        >
+                          Raid Settings
+                        </MenuItem>
+                      </RouterLink>
                     </>
                   )}
                 </MenuList>

@@ -42,11 +42,11 @@ import {
   Tooltip,
 } from '@chakra-ui/react';
 import { Global, css } from '@emotion/react';
-import { Event, RaidHelperSignup as RaidHelperSignupType, SignupPlayer } from '../types/firebase';
+import { Event, RaidHelperSignup as RaidHelperSignupType, SignupPlayer, RosterTemplate } from '../types/firebase';
 import { DragDropContext, Droppable, Draggable, DroppableProvided, DraggableProvided, DropResult, DroppableStateSnapshot } from 'react-beautiful-dnd';
 import { useState, useEffect, memo, ReactElement, useMemo, useRef } from 'react';
-import { CheckIcon, TimeIcon, InfoIcon, DownloadIcon } from '@chakra-ui/icons';
-import { doc, updateDoc, getDoc, getDocs, collection } from 'firebase/firestore';
+import { CheckIcon, TimeIcon, InfoIcon, DownloadIcon, ChevronDownIcon } from '@chakra-ui/icons';
+import { doc, updateDoc, getDoc, getDocs, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useUser } from '../context/UserContext';
 import { PlayerCard } from './PlayerCard';
@@ -186,12 +186,13 @@ const MemoizedRaidGroup = memo(({
           {group.name}
         </Heading>
         <HStack spacing={0}>
-          <Text color={group.players.length > 5 ? "orange.400" : "text.secondary"} fontSize="sm">
-            {group.players.length}
+          <Text color={group.players.filter(p => !p.isPreview).length > 5 ? "orange.400" : "text.secondary"} fontSize="sm">
+            {group.players.filter(p => !p.isPreview).length}
           </Text>
           <Text color="text.secondary" fontSize="sm">/5</Text>
         </HStack>
       </HStack>
+
       <Droppable droppableId={group.id} type="player">
         {(provided) => (
           <Box
@@ -230,6 +231,9 @@ const MemoizedRaidGroup = memo(({
                   assignedPlayers={assignedPlayers}
                   assignPlayerToGroup={assignPlayerToGroup}
                   unassignPlayer={unassignPlayer}
+                  isInRaidGroup={true}
+                  groupId={group.id}
+                  groupIndex={index}
                 />
               ))}
               {provided.placeholder}
@@ -244,9 +248,17 @@ const MemoizedRaidGroup = memo(({
   return (
     prevProps.group.id === nextProps.group.id &&
     prevProps.group.players.length === nextProps.group.players.length &&
-    prevProps.group.players.every((player, index) => 
-      player.characterId === nextProps.group.players[index]?.characterId
-    ) &&
+    prevProps.group.players.every((player, index) => {
+      const nextPlayer = nextProps.group.players[index];
+      return (
+        player.characterId === nextPlayer?.characterId &&
+        player.isPreview === nextPlayer?.isPreview &&
+        player.username === nextPlayer?.username &&
+        player.characterClass === nextPlayer?.characterClass &&
+        player.characterRole === nextPlayer?.characterRole &&
+        player.matchedPlayerId === nextPlayer?.matchedPlayerId
+      );
+    }) &&
     prevProps.isMobile === nextProps.isMobile &&
     prevProps.isAdmin === nextProps.isAdmin
   );
@@ -621,7 +633,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   const getRaidPlayerCount = (raidGroups: RaidGroup[], startGroup: number, endGroup: number) => {
     return raidGroups
       .slice(startGroup, endGroup)
-      .reduce((total, group) => total + group.players.length, 0);
+      .reduce((total, group) => total + group.players.filter(p => !p.isPreview).length, 0);
   };
 
   // Update the useEffect to only run on initial open
@@ -832,34 +844,94 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
 
   const assignPlayerToGroup = (player: SignupPlayer, groupId: string) => {
     const targetGroup = raidGroups.find(g => g.id === groupId);
-    if (!targetGroup || targetGroup.players.length >= 5) return;
+    const realPlayerCount = targetGroup?.players.filter(p => !p.isPreview).length || 0;
+    
+    if (!targetGroup || realPlayerCount >= 5) {
+      console.log("Failed to assign player:", {
+        reason: !targetGroup ? "Target group not found" : "Group is full",
+        groupId,
+        targetGroup,
+        realPlayerCount,
+        totalPlayers: targetGroup?.players.length
+      });
+      return;
+    }
+
+    // If this is a preview player with a matched real player, use the real player
+    const playerToAssign = player.isPreview && player.matchedPlayerId
+      ? unassignedPlayers.find(p => p.characterId === player.matchedPlayerId) || player
+      : player;
+
+    console.log("Assigning player:", {
+      player: playerToAssign,
+      toGroup: groupId,
+      currentGroupPlayers: realPlayerCount,
+      isInUnassigned: unassignedPlayers.some(p => p.characterId === playerToAssign.characterId),
+      currentGroups: raidGroups.map(g => ({
+        id: g.id,
+        playerCount: g.players.filter(p => !p.isPreview).length,
+        hasPlayer: g.players.some(p => p.characterId === playerToAssign.characterId)
+      }))
+    });
 
     // First, remove from unassigned if present
-    setUnassignedPlayers(prev => 
-      prev.filter(p => p.characterId !== player.characterId)
-    );
+    setUnassignedPlayers(prev => {
+      const newUnassigned = prev.filter(p => p.characterId !== playerToAssign.characterId);
+      console.log("Updated unassigned players:", {
+        before: prev.length,
+        after: newUnassigned.length,
+        removed: prev.length - newUnassigned.length
+      });
+      return newUnassigned;
+    });
 
-    // Then, update all groups (remove from current group if assigned and add to target group)
-    setRaidGroups(prevGroups => prevGroups.map(group => {
-      // Remove from any existing group
-      if (group.players.some(p => p.characterId === player.characterId)) {
-        return {
-          ...group,
-          players: group.players.filter(p => p.characterId !== player.characterId)
-        };
-      }
+    // Then, update all groups
+    setRaidGroups(prevGroups => {
+      const updatedGroups = prevGroups.map(group => {
+        // Get current players, removing only:
+        // 1. The preview player that matches this player (if any)
+        // 2. The real player from any group (if being moved)
+        const filteredPlayers = group.players.filter(p => 
+          !(p.isPreview && p.matchedPlayerId === playerToAssign.characterId) && // Don't remove other preview players
+          p.characterId !== playerToAssign.characterId // Remove the real player if it exists in any group
+        );
+
       // Add to target group
       if (group.id === groupId) {
         return {
           ...group,
-          players: [...group.players, player]
+            players: [...filteredPlayers, playerToAssign]
+          };
+        }
+
+        return {
+          ...group,
+          players: filteredPlayers
         };
-      }
-      return group;
-    }));
+      });
+
+      console.log("Updated groups:", {
+        targetGroupId: groupId,
+        targetGroupPlayers: updatedGroups.find(g => g.id === groupId)?.players.length,
+        allGroups: updatedGroups.map(g => ({
+          id: g.id,
+          playerCount: g.players.filter(p => !p.isPreview).length
+        }))
+      });
+
+      return updatedGroups;
+    });
 
     // Update assigned players set
-    setAssignedPlayers(prev => new Set([...prev, player.characterId]));
+    setAssignedPlayers(prev => {
+      const newSet = new Set([...prev, playerToAssign.characterId]);
+      console.log("Updated assigned players set:", {
+        before: prev.size,
+        after: newSet.size,
+        added: newSet.size - prev.size
+      });
+      return newSet;
+    });
   };
 
   const unassignPlayer = (player: SignupPlayer) => {
@@ -973,8 +1045,11 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
           // For website signups, check if they're a Warrior with DPS role
           return p.characterClass === "Warrior" && p.characterRole === "DPS";
         });
-      } else {
-        regular = regular.filter(p => p.characterClass.toUpperCase() === selectedFilter.value);
+      } else if (selectedFilter.value == "WARRIOR") {
+        regular = regular.filter(p => (p.characterClass === "Warrior" || p.spec?.toUpperCase() === "FURY" || p.spec?.toUpperCase() == "PROTECTION"));
+      }
+      else {
+        regular = regular.filter(p => (p.characterClass.toUpperCase() === selectedFilter.value));
       }
     } else if (selectedFilter.type === 'name') {
       regular = [...regular].sort((a, b) => {
@@ -1135,6 +1210,120 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     if (!user || !event.signups) return false;
     return !!event.signups[user.username];
   }, [user, event.signups]);
+
+  const [rosterTemplates, setRosterTemplates] = useState<RosterTemplate[]>([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+
+  // Load templates when modal opens
+  useEffect(() => {
+    const loadTemplates = async () => {
+      if (!isAdmin) return;
+      
+      setIsLoadingTemplates(true);
+      try {
+        const templatesSnap = await getDocs(collection(db, 'rosterTemplates'));
+        const templates = templatesSnap.docs.map(doc => ({ ...doc.data(), id: doc.id } as RosterTemplate));
+        setRosterTemplates(templates);
+      } catch (error) {
+        console.error('Error loading templates:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load roster templates',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+      } finally {
+        setIsLoadingTemplates(false);
+      }
+    };
+
+    if (isOpen) {
+      loadTemplates();
+    }
+  }, [isOpen, isAdmin]);
+
+  const handleApplyTemplate = (template: RosterTemplate, raidSection: '1-8' | '11-18') => {
+    console.log('Applying template:', template.name);
+    const startIndex = raidSection === '1-8' ? 0 : 8;
+    const endIndex = raidSection === '1-8' ? 8 : 16;
+    
+    // Create a copy of the current raid groups
+    const newRaidGroups = [...raidGroups];
+    
+    // For each group in the template
+    template.groupData.forEach((templateGroup, index) => {
+      const raidGroupIndex = startIndex + index;
+      if (raidGroupIndex >= endIndex) return; // Don't exceed the raid section
+      
+      console.log(`Processing Group ${raidGroupIndex + 1}:`);
+      
+      // Initialize empty players array for this group if it doesn't exist
+      if (!newRaidGroups[raidGroupIndex].players) {
+        newRaidGroups[raidGroupIndex].players = [];
+      }
+      
+      // For each player in the template group
+      templateGroup.players.forEach((templatePlayer, playerIndex) => {
+        console.log(`  Player ${playerIndex + 1}:`, {
+          name: templatePlayer.name || 'N/A',
+          class: templatePlayer.class || 'N/A',
+          role: templatePlayer.role || 'N/A'
+        });
+
+        // Check if this player exists in unassigned players
+        const matchingPlayer = unassignedPlayers.find(up => {
+          const upName = (up.username || up.characterName || '').toLowerCase();
+          const templateName = templatePlayer.name.toLowerCase();
+          console.log(`  Comparing: Template name "${templateName}" with unassigned player "${upName}"`);
+          return upName === templateName;
+        });
+
+        if (matchingPlayer) {
+          console.log(`  Found matching player: ${matchingPlayer.username || matchingPlayer.characterName}`);
+        } else {
+          console.log('  No matching player found in unassigned list');
+        }
+
+        // Create preview player
+        const previewPlayer: SignupPlayer = {
+          userId: matchingPlayer?.userId || '',
+          username: templatePlayer.name,
+          characterId: matchingPlayer?.characterId || `preview-${Date.now()}-${raidGroupIndex}-${playerIndex}`,
+          characterName: templatePlayer.name,
+          characterClass: templatePlayer.class,
+          characterRole: templatePlayer.role,
+          isPreview: true,
+          matchedPlayerId: matchingPlayer?.characterId // Will be undefined if no match found
+        };
+
+        // Ensure the group has enough slots
+        while (newRaidGroups[raidGroupIndex].players.length <= playerIndex) {
+          newRaidGroups[raidGroupIndex].players.push({
+            userId: '',
+            username: '',
+            characterId: '',
+            characterName: '',
+            characterClass: '',
+            characterRole: ''
+          });
+        }
+
+        // Update the player in the raid group
+        newRaidGroups[raidGroupIndex].players[playerIndex] = previewPlayer;
+      });
+    });
+
+    // Create a completely new array to force React to recognize the change
+    const updatedGroups = newRaidGroups.map(group => ({
+      ...group,
+      players: group.players.map(player => ({ ...player }))
+    }));
+
+    // Update state with the new array
+    setRaidGroups(updatedGroups);
+    setHasUnsavedChanges(true);
+  };
 
   return (
     <>
@@ -1537,6 +1726,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                                   assignedPlayers={assignedPlayers}
                                   assignPlayerToGroup={assignPlayerToGroup}
                                   unassignPlayer={unassignPlayer}
+                                  isInRaidGroup={false}
                                 />
                               ))}
                             {provided.placeholder}
@@ -1608,12 +1798,50 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
 
                     {(!selectedRaid || selectedRaid === '1-8') && (
                       <>
-                        <Heading size="sm" color="text.primary" mb={4}>
-                              Raid 1-8 [{getRaidPlayerCount(raidGroups, 0, 8)}/40]
+                        <HStack justify="space-between" mb={4}>
+                          <Heading size="sm" color="text.primary">
+                            Raid 1-8 [{getRaidPlayerCount(raidGroups, 0, 8)}/40]
                         </Heading>
-                            <SimpleGrid columns={isMobile ? 1 : 4} spacing={4}>
+                          {isAdmin && (
+                            <Menu>
+                              <MenuButton
+                                as={Button}
+                                rightIcon={<ChevronDownIcon />}
+                                size="sm"
+                                colorScheme="blue"
+                                isLoading={isLoadingTemplates}
+                              >
+                                Apply Template
+                              </MenuButton>
+                              <MenuList bg="background.secondary">
+                                {rosterTemplates.map(template => (
+                                  <MenuItem
+                                    key={template.id}
+                                    onClick={() => handleApplyTemplate(template, '1-8')}
+                                    bg="background.secondary"
+                                    _hover={{ bg: 'blue.500' }}
+                                    color="white"
+                                  >
+                                    {template.name}
+                                  </MenuItem>
+                                ))}
+                              </MenuList>
+                            </Menu>
+                          )}
+                        </HStack>
+                        <SimpleGrid columns={isMobile ? 1 : 4} spacing={4}>
                           {raidGroups.slice(0, 8).map((group) => (
-                            <MemoizedRaidGroup key={group.id} group={group} isMobile={isMobile} isAdmin={isAdmin} event={event} raidGroups={raidGroups} assignedPlayers={assignedPlayers} assignPlayerToGroup={assignPlayerToGroup} unassignPlayer={unassignPlayer} />
+                            <MemoizedRaidGroup
+                              key={`${group.id}-${group.players.filter(p => p.isPreview).length}`}
+                              group={group}
+                              isMobile={isMobile}
+                              isAdmin={isAdmin}
+                              event={event}
+                              raidGroups={raidGroups}
+                              assignedPlayers={assignedPlayers}
+                              assignPlayerToGroup={assignPlayerToGroup}
+                              unassignPlayer={unassignPlayer}
+                            />
                           ))}
                         </SimpleGrid>
                       </>
@@ -1621,12 +1849,50 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
 
                     {(!selectedRaid || selectedRaid === '11-18') && (
                       <>
-                        <Heading size="sm" color="text.primary" mb={4}>
-                              Raid 11-18 [{getRaidPlayerCount(raidGroups, 8, 16)}/40]
+                        <HStack justify="space-between" mb={4}>
+                          <Heading size="sm" color="text.primary">
+                            Raid 11-18 [{getRaidPlayerCount(raidGroups, 8, 16)}/40]
                         </Heading>
-                            <SimpleGrid columns={isMobile ? 1 : 4} spacing={4}>
+                          {isAdmin && (
+                            <Menu>
+                              <MenuButton
+                                as={Button}
+                                rightIcon={<ChevronDownIcon />}
+                                size="sm"
+                                colorScheme="blue"
+                                isLoading={isLoadingTemplates}
+                              >
+                                Apply Template
+                              </MenuButton>
+                              <MenuList bg="background.secondary">
+                                {rosterTemplates.map(template => (
+                                  <MenuItem
+                                    key={template.id}
+                                    onClick={() => handleApplyTemplate(template, '11-18')}
+                                    bg="background.secondary"
+                                    _hover={{ bg: 'blue.500' }}
+                                    color="white"
+                                  >
+                                    {template.name}
+                                  </MenuItem>
+                                ))}
+                              </MenuList>
+                            </Menu>
+                          )}
+                        </HStack>
+                        <SimpleGrid columns={isMobile ? 1 : 4} spacing={4}>
                           {raidGroups.slice(8, 16).map((group) => (
-                            <MemoizedRaidGroup key={group.id} group={group} isMobile={isMobile} isAdmin={isAdmin} event={event} raidGroups={raidGroups} assignedPlayers={assignedPlayers} assignPlayerToGroup={assignPlayerToGroup} unassignPlayer={unassignPlayer} />
+                            <MemoizedRaidGroup
+                              key={`${group.id}-${group.players.filter(p => p.isPreview).length}`}
+                              group={group}
+                              isMobile={isMobile}
+                              isAdmin={isAdmin}
+                              event={event}
+                              raidGroups={raidGroups}
+                              assignedPlayers={assignedPlayers}
+                              assignPlayerToGroup={assignPlayerToGroup}
+                              unassignPlayer={unassignPlayer}
+                            />
                           ))}
                         </SimpleGrid>
                       </>

@@ -164,4 +164,42 @@ export interface SignupPlayer {
   spec?: string;
   absenceReason?: string;
   isDiscordSignup?: boolean;
+  isPreview?: boolean;
+  matchedPlayerId?: string;
+}
+
+export interface RaidTemplate {
+  id: string;
+  name: string;
+  size: number;
+  duration: number;
+  roles: {
+    tank: number;
+    healer: number;
+    dps: number;
+  };
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  createdBy: string;
+}
+
+export interface RosterTemplatePlayer {
+  name: string;
+  class: string;
+  role: string;
+}
+
+export interface RosterTemplateGroup {
+  id: string;
+  name: string;
+  players: RosterTemplatePlayer[];
+}
+
+export interface RosterTemplate {
+  id: string;
+  name: string;
+  groupData: RosterTemplateGroup[];
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+  createdBy: string;
 } 

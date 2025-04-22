@@ -26,13 +26,6 @@ import {
   Checkbox,
   HStack,
   Tooltip,
-  Select,
-  RadioGroup,
-  Radio,
-  Text,
-  Flex,
-  useDisclosure,
-  useTheme,
 } from '@chakra-ui/react';
 import { useState, useEffect } from 'react';
 import { CheckIcon } from '@chakra-ui/icons';
@@ -41,11 +34,8 @@ import { db } from '../firebase';
 import { useUser } from '../context/UserContext';
 import type { Event } from '../types/firebase';
 import { raidHelperService } from '../services/raidhelper';
-import { getDayInEnglish } from '../tools/tools';
+import { getDayInEnglish, getDefaultSettings } from '../tools/tools';
 import { eventCreationSteps } from '../tools/tools';
-import { FaDiscord, FaCalendarAlt, FaPlus, FaTrash, FaEdit, FaCheck } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
-import SignupTypeStep from './CreateEventStepper/SignupTypeStep';
 
 interface EventCreationModalProps {
   isOpen: boolean;
@@ -66,6 +56,7 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
   const [eventDescription, setEventDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isWeeklyRecurring, setIsWeeklyRecurring] = useState(false);
+  const [defaultOccuring, setDefaultOccuring] = useState(1);
   const [recurringWeeks, setRecurringWeeks] = useState(1);
   
   const { user } = useUser();
@@ -74,6 +65,34 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
     duration: 3000,
     isClosable: true,
   });
+
+  // Load default settings when modal opens
+  useEffect(() => {
+    const loadDefaults = async () => {
+      try {
+        const settings = await getDefaultSettings();
+        if (settings?.defaultRaidTime) {
+          setEventTime(settings.defaultRaidTime);
+          // Set the date to today with the default time
+          const today = new Date();
+          const [hours, minutes] = settings.defaultRaidTime.split(':');
+          today.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+          setEventDate(today.toISOString().split('T')[0]);
+        }
+        if (settings?.defaultReoccurrence) {
+          const weeks = parseInt(settings.defaultReoccurrence);
+          setDefaultOccuring(weeks);
+          setRecurringWeeks(weeks);
+        }
+      } catch (error) {
+        console.error('Error loading default settings:', error);
+      }
+    };
+
+    if (isOpen) {
+      loadDefaults();
+    }
+  }, [isOpen]);
 
   const createEvent = async (startDate: Date) => {
     try {
@@ -383,7 +402,7 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
         );
       case 2:
         return (
-          <VStack spacing={6} align="stretch">
+          <VStack spacing={6} align="stretch" width={"100%"}>
             <FormControl isRequired>
               <FormLabel color="text.primary" fontSize="lg" mb={4}>
                 Date & Time
@@ -397,6 +416,7 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
                   borderColor="border.primary"
                   _hover={{ borderColor: 'primary.500', boxShadow: '0 0 10px var(--chakra-colors-primary-500)' }}
                   transition="all 0.2s"
+                  width={"100%"}
                 >
                   <Input
                     type="datetime-local"
@@ -476,6 +496,9 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
                             borderRadius="md"
                             border="1px solid"
                             borderColor="border.primary"
+                            display="flex"
+                            alignItems="center"
+                            justifyContent="space-between"
                             spacing={1}
                           >
                             <Button
