@@ -1,7 +1,7 @@
 import { Box, Container, Heading, Button, HStack, Text, useDisclosure, Flex } from '@chakra-ui/react';
 import { Calendar as BigCalendar, dateFnsLocalizer, Views } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
-import { enUS } from 'date-fns/locale';
+import { enGB } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { motion } from 'framer-motion';
 import { EventCreationModal } from './EventCreationModal';
@@ -21,13 +21,13 @@ const MotionHeading = motion(Heading);
 const MotionFlex = motion(Flex);
 
 const locales = {
-  'en-US': enUS,
+  'en-GB': enGB,
 };
 
 const localizer = dateFnsLocalizer({
   format,
   parse,
-  startOfWeek,
+  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }),
   getDay,
   locales,
 });
@@ -147,10 +147,14 @@ const Calendar = () => {
     }
 
     .rbc-off-range-bg {
-      background: ${currentTheme === 'neon' ? 'rgba(10, 15, 10, 0.3)' : 
-                   currentTheme === 'ember' ? 'rgba(31, 26, 26, 0.3)' :
-                   currentTheme === 'frost' ? 'rgba(26, 31, 46, 0.3)' :
-                   'rgba(26, 32, 44, 0.3)'};
+      background: ${currentTheme === 'neon' ? 'rgba(10, 15, 10, 0.2)' : 
+                   currentTheme === 'ember' ? 'rgba(31, 26, 26, 0.2)' :
+                   currentTheme === 'frost' ? 'rgba(26, 31, 46, 0.2)' :
+                   'rgba(26, 32, 44, 0.2)'} !important;
+    }
+
+    .rbc-off-range {
+      color: rgba(226, 232, 240, 0.3) !important;
     }
 
     .rbc-today {
