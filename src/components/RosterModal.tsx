@@ -497,90 +497,90 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     }
   }, [raidGroups, unassignedPlayers, initialState, isAdmin, hasUnsavedChanges]);
 
-  // Update handleSaveRaidComp
-  const handleSaveRaidComp = async () => {
-    if (!isAdmin || !user) return;
-    
-    setIsSaving(true);
-    try {
+// Update handleSaveRaidComp
+const handleSaveRaidComp = async () => {
+  if (!isAdmin || !user) return;
+  
+  setIsSaving(true);
+  try {
+    // Filter out empty groups and clean up the data
+    const nonEmptyGroups = raidGroups
+      .filter(group => group.players.length > 0)
+      .map(group => ({
+        id: group.id,
+        name: group.name,
+        players: group.players.map(player => {
+          // Base player object with required fields
+          const cleanPlayer = {
+            userId: player.userId || '',
+            username: player.username || '',
+            characterId: player.characterId || '',
+            characterName: player.characterName || '',
+            characterClass: player.characterClass || 'Unknown',
+            characterRole: player.characterRole || 'DPS'
+          };
 
-      // Filter out empty groups and clean up the data
-      const nonEmptyGroups = raidGroups
-        .filter(group => group.players.length > 0)
-        .map(group => ({
-          id: group.id,
-          name: group.name,
-          players: group.players.map(player => {
-            // Base player object with required fields
-            const cleanPlayer = {
-              userId: player.userId || '',
-              username: player.username || '',
-              characterId: player.characterId || '',
-              characterName: player.characterName || '',
-              characterClass: player.characterClass || 'Unknown',
-              characterRole: player.characterRole || 'DPS'
+          // Add Discord-specific fields only if they exist and we're in Discord mode
+          if (event.signupType === 'raidhelper' && player.originalDiscordName) {
+            return {
+              ...cleanPlayer,
+              originalDiscordName: player.originalDiscordName,
+              ...(player.discordNickname && { discordNickname: player.discordNickname }),
+              isDiscordSignup: true
             };
+          }
 
-            // Add Discord-specific fields only if they exist and we're in Discord mode
-            if (event.signupType === 'raidhelper') {
-              return {
-                ...cleanPlayer,
-                originalDiscordName: player.originalDiscordName || player.username || '',
-                discordNickname: player.discordNickname || undefined,
-                isDiscordSignup: true
-              };
-            }
+          return cleanPlayer;
+        })
+      }));
 
-            return cleanPlayer;
-          })
-        }));
+    const raidComposition = {
+      lastUpdated: new Date(),
+      updatedBy: {
+        userId: user.username || '',
+        username: user.username || ''
+      },
+      groups: nonEmptyGroups
+    };
 
-      const raidComposition = {
-        lastUpdated: new Date(),
-        updatedBy: {
-          userId: user.username || '',
-          username: user.username || ''
-        },
-        groups: nonEmptyGroups
-      };
+    console.log('XD',raidComposition);
 
+    await updateDoc(doc(db, 'events', event.id), {
+      raidComposition
+    });
 
-      await updateDoc(doc(db, 'events', event.id), {
-        raidComposition
-      });
+    // After successful save, update the initial state
+    setInitialState(createCleanState());
+    setHasUnsavedChanges(false);
 
-      // After successful save, update the initial state
-      setInitialState(createCleanState());
-      setHasUnsavedChanges(false);
+    toast({
+      title: "Raid composition saved",
+      description: "The raid composition has been updated successfully",
+      status: "success",
+      duration: 3000,
+      isClosable: true,
+      position: "top"
+    });
+  } catch (error) {
+    console.error('Error saving raid composition:', error);
+    console.error('Error details:', {
+      eventId: event.id,
+      userId: user.username,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
 
-      toast({
-        title: "Raid composition saved",
-        description: "The raid composition has been updated successfully",
-        status: "success",
-        duration: 3000,
-        isClosable: true,
-        position: "top"
-      });
-    } catch (error) {
-      console.error('Error saving raid composition:', error);
-      console.error('Error details:', {
-        eventId: event.id,
-        userId: user.username,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-
-      toast({
-        title: "Error saving raid composition",
-        description: error instanceof Error ? error.message : "There was an error saving the raid composition. Please try again.",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-        position: "top"
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
+    toast({
+      title: "Error saving raid composition",
+      description: error instanceof Error ? error.message : "There was an error saving the raid composition. Please try again.",
+      status: "error",
+      duration: 5000,
+      isClosable: true,
+      position: "top"
+    });
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   // Function to handle modal close
   const handleModalClose = () => {

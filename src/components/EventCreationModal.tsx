@@ -103,7 +103,7 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
       const baseEventData = {
         id: eventId,
         title: eventTitle,
-        description: eventDescription,
+        description: eventDescription || '',
         date: startDate.toISOString().split('T')[0],
         time: eventTime,
         start: Timestamp.fromDate(startDate),
@@ -115,7 +115,15 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
         signups: {},
         createdBy: user!.username,
         createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
+        updatedAt: Timestamp.now(),
+        raidComposition: {
+          lastUpdated: new Date(),
+          updatedBy: {
+            userId: user!.id,
+            username: user!.username
+          },
+          groups: []
+        }
       };
 
       let finalEventData;
@@ -125,7 +133,7 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
           // Format data for RaidHelper
           const raidHelperData = {
             title: eventTitle,
-            description: eventDescription,
+            description: eventDescription || '',
             date: startDate.toISOString().split('T')[0],
             time: eventTime,
             leaderId: "184485021719986176",  // Your Discord ID
@@ -169,6 +177,8 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
           raidHelperId: null // Explicitly set to null for manual events
         };
       }
+
+      console.log('Final event data being sent to Firestore:', JSON.stringify(finalEventData, null, 2));
 
       // Create the Firestore event
       const docRef = await addDoc(collection(db, 'events'), finalEventData);
