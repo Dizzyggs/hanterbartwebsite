@@ -1810,17 +1810,36 @@ const handleSaveRaidComp = async () => {
                                 size="sm"
                                 colorScheme="blue"
                                 isLoading={isLoadingTemplates}
+                                color="white"
+                                _hover={{
+                                  bg: 'blue.600'
+                                }}
                               >
                                 Apply Template
                               </MenuButton>
-                              <MenuList bg="background.secondary">
+                              <MenuList 
+                                bg="background.secondary"
+                                borderColor="border.primary"
+                              >
                                 {rosterTemplates.map(template => (
                                   <MenuItem
                                     key={template.id}
                                     onClick={() => handleApplyTemplate(template, '1-8')}
-                                    bg="background.secondary"
-                                    _hover={{ bg: 'blue.500' }}
+                                    bg="transparent"
                                     color="white"
+                                    _hover={{ 
+                                      bg: 'transparent',
+                                      color: 'blue.300',
+                                      textShadow: '0 0 8px #63B3ED'
+                                    }}
+                                    _focus={{ 
+                                      bg: 'transparent',
+                                      outline: 'none',
+                                      boxShadow: 'none'
+                                    }}
+                                    _active={{
+                                      bg: 'transparent'
+                                    }}
                                   >
                                     {template.name}
                                   </MenuItem>
@@ -1861,17 +1880,36 @@ const handleSaveRaidComp = async () => {
                                 size="sm"
                                 colorScheme="blue"
                                 isLoading={isLoadingTemplates}
+                                color="white"
+                                _hover={{
+                                  bg: 'blue.600'
+                                }}
                               >
                                 Apply Template
                               </MenuButton>
-                              <MenuList bg="background.secondary">
+                              <MenuList 
+                                bg="background.secondary"
+                                borderColor="border.primary"
+                              >
                                 {rosterTemplates.map(template => (
                                   <MenuItem
                                     key={template.id}
                                     onClick={() => handleApplyTemplate(template, '11-18')}
-                                    bg="background.secondary"
-                                    _hover={{ bg: 'blue.500' }}
+                                    bg="transparent"
                                     color="white"
+                                    _hover={{ 
+                                      bg: 'transparent',
+                                      color: 'blue.300',
+                                      textShadow: '0 0 8px #63B3ED'
+                                    }}
+                                    _focus={{ 
+                                      bg: 'transparent',
+                                      outline: 'none',
+                                      boxShadow: 'none'
+                                    }}
+                                    _active={{
+                                      bg: 'transparent'
+                                    }}
                                   >
                                     {template.name}
                                   </MenuItem>

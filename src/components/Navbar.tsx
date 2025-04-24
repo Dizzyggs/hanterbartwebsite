@@ -333,7 +333,7 @@ const Navbar = () => {
                       </RouterLink>
                       <RouterLink to="/admin/raid-settings">
                         <MenuItem
-                          icon={<StarIcon color="primary.400" />}
+                          icon={<SettingsIcon color="primary.400" />}
                           _hover={{ bg: 'background.tertiary' }}
                           bg="background.secondary"
                           color="white"

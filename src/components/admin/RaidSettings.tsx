@@ -467,7 +467,7 @@ const RaidSettings = () => {
               <TabPanel pt={6}>
                 <VStack spacing={6} align="stretch">
                   <Heading size="md" color="white">
-                    General Settings
+                    Misc Settings
                   </Heading>
                   
                   <Card 
