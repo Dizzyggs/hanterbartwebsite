@@ -270,12 +270,6 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
   const handleCancelSignup = async () => {
     if (!user || !userSignup) return;
 
-    console.log('[Debug] Cancelling Website Signup:', {
-      user: user.username,
-      signup: userSignup,
-      event: event.title
-    });
-
     setIsSubmitting(true);
     try {
       // Remove the user's signup from the event
@@ -532,12 +526,6 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
   const handleAbsenceSubmit = async () => {
     if (!user || !selectedAbsenceCharacter) return;
 
-    console.log('[Debug] Attempting Website Absence:', {
-      user: user.username,
-      character: selectedAbsenceCharacter,
-      reason: absenceReason,
-      event: event.title
-    });
 
     setIsSubmitting(true);
     try {

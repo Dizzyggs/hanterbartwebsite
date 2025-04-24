@@ -543,8 +543,6 @@ const handleSaveRaidComp = async () => {
       groups: nonEmptyGroups
     };
 
-    console.log('XD',raidComposition);
-
     await updateDoc(doc(db, 'events', event.id), {
       raidComposition
     });
@@ -847,13 +845,7 @@ const handleSaveRaidComp = async () => {
     const realPlayerCount = targetGroup?.players.filter(p => !p.isPreview).length || 0;
     
     if (!targetGroup || realPlayerCount >= 5) {
-      console.log("Failed to assign player:", {
-        reason: !targetGroup ? "Target group not found" : "Group is full",
-        groupId,
-        targetGroup,
-        realPlayerCount,
-        totalPlayers: targetGroup?.players.length
-      });
+
       return;
     }
 
@@ -862,26 +854,10 @@ const handleSaveRaidComp = async () => {
       ? unassignedPlayers.find(p => p.characterId === player.matchedPlayerId) || player
       : player;
 
-    console.log("Assigning player:", {
-      player: playerToAssign,
-      toGroup: groupId,
-      currentGroupPlayers: realPlayerCount,
-      isInUnassigned: unassignedPlayers.some(p => p.characterId === playerToAssign.characterId),
-      currentGroups: raidGroups.map(g => ({
-        id: g.id,
-        playerCount: g.players.filter(p => !p.isPreview).length,
-        hasPlayer: g.players.some(p => p.characterId === playerToAssign.characterId)
-      }))
-    });
 
     // First, remove from unassigned if present
     setUnassignedPlayers(prev => {
       const newUnassigned = prev.filter(p => p.characterId !== playerToAssign.characterId);
-      console.log("Updated unassigned players:", {
-        before: prev.length,
-        after: newUnassigned.length,
-        removed: prev.length - newUnassigned.length
-      });
       return newUnassigned;
     });
 
@@ -1265,17 +1241,11 @@ const handleSaveRaidComp = async () => {
       
       // For each player in the template group
       templateGroup.players.forEach((templatePlayer, playerIndex) => {
-        console.log(`  Player ${playerIndex + 1}:`, {
-          name: templatePlayer.name || 'N/A',
-          class: templatePlayer.class || 'N/A',
-          role: templatePlayer.role || 'N/A'
-        });
 
         // Check if this player exists in unassigned players
         const matchingPlayer = unassignedPlayers.find(up => {
           const upName = (up.username || up.characterName || '').toLowerCase();
           const templateName = templatePlayer.name.toLowerCase();
-          console.log(`  Comparing: Template name "${templateName}" with unassigned player "${upName}"`);
           return upName === templateName;
         });
 

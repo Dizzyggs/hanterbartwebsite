@@ -43,12 +43,6 @@ export const handler: Handler = async (event, context) => {
   const serverId = process.env.DISCORD_SERVER_ID;
   const channelId = process.env.DISCORD_CHANNEL_ID;
 
-  console.log('Environment variables check:', { 
-    hasApiKey: !!apiKey, 
-    hasServerId: !!serverId, 
-    hasChannelId: !!channelId,
-    nodeEnv: process.env.NODE_ENV
-  });
 
   if (!apiKey || !serverId || !channelId) {
     console.error('Missing required environment variables');
@@ -74,7 +68,6 @@ export const handler: Handler = async (event, context) => {
           throw new Error('Event ID is required for deletion');
         }
 
-        console.log('Attempting to delete RaidHelper event:', eventId);
         
         const response = await fetch(
           `https://raid-helper.dev/api/v2/events/${eventId}`,
@@ -87,7 +80,6 @@ export const handler: Handler = async (event, context) => {
         );
 
         const responseText = await response.text();
-        console.log('RaidHelper API delete response:', responseText);
 
         if (!response.ok) {
           console.error('Failed to delete event:', responseText);
@@ -115,9 +107,7 @@ export const handler: Handler = async (event, context) => {
           templateId: "wowclassic"  // Changed back to templateId
         };
         
-        console.log('Creating event with data (before stringify):', eventData);
         const requestBody = JSON.stringify(eventData);
-        console.log('Request body after stringify:', requestBody);
         
         const response = await fetch(
           `https://raid-helper.dev/api/v2/servers/${serverId}/channels/${channelId}/event`,
@@ -132,7 +122,6 @@ export const handler: Handler = async (event, context) => {
         );
 
         const responseText = await response.text();
-        console.log('RaidHelper API raw response:', responseText);
         
         let data: RaidHelperResponse;
         try {
@@ -142,7 +131,6 @@ export const handler: Handler = async (event, context) => {
           throw new Error('Invalid response from RaidHelper API');
         }
 
-        console.log('RaidHelper API parsed response:', data);
 
         if (!response.ok) {
           throw new Error(data.error || data.message || `Failed to create event: ${response.statusText}`);

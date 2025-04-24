@@ -268,7 +268,6 @@ const PlayerCardComponent = ({
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log("trying to move player");
                     if (player.matchedPlayerId && groupId && !assignedPlayers.has(player.matchedPlayerId)) {
                       // Only assign if the player is not already assigned somewhere
                       const playerToAssign = {
@@ -276,7 +275,6 @@ const PlayerCardComponent = ({
                         characterId: player.matchedPlayerId,
                         isPreview: false
                       };
-                      console.log("Player to assign:", playerToAssign, "to group:", groupId, "at index:", groupIndex);
                       assignPlayerToGroup(playerToAssign, groupId, groupIndex);
                     } else {
                       console.log("Conditions not met:", {
