@@ -45,7 +45,7 @@ import { Global, css } from '@emotion/react';
 import { Event, RaidHelperSignup as RaidHelperSignupType, SignupPlayer, RosterTemplate } from '../types/firebase';
 import { DragDropContext, Droppable, Draggable, DroppableProvided, DraggableProvided, DropResult, DroppableStateSnapshot } from 'react-beautiful-dnd';
 import { useState, useEffect, memo, ReactElement, useMemo, useRef } from 'react';
-import { CheckIcon, TimeIcon, InfoIcon, DownloadIcon, ChevronDownIcon } from '@chakra-ui/icons';
+import { CheckIcon, TimeIcon, InfoIcon, DownloadIcon, ChevronDownIcon, ArrowUpIcon } from '@chakra-ui/icons';
 import { doc, updateDoc, getDoc, getDocs, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useUser } from '../context/UserContext';
@@ -845,7 +845,6 @@ const handleSaveRaidComp = async () => {
     const realPlayerCount = targetGroup?.players.filter(p => !p.isPreview).length || 0;
     
     if (!targetGroup || realPlayerCount >= 5) {
-
       return;
     }
 
@@ -853,7 +852,6 @@ const handleSaveRaidComp = async () => {
     const playerToAssign = player.isPreview && player.matchedPlayerId
       ? unassignedPlayers.find(p => p.characterId === player.matchedPlayerId) || player
       : player;
-
 
     // First, remove from unassigned if present
     setUnassignedPlayers(prev => {
@@ -864,18 +862,23 @@ const handleSaveRaidComp = async () => {
     // Then, update all groups
     setRaidGroups(prevGroups => {
       const updatedGroups = prevGroups.map(group => {
-        // Get current players, removing only:
-        // 1. The preview player that matches this player (if any)
-        // 2. The real player from any group (if being moved)
-        const filteredPlayers = group.players.filter(p => 
-          !(p.isPreview && p.matchedPlayerId === playerToAssign.characterId) && // Don't remove other preview players
-          p.characterId !== playerToAssign.characterId // Remove the real player if it exists in any group
-        );
+        // For the target group, remove any preview players that match this player
+        // For other groups, only remove the real player if it exists
+        const filteredPlayers = group.players.filter(p => {
+          if (group.id === groupId) {
+            // In target group: remove preview players that match AND the real player
+            return !(p.isPreview && p.matchedPlayerId === playerToAssign.characterId) && 
+                   p.characterId !== playerToAssign.characterId;
+          } else {
+            // In other groups: only remove the real player
+            return p.characterId !== playerToAssign.characterId;
+          }
+        });
 
-      // Add to target group
-      if (group.id === groupId) {
-        return {
-          ...group,
+        // Add to target group
+        if (group.id === groupId) {
+          return {
+            ...group,
             players: [...filteredPlayers, playerToAssign]
           };
         }
@@ -985,16 +988,16 @@ const handleSaveRaidComp = async () => {
     
     const absent = allPlayers.filter(p => {
       if (!p.isDiscordSignup) {
-        return p.characterClass === "Absence";
+        return p.characterClass === "Absence" || p.characterClass === "Tentative";
       }
-      return p.characterClass?.toUpperCase() === "ABSENCE";
+      return p.characterClass === "Absence" || p.characterClass === "Tentative";
     });
     
     let regular = unassignedPlayers.filter(p => {
       if (!p.isDiscordSignup) {
-        return p.characterClass !== "Absence";
+        return p.characterClass !== "Absence" && p.characterClass !== "Tentative";
       }
-      return p.characterClass?.toUpperCase() !== "ABSENCE";
+      return p.characterClass !== "Absence" && p.characterClass !== "Tentative";
     });
 
     // Duplicate players 5 times if in testing mode
@@ -1718,15 +1721,33 @@ const handleSaveRaidComp = async () => {
                             <Heading size="sm" color="text.primary" mb={3}>
                               Absence ({absencePlayers.length})
                             </Heading>
-                            <VStack align="stretch" spacing={2}>
-                              {absencePlayers.map((player) => (
-                                <AbsencePlayer
-                                  key={player.characterId}
-                                  player={player}
-                                  userNicknames={userNicknames}
-                                />
-                              ))}
-                            </VStack>
+                            <Droppable droppableId="absence" type="player">
+                              {(provided) => (
+                                <VStack 
+                                  align="stretch" 
+                                  spacing={2}
+                                  ref={provided.innerRef}
+                                  {...provided.droppableProps}
+                                >
+                                  {absencePlayers.map((player, index) => (
+                                    <PlayerCard
+                                      key={player.characterId}
+                                      player={player}
+                                      index={index}
+                                      isMobile={isMobile}
+                                      isAdmin={isAdmin}
+                                      event={event}
+                                      raidGroups={raidGroups}
+                                      assignedPlayers={assignedPlayers}
+                                      assignPlayerToGroup={assignPlayerToGroup}
+                                      unassignPlayer={unassignPlayer}
+                                      isInRaidGroup={false}
+                                    />
+                                  ))}
+                                  {provided.placeholder}
+                                </VStack>
+                              )}
+                            </Droppable>
                           </Box>
                         )}
                   </VStack>

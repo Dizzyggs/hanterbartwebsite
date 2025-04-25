@@ -8,15 +8,22 @@ const theme = extendTheme({
     initialColorMode: 'dark',
     useSystemColorMode: false,
   },
+  fonts: {
+    heading: "'MG-bold', sans-serif",
+    body: "'MG-bold', sans-serif",
+  },
   styles: {
     global: (props: any) => ({
       body: {
         bg: 'background.primary',
         color: 'text.primary',
-        fontFamily: props.theme.fonts.body,
+        fontFamily: "'MG-bold', sans-serif",
       },
       '*': {
         fontFamily: 'inherit',
+      },
+      'p, span': {
+        fontFamily: "'MG-medium', sans-serif",
       },
     }),
   },
@@ -31,6 +38,7 @@ const theme = extendTheme({
       baseStyle: {
         fontWeight: 'bold',
         letterSpacing: 'tight',
+        fontFamily: "'MG-bold', sans-serif",
       },
       sizes: {
         '2xl': {
@@ -49,7 +57,7 @@ const theme = extendTheme({
     },
     Text: {
       baseStyle: {
-        fontFamily: 'Oxanium',
+        fontFamily: "'MG-medium', sans-serif",
         lineHeight: 'tall',
       },
       variants: {
@@ -65,7 +73,7 @@ const theme = extendTheme({
     },
     Button: {
       baseStyle: {
-        fontFamily: 'Oxanium',
+        fontFamily: "'MG-bold', sans-serif",
         fontWeight: "semibold",
         borderRadius: "md",
       },
@@ -73,37 +81,31 @@ const theme = extendTheme({
     Input: {
       baseStyle: {
         field: {
-          fontFamily: 'Oxanium',
+          fontFamily: "'MG-medium', sans-serif",
         },
       },
     },
     Textarea: {
       baseStyle: {
-        fontFamily: 'Oxanium',
+        fontFamily: "'MG-medium', sans-serif",
       },
     },
     Modal: {
       baseStyle: {
         dialog: {
-          fontFamily: 'Oxanium',
+          fontFamily: "'MG-bold', sans-serif",
         },
         header: {
-          fontFamily: 'Oxanium',
+          fontFamily: "'MG-bold', sans-serif",
         },
         body: {
-          fontFamily: 'Oxanium',
+          fontFamily: "'MG-medium', sans-serif",
         },
         footer: {
-          fontFamily: 'Oxanium',
+          fontFamily: "'MG-bold', sans-serif",
         },
       },
     },
-  },
-  fonts: {
-    heading: 'Inter',
-    body: 'Inter',
-    mono: 'JetBrains Mono',
-    ui: (isNeonTheme: boolean) => isNeonTheme ? "'Chakra Petch', sans-serif" : "'DM Sans', sans-serif",
   },
   fontSizes: {
     xs: '0.75rem',    // 12px
@@ -204,6 +206,10 @@ const defaultTheme = {
     default: '0 0 10px rgba(33, 150, 243, 0.3), 0 0 20px rgba(33, 150, 243, 0.2)',
     defaultHover: '0 0 5px #2196F3, 0 0 15px #2196F3, 0 0 30px #2196F3',
   },
+  fonts: {
+    heading: "'MG-bold', sans-serif",
+    body: "'MG-bold', sans-serif",
+  },
   styles: {
     global: (props: any) => ({
       '.nav-link': {
@@ -214,6 +220,7 @@ const defaultTheme = {
           color: 'primary.400 !important',
           textShadow: 'defaultHover',
         },
+        fontFamily: "'MG-bold', sans-serif",
       },
       '.chakra-menu__menuitem': {
         _hover: {
@@ -221,10 +228,14 @@ const defaultTheme = {
           color: 'primary.400 !important',
           textShadow: 'defaultHover',
         },
+        fontFamily: "'MG-bold', sans-serif",
       },
       '.nav-link:hover .chakra-icon, .chakra-menu__menuitem:hover .chakra-icon': {
         color: 'primary.400 !important',
         filter: 'drop-shadow(0 0 5px #2196F3)',
+      },
+      'p, span': {
+        fontFamily: "'MG-medium', sans-serif",
       },
     }),
   },
@@ -284,6 +295,10 @@ const frostTheme = {
     frost: '0 0 10px rgba(76, 137, 255, 0.3), 0 0 20px rgba(76, 137, 255, 0.2)',
     frostHover: '0 0 5px #4C89FF, 0 0 15px #4C89FF, 0 0 30px #4C89FF',
   },
+  fonts: {
+    heading: "'MG-bold', sans-serif",
+    body: "'MG-bold', sans-serif",
+  },
   styles: {
     global: (props: any) => ({
       '.nav-link': {
@@ -294,6 +309,7 @@ const frostTheme = {
           color: 'primary.400 !important',
           textShadow: 'frostHover',
         },
+        fontFamily: "'MG-bold', sans-serif",
       },
       '.chakra-menu__menuitem': {
         _hover: {
@@ -301,10 +317,14 @@ const frostTheme = {
           color: 'primary.400 !important',
           textShadow: 'frostHover',
         },
+        fontFamily: "'MG-bold', sans-serif",
       },
       '.nav-link:hover .chakra-icon, .chakra-menu__menuitem:hover .chakra-icon': {
         color: 'primary.400 !important',
         filter: 'drop-shadow(0 0 5px #4C89FF)',
+      },
+      'p, span': {
+        fontFamily: "'MG-medium', sans-serif",
       },
     }),
   },
@@ -364,6 +384,10 @@ const emberTheme = {
     ember: '0 0 10px rgba(255, 126, 47, 0.3), 0 0 20px rgba(255, 126, 47, 0.2)',
     emberHover: '0 0 5px #FF7E2F, 0 0 15px #FF7E2F, 0 0 30px #FF7E2F',
   },
+  fonts: {
+    heading: "'MG-bold', sans-serif",
+    body: "'MG-bold', sans-serif",
+  },
   styles: {
     global: (props: any) => ({
       '.nav-link': {
@@ -374,6 +398,7 @@ const emberTheme = {
           color: 'primary.400 !important',
           textShadow: 'emberHover',
         },
+        fontFamily: "'MG-bold', sans-serif",
       },
       '.chakra-menu__menuitem': {
         _hover: {
@@ -381,10 +406,14 @@ const emberTheme = {
           color: 'primary.400 !important',
           textShadow: 'emberHover',
         },
+        fontFamily: "'MG-bold', sans-serif",
       },
       '.nav-link:hover .chakra-icon, .chakra-menu__menuitem:hover .chakra-icon': {
         color: 'primary.400 !important',
         filter: 'drop-shadow(0 0 5px #FF7E2F)',
+      },
+      'p, span': {
+        fontFamily: "'MG-medium', sans-serif",
       },
     }),
   },

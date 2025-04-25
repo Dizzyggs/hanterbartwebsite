@@ -154,3 +154,14 @@ html, body, #root {
 .rbc-today {
   background-color: #433225 !important;
 }
+
+@font-face{
+  font-family: MG-medium;
+  src: url('../fonts/MG-medium.otf');
+}
+
+@font-face{
+  font-family: MG-bold;
+  src: url('../fonts/MG-bold.otf');
+}
+

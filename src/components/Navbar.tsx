@@ -240,7 +240,14 @@ const Navbar = () => {
       <Flex h={16} alignItems="center" justifyContent="space-between">
         <HStack spacing={8} alignItems="center">
           <ChakraLink as={RouterLink} to="/" className="nav-link">
-            <Text fontSize="xl" fontWeight="bold">
+            <Text 
+              fontSize="xl" 
+              fontWeight="bold"
+              fontFamily="'MG-bold', sans-serif"
+              style={{
+                fontWeight: 'bold',
+              }}
+            >
               Hanterbart
             </Text>
           </ChakraLink>
@@ -309,7 +316,7 @@ const Navbar = () => {
                   {user.role === 'admin' && (
                     <>
                       <MenuDivider borderColor="border.primary" my={2} />
-                      <Text color="text.secondary" fontSize="sm" px={3} py={2}>Admin Tools</Text>
+                      <Text color="text.secondary" fontSize="sm" px={3} py={2} >Admin Tools</Text>
                       
                       <RouterLink to="/admin/users">
                         <MenuItem

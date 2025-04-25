@@ -28,6 +28,11 @@ const AbsencePlayer = memo(({ player, userNicknames }: AbsencePlayerProps) => {
         <Text color="white" fontSize="sm">
           {getDisplayName()}
         </Text>
+        {player.originalClass && (
+          <Text color="gray.400" fontSize="xs" textTransform="uppercase">
+            {player.originalClass}
+          </Text>
+        )}
       </HStack>
     </Box>
   );

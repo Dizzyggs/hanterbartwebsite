@@ -526,7 +526,6 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
   const handleAbsenceSubmit = async () => {
     if (!user || !selectedAbsenceCharacter) return;
 
-
     setIsSubmitting(true);
     try {
       // Update event document with absence signup
@@ -538,7 +537,8 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
           characterName: selectedAbsenceCharacter.name,
           characterClass: 'Absence',
           characterRole: 'Absence',
-          absenceReason: absenceReason.trim()
+          absenceReason: absenceReason.trim(),
+          originalClass: selectedAbsenceCharacter.class
         }
       });
 

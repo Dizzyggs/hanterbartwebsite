@@ -166,6 +166,7 @@ export interface SignupPlayer {
   isDiscordSignup?: boolean;
   isPreview?: boolean;
   matchedPlayerId?: string;
+  originalClass?: string;
 }
 
 export interface RaidTemplate {

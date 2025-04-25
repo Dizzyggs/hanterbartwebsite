@@ -57,7 +57,6 @@ const PlayerCardComponent = ({
   const { isOpen: isMenuOpen, onOpen: onMenuOpen, onClose: onMenuClose } = useDisclosure();
   const classColor = CLASS_COLORS[player.characterClass.toUpperCase() as keyof typeof CLASS_COLORS] || '#ffffff';
   const classIcon = player.spec == "Fury" ? CLASS_ICONS.FURY : CLASS_ICONS[player.characterClass.toUpperCase() as ClassIconType] || CLASS_ICONS.WARRIOR;
-
   const getClassGradient = (className: string) => {
     const baseColor = CLASS_COLORS[className.toUpperCase() as keyof typeof CLASS_COLORS];
     switch (className.toUpperCase()) {
@@ -135,23 +134,25 @@ const PlayerCardComponent = ({
             >
               <HStack spacing={2} justify="space-between" width="100%">
                 <HStack spacing={2}>
-                  <Box
-                    position="relative"
-                    padding="1px"
-                    borderRadius="full"
-                    background={getClassGradient(player.characterClass)}
-                    boxShadow={snapshot.isDragging ? "none" : `0 0 8px ${classColor}80`}
-                    transition="all 0.2s ease"
-                  >
-                    <Image
-                      src={classIcon}
-                      alt={player.characterClass}
-                      boxSize="20px"
-                      objectFit="cover"
+                  {player.characterClass && player.characterClass !== 'Absence' && player.characterClass !== 'Tentative' && (
+                    <Box
+                      position="relative"
+                      padding="1px"
                       borderRadius="full"
-                      bg={classColor}
-                    />
-                  </Box>
+                      background={getClassGradient(player.characterClass)}
+                      boxShadow={snapshot.isDragging ? "none" : `0 0 8px ${classColor}80`}
+                      transition="all 0.2s ease"
+                    >
+                      <Image
+                        src={classIcon}
+                        alt={player.characterClass}
+                        boxSize="20px"
+                        objectFit="cover"
+                        borderRadius="full"
+                        bg={classColor}
+                      />
+                    </Box>
+                  )}
                   <Text 
                     color={isInRaidGroup && player.isPreview 
                       ? (player.matchedPlayerId ? "green.300" : "red.300")
@@ -164,7 +165,15 @@ const PlayerCardComponent = ({
                     {getDisplayName()}
                   </Text>
                 </HStack>
-                {!isInRaidGroup || !player.isPreview ? (
+                {player.characterClass === 'Tentative' ? (
+                  <Text 
+                    color="#FFDBBB"
+                    fontSize="xs" 
+                    textTransform="uppercase"
+                  >
+                    Tentative
+                  </Text>
+                ) : player.characterClass !== 'Absence' && (
                   <Text 
                     color={classColor}
                     fontSize="xs" 
@@ -173,7 +182,7 @@ const PlayerCardComponent = ({
                   >
                     {player.characterClass}
                   </Text>
-                ) : null}
+                )}
               </HStack>
             </MenuButton>
 

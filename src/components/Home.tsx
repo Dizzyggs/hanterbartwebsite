@@ -100,7 +100,7 @@ const Home = () => {
               <Text
                 fontSize="lg"
                 textAlign="center"
-                fontFamily="Inter"
+                fontFamily="'MG-medium', sans-serif"
                 color={textColor}
                 lineHeight="1.7"
               >
@@ -111,7 +111,7 @@ const Home = () => {
               <Text
                 fontSize="lg"
                 textAlign="center"
-                fontFamily="Inter"
+                fontFamily="'MG-medium', sans-serif"
                 color={textColor}
                 lineHeight="1.7"
               >
@@ -121,7 +121,7 @@ const Home = () => {
               <Text
                 fontSize="lg"
                 textAlign="center"
-                fontFamily="Inter"
+                fontFamily="'MG-medium', sans-serif"
                 color={textColor}
                 lineHeight="1.7"
               >
