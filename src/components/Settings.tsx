@@ -30,7 +30,7 @@ import { FaLightbulb } from 'react-icons/fa';
 import { useUser } from '../context/UserContext';
 import { useTheme } from '../context/ThemeContext';
 import { db } from '../firebase';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
 import { ThemeName, themeNames } from '../theme';
 
 interface ThemeCardProps extends UseRadioProps {
@@ -163,26 +163,26 @@ const Settings = () => {
       // Get current user data
       const oldUserDoc = await getDoc(doc(db, 'users', user.username));
       if (!oldUserDoc.exists()) {
-        throw new Error('Användaren dokumentet hittades inte');
+        throw new Error('User document not found');
       }
 
       const userData = oldUserDoc.data();
 
       // Create new document with new username
-      await updateDoc(doc(db, 'users', newUsername.toLowerCase()), {
+      await setDoc(doc(db, 'users', newUsername.toLowerCase()), {
         ...userData,
         username: newUsername.toLowerCase(),
+        id: newUsername.toLowerCase()
       });
 
       // Delete old document
-      await updateDoc(doc(db, 'users', user.username), {
-        username: newUsername.toLowerCase(),
-      });
+      await deleteDoc(doc(db, 'users', user.username));
 
       // Update local storage and context
       const updatedUser = {
         ...user,
         username: newUsername.toLowerCase(),
+        id: newUsername.toLowerCase()
       };
       login(updatedUser);
 
