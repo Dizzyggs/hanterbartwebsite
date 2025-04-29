@@ -173,15 +173,15 @@ const MemoizedRaidGroup = memo(({
 }: RaidGroupProps) => (
   <Box
     bg="background.secondary"
-    p={4}
+    p={2}
     borderRadius="md"
     border="1px solid"
     borderColor="border.primary"
-    minH="330px"
-    height="330px"
+    minH="260px"
+    height="260px"
   >
-    <VStack align="stretch" spacing={3} height="100%">
-      <HStack justify="space-between">
+    <VStack align="stretch" spacing={1} height="100%">
+      <HStack justify="space-between" mb={1}>
         <Heading size="sm" color="text.primary">
           {group.name}
         </Heading>
@@ -199,9 +199,9 @@ const MemoizedRaidGroup = memo(({
             ref={provided.innerRef}
             {...provided.droppableProps}
             bg="background.tertiary"
-            p={3}
+            p={1.5}
             borderRadius="md"
-            height="calc(100% - 40px)"
+            height="calc(100% - 28px)"
             overflowY="auto"
             onWheel={(e) => e.stopPropagation()}
             sx={{
@@ -218,7 +218,7 @@ const MemoizedRaidGroup = memo(({
               },
             }}
           >
-            <VStack spacing={1.5} align="stretch">
+            <VStack spacing={0.5} align="stretch">
               {group.players.map((player, index) => (
                 <PlayerCard
                   key={player.characterId}
@@ -875,10 +875,10 @@ const handleSaveRaidComp = async () => {
           }
         });
 
-        // Add to target group
-        if (group.id === groupId) {
-          return {
-            ...group,
+      // Add to target group
+      if (group.id === groupId) {
+        return {
+          ...group,
             players: [...filteredPlayers, playerToAssign]
           };
         }
@@ -1754,51 +1754,26 @@ const handleSaveRaidComp = async () => {
                 </Box>
 
                     <Box flex={isMobile ? "none" : "3"} width={isMobile ? "100%" : "auto"}>
-                  <VStack align="stretch" spacing={4}>
-                        <ButtonGroup 
-                          isAttached 
-                          variant="outline" 
-                          alignSelf="flex-end"
-                          flexWrap={isMobile ? "wrap" : "nowrap"}
-                        >
-                      <Button
-                        onClick={() => setSelectedRaid(null)}
-                        colorScheme={selectedRaid === null ? "primary" : "gray"}
-                        size="sm"
-                        color="text.primary"
-                      >
-                        Visa alla
-                      </Button>
-                      <Button
-                        onClick={() => setSelectedRaid('1-8')}
-                        colorScheme={selectedRaid === '1-8' ? "primary" : "gray"}
-                        size="sm"
-                        color="text.primary"
-                      >
-                        Raid 1-8
-                      </Button>
-                      <Button
-                        onClick={() => setSelectedRaid('11-18')}
-                        colorScheme={selectedRaid === '11-18' ? "primary" : "gray"}
-                        size="sm"
-                        color="text.primary"
-                      >
-                        Raid 11-18
-                      </Button>
-                    </ButtonGroup>
+                  <VStack spacing={4} align="stretch" flex={1} overflow="auto">
+                    {/* Unassigned Players Section */}
+                    <Box>
+                      {/* ... existing unassigned players code ... */}
+                    </Box>
 
-                    {(!selectedRaid || selectedRaid === '1-8') && (
-                      <>
+                    {/* Raid Groups Section */}
+                    <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={8} width="100%" position="relative">
+                      {/* Raid 1-8 Section */}
+                      <Box>
                         <HStack justify="space-between" mb={4}>
                           <Heading size="sm" color="text.primary">
                             Raid 1-8 [{getRaidPlayerCount(raidGroups, 0, 8)}/40]
-                        </Heading>
+                          </Heading>
                           {isAdmin && (
                             <Menu>
                               <MenuButton
                                 as={Button}
                                 rightIcon={<ChevronDownIcon />}
-                                size="sm"
+                        size="sm"
                                 colorScheme="blue"
                                 isLoading={isLoadingTemplates}
                                 color="white"
@@ -1808,30 +1783,15 @@ const handleSaveRaidComp = async () => {
                               >
                                 Apply Template
                               </MenuButton>
-                              <MenuList 
-                                bg="background.secondary"
-                                borderColor="border.primary"
-                              >
+                              <MenuList bg="background.secondary" borderColor="border.primary">
                                 {rosterTemplates.map(template => (
                                   <MenuItem
                                     key={template.id}
                                     onClick={() => handleApplyTemplate(template, '1-8')}
-                                    bg="transparent"
-                                    color="white"
-                                    _hover={{ 
-                                      bg: 'transparent',
-                                      color: 'blue.300',
-                                      textShadow: '0 0 8px #63B3ED'
-                                    }}
-                                    _focus={{ 
-                                      bg: 'transparent',
-                                      outline: 'none',
-                                      boxShadow: 'none'
-                                    }}
-                                    _active={{
-                                      bg: 'transparent'
-                                    }}
-                                  >
+                                    _hover={{ bg: 'background.tertiary' }}
+                                    bg="background.secondary"
+                        color="text.primary"
+                      >
                                     {template.name}
                                   </MenuItem>
                                 ))}
@@ -1839,7 +1799,7 @@ const handleSaveRaidComp = async () => {
                             </Menu>
                           )}
                         </HStack>
-                        <SimpleGrid columns={isMobile ? 1 : 4} spacing={4}>
+                        <SimpleGrid columns={isMobile ? 1 : 2} spacing={4}>
                           {raidGroups.slice(0, 8).map((group) => (
                             <MemoizedRaidGroup
                               key={`${group.id}-${group.players.filter(p => p.isPreview).length}`}
@@ -1854,21 +1814,45 @@ const handleSaveRaidComp = async () => {
                             />
                           ))}
                         </SimpleGrid>
-                      </>
-                    )}
+                      </Box>
 
-                    {(!selectedRaid || selectedRaid === '11-18') && (
-                      <>
+                      {/* Vertical Divider for Desktop */}
+                      <Box 
+                        display={{ base: "none", xl: "block" }} 
+                        position="absolute" 
+                        left="50%" 
+                        top="0"
+                        height="100%" 
+                        transform="translateX(-50%)"
+                        zIndex="1"
+                        pointerEvents="none"
+                        width="2px"
+                        bgGradient="linear(to-b, transparent 0%, primary.500 20%, primary.500 80%, transparent 100%)"
+                        opacity="0.8"
+                      />
+
+                      {/* Horizontal Divider for Mobile */}
+                      <Box
+                        display={{ base: "block", xl: "none" }}
+                        my={6}
+                        height="2px"
+                        width="100%"
+                        bgGradient="linear(to-r, transparent 0%, primary.500 20%, primary.500 80%, transparent 100%)"
+                        opacity="0.8"
+                      />
+
+                      {/* Raid 11-18 Section */}
+                      <Box>
                         <HStack justify="space-between" mb={4}>
                           <Heading size="sm" color="text.primary">
                             Raid 11-18 [{getRaidPlayerCount(raidGroups, 8, 16)}/40]
-                        </Heading>
+                          </Heading>
                           {isAdmin && (
                             <Menu>
                               <MenuButton
                                 as={Button}
                                 rightIcon={<ChevronDownIcon />}
-                                size="sm"
+                        size="sm"
                                 colorScheme="blue"
                                 isLoading={isLoadingTemplates}
                                 color="white"
@@ -1878,30 +1862,15 @@ const handleSaveRaidComp = async () => {
                               >
                                 Apply Template
                               </MenuButton>
-                              <MenuList 
-                                bg="background.secondary"
-                                borderColor="border.primary"
-                              >
+                              <MenuList bg="background.secondary" borderColor="border.primary">
                                 {rosterTemplates.map(template => (
                                   <MenuItem
                                     key={template.id}
                                     onClick={() => handleApplyTemplate(template, '11-18')}
-                                    bg="transparent"
-                                    color="white"
-                                    _hover={{ 
-                                      bg: 'transparent',
-                                      color: 'blue.300',
-                                      textShadow: '0 0 8px #63B3ED'
-                                    }}
-                                    _focus={{ 
-                                      bg: 'transparent',
-                                      outline: 'none',
-                                      boxShadow: 'none'
-                                    }}
-                                    _active={{
-                                      bg: 'transparent'
-                                    }}
-                                  >
+                                    _hover={{ bg: 'background.tertiary' }}
+                                    bg="background.secondary"
+                        color="text.primary"
+                      >
                                     {template.name}
                                   </MenuItem>
                                 ))}
@@ -1909,7 +1878,7 @@ const handleSaveRaidComp = async () => {
                             </Menu>
                           )}
                         </HStack>
-                        <SimpleGrid columns={isMobile ? 1 : 4} spacing={4}>
+                        <SimpleGrid columns={isMobile ? 1 : 2} spacing={4}>
                           {raidGroups.slice(8, 16).map((group) => (
                             <MemoizedRaidGroup
                               key={`${group.id}-${group.players.filter(p => p.isPreview).length}`}
@@ -1924,8 +1893,8 @@ const handleSaveRaidComp = async () => {
                             />
                           ))}
                         </SimpleGrid>
-                      </>
-                    )}
+                      </Box>
+                        </SimpleGrid>
                   </VStack>
                 </Box>
                   </VStack>

@@ -25,8 +25,8 @@ import {
   UseRadioProps,
   chakra,
 } from '@chakra-ui/react';
-import { ViewIcon, ViewOffIcon, MoonIcon, SunIcon, StarIcon } from '@chakra-ui/icons';
-import { FaLightbulb } from 'react-icons/fa';
+import { ViewIcon, ViewOffIcon, MoonIcon, SunIcon, StarIcon, EditIcon, LockIcon, SettingsIcon } from '@chakra-ui/icons';
+import { FaLightbulb, FaUser, FaKey, FaPalette, FaUserEdit, FaShieldAlt } from 'react-icons/fa';
 import { useUser } from '../context/UserContext';
 import { useTheme } from '../context/ThemeContext';
 import { db } from '../firebase';
@@ -268,30 +268,35 @@ const Settings = () => {
         {/* Account Settings Section */}
         <Card bg="background.secondary" borderColor="border.primary" borderWidth={1}>
           <CardHeader>
-            <Heading 
-              size="lg" 
-              color="text.primary"
-              bgGradient="linear(to-r, primary.400, primary.600)"
-              bgClip="text"
-              letterSpacing="tight"
-            >
-              Account settings
-            </Heading>
+            <HStack spacing={3}>
+              <Icon as={FaUser} boxSize={6} color="primary.400" />
+              <Heading 
+                size="lg" 
+                color="text.primary"
+                bgGradient="linear(to-r, primary.400, primary.600)"
+                bgClip="text"
+                letterSpacing="tight"
+              >
+                Account settings
+              </Heading>
+            </HStack>
           </CardHeader>
           <CardBody>
             <VStack spacing={6} align="stretch">
               {/* Username Section */}
               <Box>
-                <Heading 
-                  size="md" 
-                  color="primary.400"
-                  mb={1}
-                  display="flex"
-                  alignItems="center"
-                  gap={2}
-                >
-                  Change username
-                </Heading>
+                <HStack spacing={2} mb={1}>
+                  <Icon as={FaUserEdit} color="primary.400" />
+                  <Heading 
+                    size="md" 
+                    color="primary.400"
+                    display="flex"
+                    alignItems="center"
+                    gap={2}
+                  >
+                    Change username
+                  </Heading>
+                </HStack>
                 <Text fontSize="sm" color="text.secondary" mb={4}>
                   Current: {user?.username}
                 </Text>
@@ -328,9 +333,12 @@ const Settings = () => {
 
               {/* Password Section */}
               <Box>
-                <Heading size="md" color="primary.400" mb={4}>
-                  Change password
-                </Heading>
+                <HStack spacing={2} mb={4}>
+                  <Icon as={FaShieldAlt} color="primary.400" />
+                  <Heading size="md" color="primary.400">
+                    Change password
+                  </Heading>
+                </HStack>
                 <VStack spacing={4} align="stretch">
                   <FormControl>
                     <FormLabel color="text.primary">Current password</FormLabel>
@@ -436,15 +444,18 @@ const Settings = () => {
         {/* Theme Settings Section */}
         <Card bg="background.secondary" borderColor="border.primary" borderWidth={1}>
           <CardHeader>
-            <Heading 
-              size="lg" 
-              color="text.primary"
-              bgGradient="linear(to-r, primary.400, primary.600)"
-              bgClip="text"
-              letterSpacing="tight"
-            >
-              Theme settings
-            </Heading>
+            <HStack spacing={3}>
+              <Icon as={FaPalette} boxSize={6} color="primary.400" />
+              <Heading 
+                size="lg" 
+                color="text.primary"
+                bgGradient="linear(to-r, primary.400, primary.600)"
+                bgClip="text"
+                letterSpacing="tight"
+              >
+                Theme settings
+              </Heading>
+            </HStack>
           </CardHeader>
           <CardBody>
             <VStack spacing={6} align="stretch">
