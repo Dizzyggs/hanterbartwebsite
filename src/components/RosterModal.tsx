@@ -1747,7 +1747,6 @@ const handleSaveRaidComp = async () => {
                                       unassignPlayer={unassignPlayer}
                                       benchPlayer={benchPlayer}
                                       isInRaidGroup={false}
-                                      isDragDisabled={true}
                                     />
                                   ))}
                                   {provided.placeholder}
