@@ -44,9 +44,10 @@ import {
 import { Global, css } from '@emotion/react';
 import { Event, RaidHelperSignup as RaidHelperSignupType, SignupPlayer, RosterTemplate } from '../types/firebase';
 import { DragDropContext, Droppable, Draggable, DroppableProvided, DraggableProvided, DropResult, DroppableStateSnapshot } from 'react-beautiful-dnd';
-import { useState, useEffect, memo, ReactElement, useMemo, useRef } from 'react';
-import { CheckIcon, TimeIcon, InfoIcon, DownloadIcon, ChevronDownIcon, ArrowUpIcon } from '@chakra-ui/icons';
-import { doc, updateDoc, getDoc, getDocs, collection, serverTimestamp } from 'firebase/firestore';
+import { useState, useEffect, memo, ReactElement, useMemo, useRef, useCallback } from 'react';
+import { CheckIcon, InfoIcon, DownloadIcon, ChevronDownIcon } from '@chakra-ui/icons';
+import { SiBlockbench } from "react-icons/si";
+import { doc, updateDoc, getDoc, getDocs, collection } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useUser } from '../context/UserContext';
 import { PlayerCard } from './PlayerCard';
@@ -159,6 +160,7 @@ interface RaidGroupProps {
   assignedPlayers: Set<string>;
   assignPlayerToGroup: (player: SignupPlayer, groupId: string) => void;
   unassignPlayer: (player: SignupPlayer) => void;
+  benchPlayer: (player: SignupPlayer) => void;
 }
 
 const MemoizedRaidGroup = memo(({ 
@@ -169,7 +171,8 @@ const MemoizedRaidGroup = memo(({
   raidGroups,
   assignedPlayers,
   assignPlayerToGroup,
-  unassignPlayer
+  unassignPlayer,
+  benchPlayer
 }: RaidGroupProps) => (
   <Box
     bg="background.secondary"
@@ -231,6 +234,7 @@ const MemoizedRaidGroup = memo(({
                   assignedPlayers={assignedPlayers}
                   assignPlayerToGroup={assignPlayerToGroup}
                   unassignPlayer={unassignPlayer}
+                  benchPlayer={benchPlayer}
                   isInRaidGroup={true}
                   groupId={group.id}
                   groupIndex={index}
@@ -298,7 +302,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
         characterRole: signup.characterRole || 'DPS',
         absenceReason: signup.absenceReason
       };
-    });
+    });     
 
   const discordSignups = (event.raidHelperSignups?.signUps || [])
     .filter(signup => signup.status === "primary")
@@ -326,6 +330,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
 
   // Create unassigned players array from all signups
   const [unassignedPlayers, setUnassignedPlayers] = useState<SignupPlayer[]>([]);
+  const [benchedPlayers, setBenchedPlayers] = useState<SignupPlayer[]>([]);
 
   // Track which players are assigned to groups
   const [assignedPlayers, setAssignedPlayers] = useState<Set<string>>(new Set());
@@ -402,6 +407,17 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       }))
     })),
     unassigned: unassignedPlayers.map(player => ({
+      userId: player.userId,
+      username: player.username,
+      characterId: player.characterId,
+      characterName: player.characterName,
+      characterClass: player.characterClass,
+      characterRole: player.characterRole,
+      discordNickname: player.discordNickname,
+      originalDiscordName: player.originalDiscordName,
+      spec: player.spec
+    })),
+    benched: benchedPlayers.map(player => ({
       userId: player.userId,
       username: player.username,
       characterId: player.characterId,
@@ -534,13 +550,24 @@ const handleSaveRaidComp = async () => {
         })
       }));
 
+    // Clean up benched players data
+    const cleanBenchedPlayers = benchedPlayers.map(player => ({
+      userId: player.userId || '',
+      username: player.username || '',
+      characterId: player.characterId || '',
+      characterName: player.characterName || '',
+      characterClass: player.characterClass || 'Unknown',
+      characterRole: player.characterRole || 'DPS'
+    }));
+
     const raidComposition = {
       lastUpdated: new Date(),
       updatedBy: {
         userId: user.username || '',
         username: user.username || ''
       },
-      groups: nonEmptyGroups
+      groups: nonEmptyGroups,
+      benchedPlayers: cleanBenchedPlayers
     };
 
     await updateDoc(doc(db, 'events', event.id), {
@@ -662,54 +689,43 @@ const handleSaveRaidComp = async () => {
       const allSignups = [...manualSignups, ...discordSignups];
       
       // Initialize empty groups
-      const initialGroups = raidGroups.map(group => ({ ...group, players: [] }));
+      const initialGroups: RaidGroup[] = raidGroups.map(group => ({ ...group, players: [] }));
       const assignedPlayerIds = new Set<string>();
-      
-    if (event.raidComposition) {
-      const savedGroups = event.raidComposition.groups;
 
-      // Update groups with saved players
-      const updatedGroups = initialGroups.map(group => {
-        const savedGroup = savedGroups.find(g => g.id === group.id);
-          if (!savedGroup) return group;
-
-          const validPlayers = savedGroup.players
-            .map(savedPlayer => {
-              const matchingSignup = allSignups.find(signup => 
-                signup.userId === savedPlayer.userId || 
-                signup.characterId === savedPlayer.characterId
-              );
-              if (matchingSignup) {
-                assignedPlayerIds.add(matchingSignup.characterId);
-                return matchingSignup;
-              }
-              return null;
-            })
-            .filter((player): player is SignupPlayer => player !== null);
-
-          return { ...group, players: validPlayers };
+      // Load existing raid composition if available
+      if (event.raidComposition) {
+        // Load groups
+        event.raidComposition.groups.forEach(group => {
+          const groupIndex = initialGroups.findIndex(g => g.id === group.id);
+          if (groupIndex !== -1) {
+            initialGroups[groupIndex].players = group.players.map(player => ({
+              ...player,
+              isPreview: false
+            }));
+            group.players.forEach(player => assignedPlayerIds.add(player.characterId));
+          }
         });
 
-        // Set unassigned players (those not in any group)
-        const unassigned = allSignups.filter(player => 
-          !assignedPlayerIds.has(player.characterId)
-        );
-
-        setRaidGroups(updatedGroups);
-      setUnassignedPlayers(unassigned);
-        setAssignedPlayers(assignedPlayerIds);
-    } else {
-        // No saved composition, initialize with all players unassigned
-      setRaidGroups(initialGroups);
-        setUnassignedPlayers(allSignups);
-        setAssignedPlayers(new Set());
+        // Load benched players
+        if (event.raidComposition.benchedPlayers) {
+          setBenchedPlayers(event.raidComposition.benchedPlayers.map(player => ({
+            ...player,
+            isPreview: false
+          })));
+          event.raidComposition.benchedPlayers.forEach(player => assignedPlayerIds.add(player.characterId));
+        }
       }
 
+      // Set unassigned players (those not in groups or bench)
+      const unassigned = allSignups.filter(signup => !assignedPlayerIds.has(signup.characterId));
+      setUnassignedPlayers(unassigned);
+      setRaidGroups(initialGroups);
+      setAssignedPlayers(assignedPlayerIds);
       setHasInitialized(true);
     };
 
     initializeSignups();
-  }, [isOpen, event?.id, event?.signupType, event?.raidHelperSignups, event?.signups, event?.raidComposition]);
+  }, [isOpen, event, hasInitialized]);
 
   // Reset initialization state when modal closes
   useEffect(() => {
@@ -739,105 +755,57 @@ const handleSaveRaidComp = async () => {
     fetchNicknames();
   }, [event.signupType, unassignedPlayers, raidGroups]);
 
-  const handleDragEnd = (result: DropResult) => {
-    // If not admin, ignore drag
-    if (!isAdmin) return;
+  const onDragEnd = (result: DropResult) => {
+    const { source, destination } = result;
 
-    const { source, destination, draggableId } = result;
-    
-    // Drop outside any droppable or same position
-    if (!destination || 
-        (source.droppableId === destination.droppableId && 
-         source.index === destination.index)) {
-      return;
+    // If dropped outside a droppable area
+    if (!destination) return;
+
+    // If dropped in the same position
+    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+
+    const sourceId = source.droppableId;
+    const destinationId = destination.droppableId;
+
+    // Get the player being moved
+    let player: SignupPlayer | undefined;
+
+    // From unassigned list
+    if (sourceId === 'unassigned') {
+      player = unassignedPlayers[source.index];
+    }
+    // From bench
+    else if (sourceId === 'bench') {
+      player = benchedPlayers[source.index];
+    }
+    // From a raid group
+    else {
+      const group = raidGroups.find(g => g.id === sourceId);
+      player = group?.players[source.index];
     }
 
-    // Find the actual player being moved using the draggableId
-    const playerBeingMoved = unassignedPlayers.find(p => p.characterId === draggableId) ||
-      raidGroups.flatMap(g => g.players).find(p => p.characterId === draggableId);
+    if (!player) return;
 
-    if (!playerBeingMoved) return;
-
-    // Find the source and destination lists
-    let sourceList: SignupPlayer[] = [];
-    let destList: SignupPlayer[] = [];
-
-    // Get source list
-    if (source.droppableId === 'unassigned') {
-      sourceList = [...unassignedPlayers];
-    } else {
-      const sourceGroup = raidGroups.find(g => g.id === source.droppableId);
-      if (!sourceGroup) return;
-      sourceList = [...sourceGroup.players];
+    // Moving to bench
+    if (destinationId === 'bench') {
+      benchPlayer(player);
     }
-
-    // Get destination list
-    if (destination.droppableId === 'unassigned') {
-      destList = [...unassignedPlayers];
-    } else {
-      const destGroup = raidGroups.find(g => g.id === destination.droppableId);
-      if (!destGroup) return;
-      if (destGroup.players.length >= 5 && source.droppableId !== destination.droppableId && !isAdmin) {
-        toast({
-          title: "Group is full",
-          description: "A group can't have more than 5 players",
-          status: "error",
-          duration: 3000,
-          isClosable: true,
-          position: "top"
-        });
-        return;
+    // Moving to unassigned
+    else if (destinationId === 'unassigned') {
+      if (sourceId === 'bench') {
+        setBenchedPlayers(prev => prev.filter(p => p.characterId !== player!.characterId));
       }
-      destList = [...destGroup.players];
+      unassignPlayer(player);
     }
-
-    // Remove player from source list
-    sourceList = sourceList.filter(p => p.characterId !== playerBeingMoved.characterId);
-
-    // If moving within the same list, just reorder
-    if (source.droppableId === destination.droppableId) {
-      sourceList.splice(destination.index, 0, playerBeingMoved);
-      
-      if (source.droppableId === 'unassigned') {
-        setUnassignedPlayers(sourceList);
-      } else {
-        setRaidGroups(prev => prev.map(group => 
-          group.id === source.droppableId ? { ...group, players: sourceList } : group
-        ));
+    // Moving to a raid group
+    else {
+      if (sourceId === 'bench') {
+        setBenchedPlayers(prev => prev.filter(p => p.characterId !== player!.characterId));
       }
-      return;
+      assignPlayerToGroup(player, destinationId);
     }
 
-    // Moving between different lists
-    destList.splice(destination.index, 0, playerBeingMoved);
-
-    // Update the appropriate lists
-    if (source.droppableId === 'unassigned') {
-      setUnassignedPlayers(sourceList);
-    } else {
-      setRaidGroups(prev => prev.map(group => 
-        group.id === source.droppableId ? { ...group, players: sourceList } : group
-      ));
-    }
-
-    if (destination.droppableId === 'unassigned') {
-      setUnassignedPlayers(destList);
-    } else {
-      setRaidGroups(prev => prev.map(group =>
-        group.id === destination.droppableId ? { ...group, players: destList } : group
-      ));
-    }
-
-    // Update assigned players set
-    if (destination.droppableId === 'unassigned') {
-      setAssignedPlayers(prev => {
-        const next = new Set(prev);
-        next.delete(playerBeingMoved.characterId);
-        return next;
-      });
-    } else if (source.droppableId === 'unassigned') {
-      setAssignedPlayers(prev => new Set([...prev, playerBeingMoved.characterId]));
-    }
+    setHasUnsavedChanges(true);
   };
 
   const assignPlayerToGroup = (player: SignupPlayer, groupId: string) => {
@@ -1298,6 +1266,41 @@ const handleSaveRaidComp = async () => {
     setHasUnsavedChanges(true);
   };
 
+  const benchPlayer = (player: SignupPlayer) => {
+    // Remove player from all groups
+    const updatedGroups = raidGroups.map(group => ({
+      ...group,
+      players: group.players.filter(p => p.characterId !== player.characterId)
+    }));
+
+    // Remove player from unassigned list
+    setUnassignedPlayers(prev => prev.filter(p => p.characterId !== player.characterId));
+
+    // Add player to bench if not already there
+    setBenchedPlayers(prev => {
+      if (prev.some(p => p.characterId === player.characterId)) return prev;
+      return [...prev, { ...player, isPreview: false }];
+    });
+
+    // Update groups
+    setRaidGroups(updatedGroups);
+
+    // Update assigned players set
+    setAssignedPlayers(prev => {
+      const newSet = new Set(prev);
+      newSet.add(player.characterId);
+      return newSet;
+    });
+
+    // Mark as having unsaved changes
+    setHasUnsavedChanges(true);
+  };
+
+  // When rendering unassigned players, filter out benched players
+  const visibleUnassignedPlayers = unassignedPlayers.filter(
+    p => !benchedPlayers.some(b => b.characterId === p.characterId)
+  );
+
   return (
     <>
       <Global
@@ -1351,7 +1354,7 @@ const handleSaveRaidComp = async () => {
               <ModalHeader color="text.primary" fontSize={isMobile ? "xl" : "2xl"} pt={8} px={8}>
                 <Flex justify="space-between" alignItems="center" flexDir={isMobile ? "column" : "row"} gap={4}>
               <Text>Slutgiltig Roster - {event.title}</Text>
-                  {isAdmin && unassignedPlayers.length + raidGroups.reduce((total, group) => total + group.players.length, 0) > 0 && (
+                  {isAdmin && (unassignedPlayers.length + raidGroups.reduce((total, group) => total + group.players.length, 0) > 0 || benchedPlayers.length) && (
                     <HStack spacing={2} mr={isMobile ? 0 : "3rem"}>
                       <Menu>
                         <MenuButton
@@ -1526,9 +1529,9 @@ const handleSaveRaidComp = async () => {
                         }}
                       >
                         {event.description}
-                      </Text>
-                    </HStack>
-                  </Box>
+                    </Text>
+                  </HStack>
+                </Box>
                 )}
 
                 {userCharacterInfo && (
@@ -1560,7 +1563,7 @@ const handleSaveRaidComp = async () => {
                 height="calc(100vh - 250px)"
                 onWheel={(e) => e.stopPropagation()}
               >
-            <DragDropContext onDragEnd={handleDragEnd}>
+            <DragDropContext onDragEnd={onDragEnd}>
                   <VStack 
                     align="stretch" 
                     spacing={8} 
@@ -1650,13 +1653,13 @@ const handleSaveRaidComp = async () => {
                             </MenuItem>
                           </MenuList>
                         </Menu>
-                    <Box
-                      bg="background.tertiary"
+                  <Box 
+                    bg="background.tertiary"
                       p={4}
                       borderRadius="lg"
-                      borderLeft="4px solid"
-                      borderLeftColor="primary.400"
-                    >
+                    borderLeft="4px solid"
+                    borderLeftColor="primary.400"
+                  >
                       <Heading size="sm" color="text.primary" mb={3}>
                             Unassigned Players ({regularUnassignedPlayers.length})
                       </Heading>
@@ -1699,13 +1702,14 @@ const handleSaveRaidComp = async () => {
                                   assignedPlayers={assignedPlayers}
                                   assignPlayerToGroup={assignPlayerToGroup}
                                   unassignPlayer={unassignPlayer}
+                                  benchPlayer={benchPlayer}
                                   isInRaidGroup={false}
                                 />
                               ))}
                             {provided.placeholder}
                             </SimpleGrid>
-                          </Box>
-                        )}
+                  </Box>
+                )}
                           </Droppable>
                     </Box>
 
@@ -1721,7 +1725,7 @@ const handleSaveRaidComp = async () => {
                             <Heading size="sm" color="text.primary" mb={3}>
                               Absence ({absencePlayers.length})
                             </Heading>
-                            <Droppable droppableId="absence" type="player">
+                            <Droppable droppableId="absence" type="player" isDropDisabled={true}>
                               {(provided) => (
                                 <VStack 
                                   align="stretch" 
@@ -1741,15 +1745,65 @@ const handleSaveRaidComp = async () => {
                                       assignedPlayers={assignedPlayers}
                                       assignPlayerToGroup={assignPlayerToGroup}
                                       unassignPlayer={unassignPlayer}
+                                      benchPlayer={benchPlayer}
                                       isInRaidGroup={false}
+                                      isDragDisabled={true}
                                     />
                                   ))}
                                   {provided.placeholder}
-                                </VStack>
-                              )}
+              </VStack>
+            )}
                             </Droppable>
+                </Box>
+                        )}
+
+                        {/* Bench Section */}
+                    <Box
+                      bg="background.tertiary"
+                      p={4}
+                      borderRadius="lg"
+                      borderLeft="4px solid"
+                          borderLeftColor="red.400"
+                          mt={4}
+                    >
+                      <Heading size="sm" color="text.primary" mb={3}>
+                            <span style={{display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: '10px'}}>
+                              <SiBlockbench/> Bench ({benchedPlayers.length})
+                            </span>
+                      </Heading>
+                          <Droppable droppableId="bench" type="player">
+                            {(provided) => (
+                          <Box
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                                bg="background.secondary"
+                            p={2}
+                                borderRadius="md"
+                                minH="50px"
+                              >
+                                <VStack spacing={1} align="stretch">
+                                  {benchedPlayers.map((player, index) => (
+                                    <PlayerCard
+                                      key={player.characterId}
+                                      player={player}
+                                      index={index}
+                                      isMobile={isMobile}
+                                      isAdmin={isAdmin}
+                                      event={event}
+                                      raidGroups={raidGroups}
+                                      assignedPlayers={assignedPlayers}
+                                      assignPlayerToGroup={assignPlayerToGroup}
+                                      unassignPlayer={unassignPlayer}
+                                      benchPlayer={benchPlayer}
+                                      isInRaidGroup={false}
+                                    />
+                                  ))}
+                            {provided.placeholder}
+                                </VStack>
                           </Box>
                         )}
+                          </Droppable>
+                    </Box>
                   </VStack>
                 </Box>
 
@@ -1811,6 +1865,7 @@ const handleSaveRaidComp = async () => {
                               assignedPlayers={assignedPlayers}
                               assignPlayerToGroup={assignPlayerToGroup}
                               unassignPlayer={unassignPlayer}
+                              benchPlayer={benchPlayer}
                             />
                           ))}
                         </SimpleGrid>
@@ -1846,7 +1901,7 @@ const handleSaveRaidComp = async () => {
                         <HStack justify="space-between" mb={4}>
                           <Heading size="sm" color="text.primary">
                             Raid 11-18 [{getRaidPlayerCount(raidGroups, 8, 16)}/40]
-                          </Heading>
+                        </Heading>
                           {isAdmin && (
                             <Menu>
                               <MenuButton
@@ -1890,6 +1945,7 @@ const handleSaveRaidComp = async () => {
                               assignedPlayers={assignedPlayers}
                               assignPlayerToGroup={assignPlayerToGroup}
                               unassignPlayer={unassignPlayer}
+                              benchPlayer={benchPlayer}
                             />
                           ))}
                         </SimpleGrid>

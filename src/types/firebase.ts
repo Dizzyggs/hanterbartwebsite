@@ -122,6 +122,14 @@ export interface Event {
         characterRole: string;
       }[];
     }[];
+    benchedPlayers: {
+      userId: string;
+      username: string;
+      characterId: string;
+      characterName: string;
+      characterClass: string;
+      characterRole: string;
+    }[];
   };
   createdBy: string;
   createdAt: Date | Timestamp;

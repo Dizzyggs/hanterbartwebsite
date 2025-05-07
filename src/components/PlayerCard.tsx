@@ -1,6 +1,6 @@
 import { Box, HStack, VStack, Text, Badge, Image, Menu, MenuButton, MenuList, MenuItem, MenuDivider, Portal, useDisclosure, Tooltip, IconButton } from '@chakra-ui/react';
 import { Draggable, DraggableProvided } from 'react-beautiful-dnd';
-import { SignupPlayer } from '../types/firebase';
+import { Event, SignupPlayer, RaidGroup } from '../types/firebase';
 import { CLASS_ICONS, CLASS_COLORS, ClassIconType } from '../utils/classIcons';
 import { SubMenu } from './SubMenu';
 import { memo } from 'react';
@@ -11,11 +11,12 @@ interface PlayerCardProps {
   index: number;
   isMobile: boolean;
   isAdmin: boolean;
-  event: any;
-  raidGroups: any[];
+  event: Event;
+  raidGroups: RaidGroup[];
   assignedPlayers: Set<string>;
-  assignPlayerToGroup: (player: SignupPlayer, groupId: string, targetIndex?: number) => void;
+  assignPlayerToGroup: (player: SignupPlayer, groupId: string) => void;
   unassignPlayer: (player: SignupPlayer) => void;
+  benchPlayer: (player: SignupPlayer) => void;
   isInRaidGroup: boolean;
   groupId?: string;
   groupIndex?: number;
@@ -50,6 +51,7 @@ const PlayerCardComponent = ({
   assignedPlayers, 
   assignPlayerToGroup, 
   unassignPlayer,
+  benchPlayer,
   isInRaidGroup,
   groupId,
   groupIndex
@@ -207,6 +209,17 @@ const PlayerCardComponent = ({
                     }}
                   >
                     Unassign
+                  </MenuItem>
+                  <MenuItem
+                    _hover={{ bg: 'background.tertiary' }}
+                    _focus={{ bg: 'background.tertiary' }}
+                    color="red.400"
+                    bg="background.secondary"
+                    onClick={() => {
+                      benchPlayer(player);
+                    }}
+                  >
+                    Mark as Benched
                   </MenuItem>
                   <MenuDivider borderColor="border.primary" />
                   <SubMenu label="Raid 1-8">
