@@ -578,14 +578,14 @@ const handleSaveRaidComp = async () => {
     setInitialState(createCleanState());
     setHasUnsavedChanges(false);
 
-    toast({
+        toast({
       title: "Raid composition saved",
       description: "The raid composition has been updated successfully",
       status: "success",
-      duration: 3000,
-      isClosable: true,
-      position: "top"
-    });
+          duration: 3000,
+          isClosable: true,
+          position: "top"
+        });
   } catch (error) {
     console.error('Error saving raid composition:', error);
     console.error('Error details:', {
@@ -767,42 +767,41 @@ const handleSaveRaidComp = async () => {
     const sourceId = source.droppableId;
     const destinationId = destination.droppableId;
 
-    // Get the player being moved
+    // Get the player being moved (always from the canonical state)
     let player: SignupPlayer | undefined;
-
-    // From unassigned list
     if (sourceId === 'unassigned') {
       player = unassignedPlayers[source.index];
-    }
-    // From bench
-    else if (sourceId === 'bench') {
+    } else if (sourceId === 'bench') {
       player = benchedPlayers[source.index];
-    }
-    // From a raid group
-    else {
+    } else {
       const group = raidGroups.find(g => g.id === sourceId);
       player = group?.players[source.index];
     }
-
     if (!player) return;
 
-    // Moving to bench
+    // Remove player from all possible sources
+    setUnassignedPlayers(prev => prev.filter(p => p.characterId !== player!.characterId));
+    setBenchedPlayers(prev => prev.filter(p => p.characterId !== player!.characterId));
+    setRaidGroups(prevGroups => prevGroups.map(group => ({
+      ...group,
+      players: group.players.filter(p => p.characterId !== player!.characterId)
+    })));
+
+    // Add player to the destination
     if (destinationId === 'bench') {
-      benchPlayer(player);
-    }
-    // Moving to unassigned
-    else if (destinationId === 'unassigned') {
-      if (sourceId === 'bench') {
-        setBenchedPlayers(prev => prev.filter(p => p.characterId !== player!.characterId));
-      }
-      unassignPlayer(player);
-    }
-    // Moving to a raid group
-    else {
-      if (sourceId === 'bench') {
-        setBenchedPlayers(prev => prev.filter(p => p.characterId !== player!.characterId));
-      }
-      assignPlayerToGroup(player, destinationId);
+      setBenchedPlayers(prev => prev.some(p => p.characterId === player!.characterId) ? prev : [...prev, { ...player!, isPreview: false }]);
+    } else if (destinationId === 'unassigned') {
+      setUnassignedPlayers(prev => prev.some(p => p.characterId === player!.characterId) ? prev : [...prev, player!]);
+    } else {
+      setRaidGroups(prevGroups => prevGroups.map(group => {
+        if (group.id === destinationId) {
+          // Only add if not already present
+          if (!group.players.some(p => p.characterId === player!.characterId)) {
+            return { ...group, players: [...group.players, player!] };
+          }
+        }
+        return group;
+      }));
     }
 
     setHasUnsavedChanges(true);
@@ -1179,8 +1178,8 @@ const handleSaveRaidComp = async () => {
           status: 'error',
           duration: 3000,
           isClosable: true,
-        });
-      } finally {
+      });
+    } finally {
         setIsLoadingTemplates(false);
       }
     };
@@ -1267,32 +1266,21 @@ const handleSaveRaidComp = async () => {
   };
 
   const benchPlayer = (player: SignupPlayer) => {
-    // Remove player from all groups
-    const updatedGroups = raidGroups.map(group => ({
+    // Remove from all sources
+    setUnassignedPlayers(prev => prev.filter(p => p.characterId !== player.characterId));
+    setRaidGroups(prevGroups => prevGroups.map(group => ({
       ...group,
       players: group.players.filter(p => p.characterId !== player.characterId)
-    }));
-
-    // Remove player from unassigned list
-    setUnassignedPlayers(prev => prev.filter(p => p.characterId !== player.characterId));
-
-    // Add player to bench if not already there
+    })));
     setBenchedPlayers(prev => {
       if (prev.some(p => p.characterId === player.characterId)) return prev;
       return [...prev, { ...player, isPreview: false }];
     });
-
-    // Update groups
-    setRaidGroups(updatedGroups);
-
-    // Update assigned players set
     setAssignedPlayers(prev => {
       const newSet = new Set(prev);
       newSet.add(player.characterId);
       return newSet;
     });
-
-    // Mark as having unsaved changes
     setHasUnsavedChanges(true);
   };
 
