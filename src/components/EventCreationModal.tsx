@@ -122,7 +122,8 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
             userId: user!.id,
             username: user!.username
           },
-          groups: []
+          groups: [],
+          benchedPlayers: []
         }
       };
 

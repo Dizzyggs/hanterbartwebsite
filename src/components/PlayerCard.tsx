@@ -297,7 +297,7 @@ const PlayerCardComponent = ({
                         characterId: player.matchedPlayerId,
                         isPreview: false
                       };
-                      assignPlayerToGroup(playerToAssign, groupId, groupIndex);
+                      assignPlayerToGroup(playerToAssign, groupId);
                     } else {
                       console.log("Conditions not met:", {
                         hasMatchedId: !!player.matchedPlayerId,
