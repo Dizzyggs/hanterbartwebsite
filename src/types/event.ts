@@ -9,4 +9,6 @@ export interface SignupPlayer {
   originalDiscordName?: string;
   isDiscordSignup?: boolean;
   spec?: string;
+  absenceReason?: string;
+  originalClass?: string;
 } 

@@ -40,6 +40,11 @@ import {
   Spinner,
   Center,
   Tooltip,
+  Accordion,
+  AccordionItem,
+  AccordionButton,
+  AccordionPanel,
+  AccordionIcon,
 } from '@chakra-ui/react';
 import { Global, css } from '@emotion/react';
 import { Event, RaidHelperSignup as RaidHelperSignupType, SignupPlayer, RosterTemplate } from '../types/firebase';
@@ -300,7 +305,8 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
         characterName: signup.characterName || signup.username || '',
         characterClass: signup.characterClass || 'WARRIOR',
         characterRole: signup.characterRole || 'DPS',
-        absenceReason: signup.absenceReason
+        absenceReason: signup.absenceReason,
+        originalClass: signup.originalClass
       };
     });     
 
@@ -675,7 +681,9 @@ const handleSaveRaidComp = async () => {
           characterId: signup.characterId || userId,
           characterName: signup.characterName || signup.username || '',
           characterClass: signup.characterClass || 'WARRIOR',
-          characterRole: signup.characterRole || 'DPS'
+          characterRole: signup.characterRole || 'DPS',
+          absenceReason: signup.absenceReason,
+          originalClass: signup.originalClass
         }));
 
       // Process Discord signups
@@ -1701,49 +1709,6 @@ const handleSaveRaidComp = async () => {
                           </Droppable>
                     </Box>
 
-                        {absencePlayers.length > 0 && (
-                          <Box
-                            bg="background.tertiary"
-                            p={4}
-                            borderRadius="lg"
-                            borderLeft="4px solid"
-                            borderLeftColor="red.400"
-                            mt={4}
-                          >
-                            <Heading size="sm" color="text.primary" mb={3}>
-                              Absence ({absencePlayers.length})
-                            </Heading>
-                            <Droppable droppableId="absence" type="player" isDropDisabled={true}>
-                              {(provided) => (
-                                <VStack 
-                                  align="stretch" 
-                                  spacing={2}
-                                  ref={provided.innerRef}
-                                  {...provided.droppableProps}
-                                >
-                                  {absencePlayers.map((player, index) => (
-                                    <PlayerCard
-                                      key={player.characterId}
-                                      player={player}
-                                      index={index}
-                                      isMobile={isMobile}
-                                      isAdmin={isAdmin}
-                                      event={event}
-                                      raidGroups={raidGroups}
-                                      assignedPlayers={assignedPlayers}
-                                      assignPlayerToGroup={assignPlayerToGroup}
-                                      unassignPlayer={unassignPlayer}
-                                      benchPlayer={benchPlayer}
-                                      isInRaidGroup={false}
-                                    />
-                                  ))}
-                                  {provided.placeholder}
-              </VStack>
-            )}
-                            </Droppable>
-                </Box>
-                        )}
-
                         {/* Bench Section */}
                     <Box
                       bg="background.tertiary"
@@ -1791,6 +1756,48 @@ const handleSaveRaidComp = async () => {
                         )}
                           </Droppable>
                     </Box>
+                    {absencePlayers.length > 0 && (
+                          <Accordion allowToggle defaultIndex={[]} mb={4}>
+                            <AccordionItem border="none">
+                              <AccordionButton
+                                bg="background.tertiary"
+                                borderRadius="lg"
+                                borderLeft="4px solid"
+                                borderLeftColor="red.400"
+                                mt={4}
+                                _expanded={{ bg: 'background.tertiary' }}
+                                px={4}
+                                py={3}
+                              >
+                                <Heading size="sm" color="text.primary" mb={0} flex="1" textAlign="left">
+                                  Absence ({absencePlayers.length})
+                                </Heading>
+                                <AccordionIcon />
+                              </AccordionButton>
+                              <AccordionPanel px={4} pb={4} pt={2} bg="background.tertiary" borderRadius="lg">
+                                <Droppable droppableId="absence" type="player" isDropDisabled={true}>
+                                  {(provided) => (
+                                    <VStack 
+                                      align="stretch" 
+                                      spacing={2}
+                                      ref={provided.innerRef}
+                                      {...provided.droppableProps}
+                                    >
+                                      {absencePlayers.map((player, index) => (
+                                        <AbsencePlayer
+                                          key={player.characterId}
+                                          player={player}
+                                          userNicknames={userNicknames}
+                                        />
+                                      ))}
+                                      {provided.placeholder}
+                                    </VStack>
+                                  )}
+                                </Droppable>
+                              </AccordionPanel>
+                            </AccordionItem>
+                          </Accordion>
+                        )}
                   </VStack>
                 </Box>
 

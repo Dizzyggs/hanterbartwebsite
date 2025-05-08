@@ -8,6 +8,7 @@ interface AbsencePlayerProps {
 }
 
 const AbsencePlayer = memo(({ player, userNicknames }: AbsencePlayerProps) => {
+  console.log(player);
   const getDisplayName = () => {
     if (player.isDiscordSignup) {
       return player.discordNickname || player.username;
@@ -41,7 +42,7 @@ const AbsencePlayer = memo(({ player, userNicknames }: AbsencePlayerProps) => {
   if (player.absenceReason) {
     return (
       <Tooltip 
-        label={player.absenceReason}
+        label={`Absence Reason: ${player.absenceReason}`}
         placement="top"
         hasArrow
       >
