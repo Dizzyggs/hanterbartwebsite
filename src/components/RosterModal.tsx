@@ -763,40 +763,36 @@ const handleSaveRaidComp = async () => {
   }, [event.signupType, unassignedPlayers, raidGroups]);
 
   const onDragEnd = (result: DropResult) => {
-    const { source, destination } = result;
+    const { destination, draggableId } = result;
     if (!destination) return;
-    if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+    if (result.source.droppableId === destination.droppableId && result.source.index === destination.index) return;
 
-    // Always get the canonical player object from state
-    let player: SignupPlayer | undefined;
-    if (source.droppableId === 'unassigned') {
-      player = unassignedPlayers[source.index];
-    } else if (source.droppableId === 'bench') {
-      player = benchedPlayers[source.index];
-    } else {
-      const group = raidGroups.find(g => g.id === source.droppableId);
-      player = group?.players[source.index];
-    }
+    // Always get the canonical player object from state using draggableId
+    const player =
+      unassignedPlayers.find(p => p.characterId === draggableId) ||
+      benchedPlayers.find(p => p.characterId === draggableId) ||
+      raidGroups.flatMap(g => g.players).find(p => p.characterId === draggableId);
+
     if (!player) return;
 
     // Remove player from all sources
-    setUnassignedPlayers(prev => prev.filter(p => p.characterId !== player!.characterId));
-    setBenchedPlayers(prev => prev.filter(p => p.characterId !== player!.characterId));
+    setUnassignedPlayers(prev => prev.filter(p => p.characterId !== player.characterId));
+    setBenchedPlayers(prev => prev.filter(p => p.characterId !== player.characterId));
     setRaidGroups(prevGroups => prevGroups.map(group => ({
       ...group,
-      players: group.players.filter(p => p.characterId !== player!.characterId)
+      players: group.players.filter(p => p.characterId !== player.characterId)
     })));
 
     // Add player to the destination
     if (destination.droppableId === 'bench') {
-      setBenchedPlayers(prev => prev.some(p => p.characterId === player!.characterId) ? prev : [...prev, { ...player!, isPreview: false }]);
+      setBenchedPlayers(prev => prev.some(p => p.characterId === player.characterId) ? prev : [...prev, { ...player, isPreview: false }]);
     } else if (destination.droppableId === 'unassigned') {
-      setUnassignedPlayers(prev => prev.some(p => p.characterId === player!.characterId) ? prev : [...prev, player!]);
+      setUnassignedPlayers(prev => prev.some(p => p.characterId === player.characterId) ? prev : [...prev, player]);
     } else {
       setRaidGroups(prevGroups => prevGroups.map(group => {
         if (group.id === destination.droppableId) {
-          if (!group.players.some(p => p.characterId === player!.characterId)) {
-            return { ...group, players: [...group.players, player!] };
+          if (!group.players.some(p => p.characterId === player.characterId)) {
+            return { ...group, players: [...group.players, player] };
           }
         }
         return group;
@@ -807,89 +803,50 @@ const handleSaveRaidComp = async () => {
   };
 
   const assignPlayerToGroup = (player: SignupPlayer, groupId: string) => {
-    const targetGroup = raidGroups.find(g => g.id === groupId);
-    const realPlayerCount = targetGroup?.players.filter(p => !p.isPreview).length || 0;
-    
-    if (!targetGroup || realPlayerCount >= 5) {
-      return;
-    }
+    // Always get the canonical player object from state
+    let canonicalPlayer =
+      unassignedPlayers.find(p => p.characterId === player.characterId) ||
+      benchedPlayers.find(p => p.characterId === player.characterId) ||
+      raidGroups.flatMap(g => g.players).find(p => p.characterId === player.characterId) ||
+      player;
 
-    // If this is a preview player with a matched real player, use the real player
-    const playerToAssign = player.isPreview && player.matchedPlayerId
-      ? unassignedPlayers.find(p => p.characterId === player.matchedPlayerId) || player
-      : player;
+    // Remove from all sources
+    setUnassignedPlayers(prev => prev.filter(p => p.characterId !== canonicalPlayer.characterId));
+    setBenchedPlayers(prev => prev.filter(p => p.characterId !== canonicalPlayer.characterId));
+    setRaidGroups(prevGroups => prevGroups.map(group => ({
+      ...group,
+      players: group.players.filter(p => p.characterId !== canonicalPlayer.characterId)
+    })));
 
-    // First, remove from unassigned if present
-    setUnassignedPlayers(prev => {
-      const newUnassigned = prev.filter(p => p.characterId !== playerToAssign.characterId);
-      return newUnassigned;
-    });
-
-    // Then, update all groups
-    setRaidGroups(prevGroups => {
-      const updatedGroups = prevGroups.map(group => {
-        // For the target group, remove any preview players that match this player
-        // For other groups, only remove the real player if it exists
-        const filteredPlayers = group.players.filter(p => {
-          if (group.id === groupId) {
-            // In target group: remove preview players that match AND the real player
-            return !(p.isPreview && p.matchedPlayerId === playerToAssign.characterId) && 
-                   p.characterId !== playerToAssign.characterId;
-          } else {
-            // In other groups: only remove the real player
-            return p.characterId !== playerToAssign.characterId;
-          }
-        });
-
-      // Add to target group
+    // Add to target group
+    setRaidGroups(prevGroups => prevGroups.map(group => {
       if (group.id === groupId) {
-        return {
-          ...group,
-            players: [...filteredPlayers, playerToAssign]
-          };
+        // Only add if not already present
+        if (!group.players.some(p => p.characterId === canonicalPlayer.characterId)) {
+          return { ...group, players: [...group.players, canonicalPlayer] };
         }
-
-        return {
-          ...group,
-          players: filteredPlayers
-        };
-      });
-
-      console.log("Updated groups:", {
-        targetGroupId: groupId,
-        targetGroupPlayers: updatedGroups.find(g => g.id === groupId)?.players.length,
-        allGroups: updatedGroups.map(g => ({
-          id: g.id,
-          playerCount: g.players.filter(p => !p.isPreview).length
-        }))
-      });
-
-      return updatedGroups;
-    });
+      }
+      return group;
+    }));
 
     // Update assigned players set
     setAssignedPlayers(prev => {
-      const newSet = new Set([...prev, playerToAssign.characterId]);
-      console.log("Updated assigned players set:", {
-        before: prev.size,
-        after: newSet.size,
-        added: newSet.size - prev.size
-      });
+      const newSet = new Set([...prev, canonicalPlayer.characterId]);
       return newSet;
     });
+
+    setHasUnsavedChanges(true);
   };
 
   const unassignPlayer = (player: SignupPlayer) => {
-    // First check if player is already in unassigned to prevent duplicates
-    if (unassignedPlayers.some(p => p.characterId === player.characterId)) {
-      return;
-    }
-
     // Remove from all groups
     setRaidGroups(prevGroups => prevGroups.map(group => ({
       ...group,
       players: group.players.filter(p => p.characterId !== player.characterId)
     })));
+
+    // Remove from bench
+    setBenchedPlayers(prev => prev.filter(p => p.characterId !== player.characterId));
 
     // Remove from assigned players set
     setAssignedPlayers(prev => {
@@ -898,8 +855,15 @@ const handleSaveRaidComp = async () => {
       return next;
     });
 
-    // Add to unassigned
-      setUnassignedPlayers(prev => [...prev, player]);
+    // Always use the canonical player object from state
+    let canonicalPlayer =
+      unassignedPlayers.find(p => p.characterId === player.characterId) ||
+      benchedPlayers.find(p => p.characterId === player.characterId) ||
+      raidGroups.flatMap(g => g.players).find(p => p.characterId === player.characterId) ||
+      player;
+
+    // Add to unassigned if not already present
+    setUnassignedPlayers(prev => prev.some(p => p.characterId === player.characterId) ? prev : [...prev, canonicalPlayer]);
   };
 
   const SubMenu = ({ label = '', children }: { label: string; children: React.ReactNode }) => {
