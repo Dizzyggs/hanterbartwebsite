@@ -297,18 +297,16 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   // Combine manual and Discord signups
   const manualSignups = Object.entries(event.signups || {})
     .filter((entry): entry is [string, NonNullable<typeof entry[1]>] => entry[1] !== null)
-    .map(([userId, signup]): SignupPlayer => {
-      return {
-        userId,
-        username: signup.username || '',
-        characterId: signup.characterId || userId,
-        characterName: signup.characterName || signup.username || '',
-        characterClass: signup.characterClass || 'WARRIOR',
-        characterRole: signup.characterRole || 'DPS',
-        absenceReason: signup.absenceReason,
-        originalClass: signup.originalClass
-      };
-    });     
+    .map(([userId, signup]) => ({
+      userId,
+      username: signup.username || '',
+      characterId: signup.characterId || userId,
+      characterName: signup.characterName || signup.username || '',
+      characterClass: signup.characterClass || 'WARRIOR',
+      characterRole: signup.characterRole || 'DPS',
+      absenceReason: signup.absenceReason,
+      ...(typeof (signup as any).originalClass === 'string' ? { originalClass: (signup as any).originalClass } : {})
+    } as SignupPlayer));
 
   const discordSignups = (event.raidHelperSignups?.signUps || [])
     .filter(signup => signup.status === "primary")
@@ -323,7 +321,8 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       originalDiscordName: signup.name,
       isDiscordSignup: true,
       spec: signup.specName || '',
-      absenceReason: signup.absenceReason
+      absenceReason: signup.absenceReason,
+      ...(typeof (signup as any).originalClass === 'string' ? { originalClass: (signup as any).originalClass } : {})
     }));
 
   // Combine both types of signups, but filter out absences from regular signups
@@ -683,8 +682,8 @@ const handleSaveRaidComp = async () => {
           characterClass: signup.characterClass || 'WARRIOR',
           characterRole: signup.characterRole || 'DPS',
           absenceReason: signup.absenceReason,
-          originalClass: signup.originalClass
-        }));
+          ...(typeof (signup as any).originalClass === 'string' ? { originalClass: (signup as any).originalClass } : {})
+        } as SignupPlayer));
 
       // Process Discord signups
       const discordSignups = event.signupType === 'raidhelper' && event.raidHelperSignups?.signUps
@@ -1111,7 +1110,8 @@ const handleSaveRaidComp = async () => {
             originalDiscordName: signup.name,
             discordNickname: matchingUser?.discordSignupNickname || undefined,
             spec: signup.specName || '',
-            isDiscordSignup: true
+            isDiscordSignup: true,
+            ...(typeof (signup as any).originalClass === 'string' ? { originalClass: (signup as any).originalClass } : {})
           };
           return player;
         });
