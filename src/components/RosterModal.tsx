@@ -764,29 +764,22 @@ const handleSaveRaidComp = async () => {
 
   const onDragEnd = (result: DropResult) => {
     const { source, destination } = result;
-
-    // If dropped outside a droppable area
     if (!destination) return;
-
-    // If dropped in the same position
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
-    const sourceId = source.droppableId;
-    const destinationId = destination.droppableId;
-
-    // Get the player being moved (always from the canonical state)
+    // Always get the canonical player object from state
     let player: SignupPlayer | undefined;
-    if (sourceId === 'unassigned') {
+    if (source.droppableId === 'unassigned') {
       player = unassignedPlayers[source.index];
-    } else if (sourceId === 'bench') {
+    } else if (source.droppableId === 'bench') {
       player = benchedPlayers[source.index];
     } else {
-      const group = raidGroups.find(g => g.id === sourceId);
+      const group = raidGroups.find(g => g.id === source.droppableId);
       player = group?.players[source.index];
     }
     if (!player) return;
 
-    // Remove player from all possible sources
+    // Remove player from all sources
     setUnassignedPlayers(prev => prev.filter(p => p.characterId !== player!.characterId));
     setBenchedPlayers(prev => prev.filter(p => p.characterId !== player!.characterId));
     setRaidGroups(prevGroups => prevGroups.map(group => ({
@@ -795,14 +788,13 @@ const handleSaveRaidComp = async () => {
     })));
 
     // Add player to the destination
-    if (destinationId === 'bench') {
+    if (destination.droppableId === 'bench') {
       setBenchedPlayers(prev => prev.some(p => p.characterId === player!.characterId) ? prev : [...prev, { ...player!, isPreview: false }]);
-    } else if (destinationId === 'unassigned') {
+    } else if (destination.droppableId === 'unassigned') {
       setUnassignedPlayers(prev => prev.some(p => p.characterId === player!.characterId) ? prev : [...prev, player!]);
     } else {
       setRaidGroups(prevGroups => prevGroups.map(group => {
-        if (group.id === destinationId) {
-          // Only add if not already present
+        if (group.id === destination.droppableId) {
           if (!group.players.some(p => p.characterId === player!.characterId)) {
             return { ...group, players: [...group.players, player!] };
           }
