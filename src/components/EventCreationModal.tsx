@@ -148,7 +148,8 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
               tank: 2,
               healer: 5,
               dps: 18
-            }
+            },
+            discordChannel: selectedChannel
           };
 
           // Create RaidHelper event

@@ -11,6 +11,7 @@ interface RaidHelperEvent {
     healer: number;
     dps: number;
   };
+  discordChannel: 'main-raids' | 'events';
 }
 
 class RaidHelperService {
