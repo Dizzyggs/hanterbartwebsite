@@ -46,32 +46,6 @@ const Navbar = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const isMobile = useBreakpointValue({ base: true, md: false });
 
-  const testRaidHelper = async () => {
-    try {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      
-      const testEvent = {
-        title: "Test Raid Event",
-        description: "This is a test raid event created via API",
-        date: tomorrow.toISOString().split('T')[0],
-        time: "20:00",
-        leaderId: "184485021719986176",
-        templateId: "wowclassic",
-        size: 25,
-        roles: {
-          tank: 2,
-          healer: 5,
-          dps: 18
-        }
-      };
-
-      const result = await raidHelperService.createEvent(testEvent);
-      
-    } catch (error) {
-      console.error('Test failed:', error);
-    }
-  };
 
   const handleLogout = () => {
     logout();
