@@ -20,6 +20,10 @@ export const eventCreationSteps = [
     title: 'Date & Time',
     description: '',
   },
+  {
+    title: 'Discord Channel',
+    description: '',
+  },
 ];
 
 export const getDefaultSettings = async() => {

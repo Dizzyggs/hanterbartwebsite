@@ -41,8 +41,14 @@ export const handler: Handler = async (event, context) => {
 
   const apiKey = process.env.RAIDHELPER_API_KEY;
   const serverId = process.env.DISCORD_SERVER_ID;
-  const channelId = process.env.DISCORD_CHANNEL_ID;
-
+  
+  // Parse the event data from the request body
+  const eventData = JSON.parse(event.body || '{}');
+  
+  // Get the channel ID based on the event's selected Discord channel
+  const channelId = eventData.discordChannel === 'events' 
+    ? process.env.DISCORD_EVENTSCHANNEL_ID 
+    : process.env.DISCORD_CHANNEL_ID;
 
   if (!apiKey || !serverId || !channelId) {
     console.error('Missing required environment variables');

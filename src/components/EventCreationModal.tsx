@@ -26,9 +26,11 @@ import {
   Checkbox,
   HStack,
   Tooltip,
+  Select,
+  Text,
 } from '@chakra-ui/react';
 import { useState, useEffect } from 'react';
-import { CheckIcon } from '@chakra-ui/icons';
+import { CheckIcon, ChevronDownIcon } from '@chakra-ui/icons';
 import { collection, addDoc, doc, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useUser } from '../context/UserContext';
@@ -58,6 +60,7 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
   const [isWeeklyRecurring, setIsWeeklyRecurring] = useState(false);
   const [defaultOccuring, setDefaultOccuring] = useState(1);
   const [recurringWeeks, setRecurringWeeks] = useState(1);
+  const [selectedChannel, setSelectedChannel] = useState<'main-raids' | 'events'>('main-raids');
   
   const { user } = useUser();
   const toast = useToast({
@@ -116,6 +119,7 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
         createdBy: user!.username,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
+        discordChannel: selectedChannel,
         raidComposition: {
           lastUpdated: new Date(),
           updatedBy: {
@@ -234,6 +238,17 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
           return false;
         }
         return true;
+      case 3:
+        if (!selectedChannel) {
+          toast({
+            title: 'Please select a Discord channel',
+            status: 'error',
+            duration: 3000,
+            isClosable: true,
+          });
+          return false;
+        }
+        return true;
       default:
         return true;
     }
@@ -336,6 +351,9 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
           break;
         case 2:
           if (eventDate === '' || eventTime === '') return false;
+          break;
+        case 3:
+          if (!selectedChannel) return false;
           break;
       }
     }
@@ -576,6 +594,46 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
               </VStack>
             </FormControl>
           </VStack>
+        );
+      case 3:
+        return (
+          <FormControl isRequired>
+            <FormLabel color="text.primary" fontSize="lg" mb={4}>
+              Discord Channel
+            </FormLabel>
+            <Text color="text.secondary" fontSize="md" mb={4}>
+              Select which Discord channel the signup should be posted in
+            </Text>
+            <Select
+              value={selectedChannel}
+              onChange={(e) => setSelectedChannel(e.target.value as 'main-raids' | 'events')}
+              size="lg"
+              bg="background.tertiary"
+              border="1px solid"
+              borderColor="border.primary"
+              color="text.primary"
+              _hover={{ borderColor: 'primary.500' }}
+              _focus={{ 
+                borderColor: 'primary.500',
+                boxShadow: '0 0 0 1px var(--chakra-colors-primary-500)'
+              }}
+              icon={<ChevronDownIcon />}
+              iconColor="text.primary"
+              sx={{
+                '> option': {
+                  bg: 'background.secondary',
+                  color: 'text.primary',
+                },
+                '&:hover > option:hover': {
+                  bg: 'background.hover',
+                  cursor: 'pointer'
+                }
+              }}
+            >
+              <option value="main-raids">#main-raids</option>
+              <option value="events">#events</option>
+            </Select>
+          </FormControl>
         );
       default:
         return null;

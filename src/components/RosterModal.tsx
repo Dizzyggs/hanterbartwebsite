@@ -779,8 +779,8 @@ const handleSaveRaidComp = async () => {
     setUnassignedPlayers(prev => prev.filter(p => p.characterId !== player.characterId));
     setBenchedPlayers(prev => prev.filter(p => p.characterId !== player.characterId));
     setRaidGroups(prevGroups => prevGroups.map(group => ({
-      ...group,
-      players: group.players.filter(p => p.characterId !== player.characterId)
+          ...group,
+          players: group.players.filter(p => p.characterId !== player.characterId)
     })));
 
     // Add player to the destination
@@ -818,7 +818,7 @@ const handleSaveRaidComp = async () => {
       players: group.players.filter(p => p.characterId !== canonicalPlayer.characterId)
     })));
 
-    // Add to target group
+      // Add to target group
     setRaidGroups(prevGroups => prevGroups.map(group => {
       if (group.id === groupId) {
         // Only add if not already present
