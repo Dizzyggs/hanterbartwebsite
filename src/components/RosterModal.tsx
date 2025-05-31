@@ -45,6 +45,7 @@ import {
   AccordionButton,
   AccordionPanel,
   AccordionIcon,
+  Checkbox,
 } from '@chakra-ui/react';
 import { Global, css } from '@emotion/react';
 import { Event, RaidHelperSignup as RaidHelperSignupType, SignupPlayer, RosterTemplate } from '../types/firebase';
@@ -912,6 +913,8 @@ const handleSaveRaidComp = async () => {
     value: string | null;
   }>({ type: null, value: null });
 
+  const [filterRaidGroups, setFilterRaidGroups] = useState(false);
+
   // Update the regularUnassignedPlayers filtering
   const { absencePlayers, regularUnassignedPlayers } = useMemo(() => {
     const allPlayers = [...unassignedPlayers, ...raidGroups.flatMap(group => group.players)];
@@ -1537,7 +1540,10 @@ const handleSaveRaidComp = async () => {
                           </MenuButton>
                           <MenuList bg="gray.800" borderColor="gray.700">
                             <MenuItem
-                              onClick={() => setSelectedFilter({ type: null, value: null })}
+                              onClick={() => {
+                                setSelectedFilter({ type: null, value: null });
+                                setFilterRaidGroups(false);
+                              }}
                               bg="gray.800"
                               _hover={{ bg: 'gray.700' }}
                               color="white"
@@ -1605,6 +1611,19 @@ const handleSaveRaidComp = async () => {
                             </MenuItem>
                           </MenuList>
                         </Menu>
+                        {selectedFilter.value && (
+                          <Checkbox
+                            isChecked={filterRaidGroups}
+                            onChange={(e) => setFilterRaidGroups(e.target.checked)}
+                            colorScheme="blue"
+                            size="sm"
+                            mt={"0"}
+                            ml={2}
+                            color="white"
+                          >
+                            Filter raid groups
+                          </Checkbox>
+                        )}
                   <Box 
                     bg="background.tertiary"
                       p={4}
@@ -1804,20 +1823,57 @@ const handleSaveRaidComp = async () => {
                           )}
                         </HStack>
                         <SimpleGrid columns={isMobile ? 1 : 2} spacing={4}>
-                          {raidGroups.slice(0, 8).map((group) => (
-                            <MemoizedRaidGroup
-                              key={`${group.id}-${group.players.filter(p => p.isPreview).length}`}
-                              group={group}
-                              isMobile={isMobile}
-                              isAdmin={isAdmin}
-                              event={event}
-                              raidGroups={raidGroups}
-                              assignedPlayers={assignedPlayers}
-                              assignPlayerToGroup={assignPlayerToGroup}
-                              unassignPlayer={unassignPlayer}
-                              benchPlayer={benchPlayer}
-                            />
-                          ))}
+                          {raidGroups.slice(0, 8).map((group) => {
+                            // If filtering is enabled and we have a filter, apply it to the group's players
+                            const filteredPlayers = filterRaidGroups && selectedFilter.value
+                              ? group.players.filter(player => {
+                                  if (selectedFilter.type === 'class') {
+                                    if (selectedFilter.value === "FURY") {
+                                      if (player.isDiscordSignup) {
+                                        return player.spec?.toUpperCase() === "FURY";
+                                      }
+                                      return player.characterClass === "Warrior" && player.characterRole === "DPS";
+                                    } else if (selectedFilter.value === "WARRIOR") {
+                                      return (player.characterClass === "Warrior" || player.spec?.toUpperCase() === "FURY" || player.spec?.toUpperCase() === "PROTECTION");
+                                    } else {
+                                      return (player.characterClass.toUpperCase() === selectedFilter.value);
+                                    }
+                                  } else if (selectedFilter.type === 'role' && selectedFilter.value) {
+                                    if (selectedFilter.value === 'Tank') {
+                                      const isTank = 
+                                        player.characterRole?.toLowerCase() === 'tank' || 
+                                        player.characterClass?.toLowerCase() === 'tank';
+                                      const isFeralDruid = 
+                                        player.characterClass?.toLowerCase() === 'druid' && 
+                                        player.spec?.toLowerCase() === 'feral';
+                                      return isTank || isFeralDruid;
+                                    } else if (selectedFilter.value === 'Healer') {
+                                      return (player.characterRole?.toLowerCase() === selectedFilter.value?.toLowerCase() || player.characterClass === "Priest" || player.characterClass === "Paladin" || player.characterClass === "Druid");
+                                    } else if (selectedFilter.value === 'DPS') {
+                                      const DPS_SPECS = ['frost', 'arcane', 'fury', 'fire', 'arms', 'beastmastery', 'survival', "assassination", 'combat', 'subtlety', 'affliction', 'demonology', 'destruction', 'shadow'];
+                                      return (DPS_SPECS.includes(player.spec?.toLowerCase() || '') || player?.characterRole?.toLowerCase() === "dps");
+                                    }
+                                    return player.characterRole === selectedFilter.value;
+                                  }
+                                  return true;
+                                })
+                              : group.players;
+
+                            return (
+                              <MemoizedRaidGroup
+                                key={`${group.id}-${filteredPlayers.filter(p => p.isPreview).length}`}
+                                group={{ ...group, players: filteredPlayers }}
+                                isMobile={isMobile}
+                                isAdmin={isAdmin}
+                                event={event}
+                                raidGroups={raidGroups}
+                                assignedPlayers={assignedPlayers}
+                                assignPlayerToGroup={assignPlayerToGroup}
+                                unassignPlayer={unassignPlayer}
+                                benchPlayer={benchPlayer}
+                              />
+                            );
+                          })}
                         </SimpleGrid>
                       </Box>
 
@@ -1884,20 +1940,57 @@ const handleSaveRaidComp = async () => {
                           )}
                         </HStack>
                         <SimpleGrid columns={isMobile ? 1 : 2} spacing={4}>
-                          {raidGroups.slice(8, 16).map((group) => (
-                            <MemoizedRaidGroup
-                              key={`${group.id}-${group.players.filter(p => p.isPreview).length}`}
-                              group={group}
-                              isMobile={isMobile}
-                              isAdmin={isAdmin}
-                              event={event}
-                              raidGroups={raidGroups}
-                              assignedPlayers={assignedPlayers}
-                              assignPlayerToGroup={assignPlayerToGroup}
-                              unassignPlayer={unassignPlayer}
-                              benchPlayer={benchPlayer}
-                            />
-                          ))}
+                          {raidGroups.slice(8, 16).map((group) => {
+                            // If filtering is enabled and we have a filter, apply it to the group's players
+                            const filteredPlayers = filterRaidGroups && selectedFilter.value
+                              ? group.players.filter(player => {
+                                  if (selectedFilter.type === 'class') {
+                                    if (selectedFilter.value === "FURY") {
+                                      if (player.isDiscordSignup) {
+                                        return player.spec?.toUpperCase() === "FURY";
+                                      }
+                                      return player.characterClass === "Warrior" && player.characterRole === "DPS";
+                                    } else if (selectedFilter.value === "WARRIOR") {
+                                      return (player.characterClass === "Warrior" || player.spec?.toUpperCase() === "FURY" || player.spec?.toUpperCase() === "PROTECTION");
+                                    } else {
+                                      return (player.characterClass.toUpperCase() === selectedFilter.value);
+                                    }
+                                  } else if (selectedFilter.type === 'role' && selectedFilter.value) {
+                                    if (selectedFilter.value === 'Tank') {
+                                      const isTank = 
+                                        player.characterRole?.toLowerCase() === 'tank' || 
+                                        player.characterClass?.toLowerCase() === 'tank';
+                                      const isFeralDruid = 
+                                        player.characterClass?.toLowerCase() === 'druid' && 
+                                        player.spec?.toLowerCase() === 'feral';
+                                      return isTank || isFeralDruid;
+                                    } else if (selectedFilter.value === 'Healer') {
+                                      return (player.characterRole?.toLowerCase() === selectedFilter.value?.toLowerCase() || player.characterClass === "Priest" || player.characterClass === "Paladin" || player.characterClass === "Druid");
+                                    } else if (selectedFilter.value === 'DPS') {
+                                      const DPS_SPECS = ['frost', 'arcane', 'fury', 'fire', 'arms', 'beastmastery', 'survival', "assassination", 'combat', 'subtlety', 'affliction', 'demonology', 'destruction', 'shadow'];
+                                      return (DPS_SPECS.includes(player.spec?.toLowerCase() || '') || player?.characterRole?.toLowerCase() === "dps");
+                                    }
+                                    return player.characterRole === selectedFilter.value;
+                                  }
+                                  return true;
+                                })
+                              : group.players;
+
+                            return (
+                              <MemoizedRaidGroup
+                                key={`${group.id}-${filteredPlayers.filter(p => p.isPreview).length}`}
+                                group={{ ...group, players: filteredPlayers }}
+                                isMobile={isMobile}
+                                isAdmin={isAdmin}
+                                event={event}
+                                raidGroups={raidGroups}
+                                assignedPlayers={assignedPlayers}
+                                assignPlayerToGroup={assignPlayerToGroup}
+                                unassignPlayer={unassignPlayer}
+                                benchPlayer={benchPlayer}
+                              />
+                            );
+                          })}
                         </SimpleGrid>
                       </Box>
                         </SimpleGrid>
