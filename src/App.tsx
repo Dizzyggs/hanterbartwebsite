@@ -3,6 +3,7 @@ import {
   Routes, 
   Route, 
   Navigate,
+  useLocation,
 } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Home from './components/Home';
@@ -56,6 +57,9 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 
 function NavbarWrapper() {
   const { isNavbarVisible } = useNavbarVisibility();
+  const location = useLocation();
+  const isHome = location.pathname === '/';
+  
   return (
     <AnimatePresence>
       {isNavbarVisible && (
@@ -63,9 +67,17 @@ function NavbarWrapper() {
           key="navbar"
           initial={{ y: -60, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -60, opacity: 0 }}
+          exit={{ 
+            y: isHome ? -100 : -60, 
+            opacity: 0,
+            transition: isHome ? { duration: 0 } : { type: 'spring', stiffness: 400, damping: 30, duration: 0.7 }
+          }}
           transition={{ type: 'spring', stiffness: 400, damping: 30, duration: 0.7 }}
-          style={{ position: 'relative', zIndex: 100 }}
+          style={{ 
+            position: 'relative', 
+            zIndex: 100,
+            display: isHome && !isNavbarVisible ? 'none' : 'block'
+          }}
         >
           <Navbar />
         </motion.div>

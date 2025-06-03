@@ -33,7 +33,7 @@ import {
   ChevronDownIcon,
   StarIcon,
 } from '@chakra-ui/icons';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { FaDiscord, FaImage, FaUserCircle } from 'react-icons/fa';
 import { raidHelperService } from '../services/raidhelper';
@@ -44,15 +44,26 @@ const discordInviteLink = 'https://discord.gg/rBNWd8zM';
 const Navbar = () => {
   const { user, logout } = useUser();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const isMobile = useBreakpointValue({ base: true, md: false });
-  const { setNavbarVisible } = useNavbarVisibility();
-
+  const { setNavbarVisible, setInstantHide } = useNavbarVisibility();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
     onClose();
+  };
+
+  const handleHanterbartClick = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent default link behavior
+    if (location.pathname !== '/') {
+      setInstantHide(true); // Instantly hide navbar
+      // Small delay to ensure navbar hides before navigation
+      setTimeout(() => {
+        navigate('/');
+      }, 50);
+    }
   };
 
   const MobileNavItems = () => (
@@ -215,7 +226,7 @@ const Navbar = () => {
     <Box bg="background.primary" px={4} position="sticky" top={0} zIndex={100}>
       <Flex h={16} alignItems="center" justifyContent="space-between">
         <HStack spacing={8} alignItems="center">
-          <ChakraLink as={RouterLink} to="/" className="nav-link" onClick={() => setNavbarVisible(false)}>
+          <ChakraLink className="nav-link hanterbart-glow" onClick={handleHanterbartClick} cursor="pointer">
             <Text 
               fontSize="xl" 
               fontWeight="bold"
