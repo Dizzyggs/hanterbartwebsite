@@ -523,6 +523,7 @@ const ManageUsers = () => {
                 _hover={{ borderColor: 'border.secondary' }}
                 _focus={{ borderColor: 'primary.400', boxShadow: 'outline' }}
                 size={{ base: "sm", md: "md" }}
+                fontFamily={"Satoshi"} fontWeight={"300"}
               />
             </InputGroup>
           </HStack>

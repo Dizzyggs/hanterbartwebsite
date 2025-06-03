@@ -51,6 +51,7 @@ const Breadcrumbs = ({ items }: BreadcrumbsProps) => {
       mb={8}
       color={isNeonTheme ? "primary.400" : "white"}
       fontSize="md"
+      fontFamily={"Satoshi"} fontWeight={"300"}
       position="relative"
       zIndex={2}
       textShadow={isNeonTheme ? "0 0 10px currentColor" : "none"}

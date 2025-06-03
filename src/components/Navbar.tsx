@@ -37,6 +37,7 @@ import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useUser } from '../context/UserContext';
 import { FaDiscord, FaImage, FaUserCircle } from 'react-icons/fa';
 import { raidHelperService } from '../services/raidhelper';
+import { useNavbarVisibility } from '../context/NavbarVisibilityContext';
 
 const discordInviteLink = 'https://discord.gg/rBNWd8zM';
 
@@ -45,6 +46,7 @@ const Navbar = () => {
   const navigate = useNavigate();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const isMobile = useBreakpointValue({ base: true, md: false });
+  const { setNavbarVisible } = useNavbarVisibility();
 
 
   const handleLogout = () => {
@@ -58,7 +60,7 @@ const Navbar = () => {
       <RouterLink to="/media" onClick={onClose}>
         <HStack spacing={2} className="nav-link">
           <FaImage />
-          <Text>Media</Text>
+          <Text fontFamily={"Satoshi"} fontWeight={"300"}>Media</Text>
         </HStack>
       </RouterLink>
 
@@ -66,7 +68,7 @@ const Navbar = () => {
         <RouterLink to="/login" onClick={onClose}>
           <HStack spacing={2} className="nav-link">
             <ViewIcon />
-            <Text>Logga in</Text>
+            <Text fontFamily={"Satoshi"} fontWeight={"300"}>Logga in</Text>
           </HStack>
         </RouterLink>
       )}
@@ -75,7 +77,7 @@ const Navbar = () => {
         <RouterLink to="/calendar" onClick={onClose}>
           <HStack spacing={2} className="nav-link">
             <CalendarIcon />
-            <Text>Raids</Text>
+            <Text fontFamily={"Satoshi"} fontWeight={"300"}>Raids</Text>
           </HStack>
         </RouterLink>
       )}
@@ -162,7 +164,7 @@ const Navbar = () => {
         <RouterLink to="/calendar">
           <HStack spacing={2} className="nav-link">
             <CalendarIcon />
-            <Text>Raids</Text>
+            <Text fontFamily={"Satoshi"} fontWeight={"300"}>Raids</Text>
           </HStack>
         </RouterLink>
       )}
@@ -170,7 +172,7 @@ const Navbar = () => {
       <RouterLink to="/media">
         <HStack spacing={2} className="nav-link">
           <FaImage />
-          <Text>Media</Text>
+          <Text fontFamily={"Satoshi"} fontWeight={"300"}>Media</Text>
         </HStack>
       </RouterLink>
 
@@ -178,7 +180,7 @@ const Navbar = () => {
         <RouterLink to="/login">
           <HStack spacing={2} className="nav-link">
             <ViewIcon />
-            <Text>Logga in</Text>
+            <Text fontFamily={"Satoshi"} fontWeight={"300"}>Logga in</Text>
           </HStack>
         </RouterLink>
       )}
@@ -187,7 +189,7 @@ const Navbar = () => {
         <RouterLink to="/profile">
           <HStack spacing={2} className="nav-link">
             <FaUserCircle />
-            <Text>Profile</Text>
+            <Text fontFamily={"Satoshi"} fontWeight={"300"}>Profile</Text>
           </HStack>
         </RouterLink>
       )}
@@ -213,16 +215,14 @@ const Navbar = () => {
     <Box bg="background.primary" px={4} position="sticky" top={0} zIndex={100}>
       <Flex h={16} alignItems="center" justifyContent="space-between">
         <HStack spacing={8} alignItems="center">
-          <ChakraLink as={RouterLink} to="/" className="nav-link">
+          <ChakraLink as={RouterLink} to="/" className="nav-link" onClick={() => setNavbarVisible(false)}>
             <Text 
               fontSize="xl" 
               fontWeight="bold"
-              fontFamily="'MG-bold', sans-serif"
-              style={{
-                fontWeight: 'bold',
-              }}
+              fontFamily="ClashDisplay"
+              style={{ fontWeight: 'bold' }}
             >
-              Hanterbart
+              HANTERBART
             </Text>
           </ChakraLink>
         </HStack>
@@ -261,6 +261,7 @@ const Navbar = () => {
                   rightIcon={<ChevronDownIcon />}
                   variant="ghost"
                   color="text.primary"
+                  fontFamily={"Satoshi"} fontWeight={"600"}
                 >
                   {user.username}
                 </MenuButton>
@@ -273,7 +274,7 @@ const Navbar = () => {
                     >
                       <HStack>
                         <SettingsIcon />
-                        <Text>Settings</Text>
+                        <Text fontFamily={"Satoshi"} fontWeight={"300"}>Settings</Text>
                       </HStack>
                     </MenuItem>
                   </RouterLink>
@@ -283,6 +284,7 @@ const Navbar = () => {
                     _hover={{ bg: 'background.tertiary' }}
                     bg="background.secondary"
                     color="white"
+                    fontFamily={"Satoshi"} fontWeight={"300"}
                   >
                     Logout
                   </MenuItem>
@@ -298,6 +300,7 @@ const Navbar = () => {
                           _hover={{ bg: 'background.tertiary' }}
                           bg="background.secondary"
                           color="white"
+                          fontFamily={"Satoshi"} fontWeight={"300"}
                         >
                           Manage Users
                         </MenuItem>
@@ -318,6 +321,7 @@ const Navbar = () => {
                           _hover={{ bg: 'background.tertiary' }}
                           bg="background.secondary"
                           color="white"
+                          fontFamily={"Satoshi"} fontWeight={"300"}
                         >
                           Raid Settings
                         </MenuItem>

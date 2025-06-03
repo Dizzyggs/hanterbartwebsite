@@ -397,6 +397,7 @@ const Calendar = () => {
             letterSpacing="wide"
             bgGradient={`linear(to-r, ${theme.accent}, ${theme.accent}CC)`}
             bgClip="text"
+            fontFamily={"ClashDisplay"} fontWeight={"600"}
           >
             Guild Events Calendar
           </MotionHeading>
@@ -428,7 +429,7 @@ const Calendar = () => {
                 }}
                 transition="all 0.2s"
               >
-                Skapa Event
+                Create Event
               </Button>
             )}
             <BigCalendar<CalendarEvent>
@@ -436,7 +437,7 @@ const Calendar = () => {
               events={events}
               startAccessor="start"
               endAccessor="end"
-              style={{ height: 'calc(100vh - 12rem)' }}
+              style={{ height: 'calc(100vh - 12rem)', fontFamily: 'Satoshi' }}
               onSelectEvent={handleSelectEvent}
               views={['month']}
               defaultView={Views.MONTH}

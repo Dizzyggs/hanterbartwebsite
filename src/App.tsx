@@ -19,6 +19,8 @@ import ManageUsers from './components/admin/ManageUsers';
 import RaidSettings from './components/admin/RaidSettings';
 import { ThemeProvider } from './context/ThemeContext';
 import RaiderRoute from './components/RaiderRoute';
+import { NavbarVisibilityProvider, useNavbarVisibility } from './context/NavbarVisibilityContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Protected route wrapper component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -52,75 +54,97 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+function NavbarWrapper() {
+  const { isNavbarVisible } = useNavbarVisibility();
+  return (
+    <AnimatePresence>
+      {isNavbarVisible && (
+        <motion.div
+          key="navbar"
+          initial={{ y: -60, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -60, opacity: 0 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 30, duration: 0.7 }}
+          style={{ position: 'relative', zIndex: 100 }}
+        >
+          <Navbar />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function App() {
   return (
     <ThemeProvider>
       <UserProvider>
         <Router>
-          <Flex direction="column" minH="100vh" bg="background.primary">
-            <Navbar />
-            <Box flex="1" bg="background.primary">
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route 
-                  path="/calendar" 
-                  element={
-                    <RaiderRoute>
-                      <Calendar />
-                    </RaiderRoute>
-                  } 
-                />
-                <Route 
-                  path="/media" 
-                  element={<Media />}
-                />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route 
-                  path="/profile" 
-                  element={
-                    <ProtectedRoute>
-                      <Profile />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/settings" 
-                  element={
-                    <ProtectedRoute>
-                      <Settings />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route path="/admin">
+          <NavbarVisibilityProvider>
+            <Flex direction="column" minH="100vh" bg="background.primary">
+              <NavbarWrapper />
+              <Box flex="1" bg="background.primary">
+                <Routes>
+                  <Route path="/" element={<Home />} />
                   <Route 
-                    path="audit-logs" 
+                    path="/calendar" 
                     element={
-                      <AdminRoute>
-                        <AuditLogs />
-                      </AdminRoute>
+                      <RaiderRoute>
+                        <Calendar />
+                      </RaiderRoute>
                     } 
                   />
                   <Route 
-                    path="users" 
+                    path="/media" 
+                    element={<Media />}
+                  />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route 
+                    path="/profile" 
                     element={
-                      <AdminRoute>
-                        <ManageUsers />
-                      </AdminRoute>
+                      <ProtectedRoute>
+                        <Profile />
+                      </ProtectedRoute>
                     } 
                   />
                   <Route 
-                    path="raid-settings" 
+                    path="/settings" 
                     element={
-                      <AdminRoute>
-                        <RaidSettings />
-                      </AdminRoute>
+                      <ProtectedRoute>
+                        <Settings />
+                      </ProtectedRoute>
                     } 
                   />
-                </Route>
-              </Routes>
-            </Box>
-          </Flex>
+                  <Route path="/admin">
+                    <Route 
+                      path="audit-logs" 
+                      element={
+                        <AdminRoute>
+                          <AuditLogs />
+                        </AdminRoute>
+                      } 
+                    />
+                    <Route 
+                      path="users" 
+                      element={
+                        <AdminRoute>
+                          <ManageUsers />
+                        </AdminRoute>
+                      } 
+                    />
+                    <Route 
+                      path="raid-settings" 
+                      element={
+                        <AdminRoute>
+                          <RaidSettings />
+                        </AdminRoute>
+                      } 
+                    />
+                  </Route>
+                </Routes>
+              </Box>
+            </Flex>
+          </NavbarVisibilityProvider>
         </Router>
       </UserProvider>
     </ThemeProvider>
