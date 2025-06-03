@@ -302,3 +302,32 @@ html, body {
     transform: scale(1);
   }
 }
+
+.nav-link {
+  position: relative;
+  display: inline-block;
+  transition: 
+    color 0.2s cubic-bezier(.4,0,.2,1), 
+    transform 0.25s cubic-bezier(.4,0,.2,1);
+}
+
+.nav-link:hover,
+.nav-link:focus {
+  color: #51c4ff;
+  transform: translateY(-6px);
+}
+
+.nav-link::after {
+  content: none;
+}
+
+.hanterbart-glow {
+  transition: text-shadow 0.35s cubic-bezier(.4,0,.2,1);
+}
+.hanterbart-glow:hover,
+.hanterbart-glow:focus {
+  text-shadow:
+    0 0 8px #51c4ff88,
+    0 0 16px #ff517788,
+    0 0 32px #51c4ff44;
+}
