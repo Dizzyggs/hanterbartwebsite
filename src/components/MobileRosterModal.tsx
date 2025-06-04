@@ -16,7 +16,6 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
-  useDisclosure,
   MenuDivider,
   useToast,
   Button,
@@ -184,6 +183,12 @@ const MobileRosterModal = ({ isOpen, onClose, event, isAdmin }: MobileRosterModa
   // Alert dialog for unsaved changes
   const { isOpen: isAlertOpen, onOpen: onAlertOpen, onClose: onAlertClose } = useAlertDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
+
+  const ref = useRef<HTMLElement>(document.body)
+  useEffect(() => {
+    ref.current.style.overflow = 'hidden'
+    ref.current.style.touchAction = 'none'
+  }, [])
 
   // State for roster data
   const [unassignedPlayers, setUnassignedPlayers] = useState<SignupPlayer[]>([]);
@@ -538,6 +543,7 @@ const MobileRosterModal = ({ isOpen, onClose, event, isAdmin }: MobileRosterModa
         onClose={handleModalClose} 
         size="full"
         blockScrollOnMount={false}
+        preserveScrollBarGap={false}
       >
         <ModalOverlay 
           bg="rgba(0, 0, 0, 0.3)"
@@ -548,9 +554,20 @@ const MobileRosterModal = ({ isOpen, onClose, event, isAdmin }: MobileRosterModa
           margin={0}
           height="100vh"
           maxHeight="100vh"
-          overflow="hidden"
           display="flex"
           flexDirection="column"
+          position="relative"
+          onWheel={(e) => {
+            e.stopPropagation();
+          }}
+          onTouchMove={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onScroll={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
         >
           {isLoading ? (
             <Center flex={1}>
@@ -640,10 +657,13 @@ const MobileRosterModal = ({ isOpen, onClose, event, isAdmin }: MobileRosterModa
 
               {/* Scrollable Content */}
               <Box
-                flex={1}
+                height="calc(100vh - 200px)"
                 overflowY="auto"
                 overflowX="hidden"
                 sx={{
+                  WebkitOverflowScrolling: 'touch',
+                  touchAction: 'pan-y',
+                  overscrollBehavior: 'contain',
                   '&::-webkit-scrollbar': { 
                     width: '6px' 
                   },
@@ -656,259 +676,259 @@ const MobileRosterModal = ({ isOpen, onClose, event, isAdmin }: MobileRosterModa
                   }
                 }}
               >
-                <Tabs index={activeTab} variant="unstyled">
-                  <TabPanels>
-                    {/* Raid Groups Tab */}
-                    <TabPanel p={4}>
-                      <VStack spacing={6} align="stretch">
-                        {/* Raid 1-8 */}
-                        <Accordion allowToggle defaultIndex={[0]}>
-                          <AccordionItem border="none">
-                            <AccordionButton
-                              bg="blue.600"
-                              _hover={{ bg: 'blue.700' }}
-                              borderRadius="lg"
-                              p={4}
-                            >
-                              <Box flex="1" textAlign="left">
-                                <Text color="white" fontWeight="bold" fontSize="md">
-                                  Raid 1-8 [{getRaidPlayerCount(raidGroups, 0, 8)}/40]
-                                </Text>
-                              </Box>
-                              <AccordionIcon color="white" />
-                            </AccordionButton>
-                            <AccordionPanel p={0} pt={4}>
-                              <VStack spacing={2} align="stretch">
-                                {raidGroups.slice(0, 8).map((group) => (
-                                  <MobileRaidGroup
-                                    key={group.id}
-                                    group={group}
-                                    isAdmin={isAdmin}
-                                    event={event}
-                                    raidGroups={raidGroups}
-                                    assignedPlayers={assignedPlayers}
-                                    assignPlayerToGroup={assignPlayerToGroup}
-                                    unassignPlayer={unassignPlayer}
-                                    benchPlayer={benchPlayer}
-                                  />
-                                ))}
-                              </VStack>
-                            </AccordionPanel>
-                          </AccordionItem>
-                        </Accordion>
-
-                        {/* Raid 11-18 */}
-                        <Accordion allowToggle>
-                          <AccordionItem border="none">
-                            <AccordionButton
-                              bg="purple.600"
-                              _hover={{ bg: 'purple.700' }}
-                              borderRadius="lg"
-                              p={4}
-                            >
-                              <Box flex="1" textAlign="left">
-                                <Text color="white" fontWeight="bold" fontSize="md">
-                                  Raid 11-18 [{getRaidPlayerCount(raidGroups, 8, 16)}/40]
-                                </Text>
-                              </Box>
-                              <AccordionIcon color="white" />
-                            </AccordionButton>
-                            <AccordionPanel p={0} pt={4}>
-                              <VStack spacing={2} align="stretch">
-                                {raidGroups.slice(8, 16).map((group) => (
-                                  <MobileRaidGroup
-                                    key={group.id}
-                                    group={group}
-                                    isAdmin={isAdmin}
-                                    event={event}
-                                    raidGroups={raidGroups}
-                                    assignedPlayers={assignedPlayers}
-                                    assignPlayerToGroup={assignPlayerToGroup}
-                                    unassignPlayer={unassignPlayer}
-                                    benchPlayer={benchPlayer}
-                                  />
-                                ))}
-                              </VStack>
-                            </AccordionPanel>
-                          </AccordionItem>
-                        </Accordion>
-                      </VStack>
-                    </TabPanel>
-
-                    {/* Players Tab */}
-                    <TabPanel p={4}>
-                      <VStack spacing={6} align="stretch">
-                        {/* Filter Menu */}
-                        <Menu>
-                          <MenuButton
-                            as={Button}
-                            rightIcon={<ChevronDownIcon />}
-                            colorScheme="blue"
-                            size="sm"
-                            width="full"
+                {/* Raid Groups Tab Content */}
+                {activeTab === 0 && (
+                  <Box p={4}>
+                    <VStack spacing={6} align="stretch">
+                      {/* Raid 1-8 */}
+                      <Accordion allowToggle defaultIndex={[0]}>
+                        <AccordionItem border="none">
+                          <AccordionButton
+                            bg="blue.600"
+                            _hover={{ bg: 'blue.700' }}
+                            borderRadius="lg"
+                            p={4}
                           >
-                            Filter Players {selectedFilter.value ? `(${selectedFilter.value})` : ''}
-                          </MenuButton>
-                          <MenuList bg="gray.800" borderColor="gray.700">
+                            <Box flex="1" textAlign="left">
+                              <Text color="white" fontWeight="bold" fontSize="md">
+                                Raid 1-8 [{getRaidPlayerCount(raidGroups, 0, 8)}/40]
+                              </Text>
+                            </Box>
+                            <AccordionIcon color="white" />
+                          </AccordionButton>
+                          <AccordionPanel p={0} pt={4}>
+                            <VStack spacing={2} align="stretch">
+                              {raidGroups.slice(0, 8).map((group) => (
+                                <MobileRaidGroup
+                                  key={group.id}
+                                  group={group}
+                                  isAdmin={isAdmin}
+                                  event={event}
+                                  raidGroups={raidGroups}
+                                  assignedPlayers={assignedPlayers}
+                                  assignPlayerToGroup={assignPlayerToGroup}
+                                  unassignPlayer={unassignPlayer}
+                                  benchPlayer={benchPlayer}
+                                />
+                              ))}
+                            </VStack>
+                          </AccordionPanel>
+                        </AccordionItem>
+                      </Accordion>
+
+                      {/* Raid 11-18 */}
+                      <Accordion allowToggle>
+                        <AccordionItem border="none">
+                          <AccordionButton
+                            bg="purple.600"
+                            _hover={{ bg: 'purple.700' }}
+                            borderRadius="lg"
+                            p={4}
+                          >
+                            <Box flex="1" textAlign="left">
+                              <Text color="white" fontWeight="bold" fontSize="md">
+                                Raid 11-18 [{getRaidPlayerCount(raidGroups, 8, 16)}/40]
+                              </Text>
+                            </Box>
+                            <AccordionIcon color="white" />
+                          </AccordionButton>
+                          <AccordionPanel p={0} pt={4}>
+                            <VStack spacing={2} align="stretch">
+                              {raidGroups.slice(8, 16).map((group) => (
+                                <MobileRaidGroup
+                                  key={group.id}
+                                  group={group}
+                                  isAdmin={isAdmin}
+                                  event={event}
+                                  raidGroups={raidGroups}
+                                  assignedPlayers={assignedPlayers}
+                                  assignPlayerToGroup={assignPlayerToGroup}
+                                  unassignPlayer={unassignPlayer}
+                                  benchPlayer={benchPlayer}
+                                />
+                              ))}
+                            </VStack>
+                          </AccordionPanel>
+                        </AccordionItem>
+                      </Accordion>
+                    </VStack>
+                  </Box>
+                )}
+
+                {/* Players Tab Content */}
+                {activeTab === 1 && (
+                  <Box p={4}>
+                    <VStack spacing={6} align="stretch">
+                      {/* Filter Menu */}
+                      <Menu>
+                        <MenuButton
+                          as={Button}
+                          rightIcon={<ChevronDownIcon />}
+                          colorScheme="blue"
+                          size="sm"
+                          width="full"
+                        >
+                          Filter Players {selectedFilter.value ? `(${selectedFilter.value})` : ''}
+                        </MenuButton>
+                        <MenuList bg="gray.800" borderColor="gray.700">
+                          <MenuItem
+                            onClick={() => setSelectedFilter({ type: null, value: null })}
+                            bg="gray.800"
+                            _hover={{ bg: 'gray.700' }}
+                            color="white"
+                          >
+                            Show All
+                          </MenuItem>
+                          <MenuDivider />
+                          {Object.keys(CLASS_COLORS)
+                            .filter(className => className !== 'TANK')
+                            .map(className => (
                             <MenuItem
-                              onClick={() => setSelectedFilter({ type: null, value: null })}
+                              key={className}
+                              onClick={() => setSelectedFilter({ type: 'class', value: className })}
+                              bg="gray.800"
+                              _hover={{ bg: 'gray.700' }}
+                            >
+                              <HStack>
+                                <Image
+                                  src={CLASS_ICONS[className as keyof typeof CLASS_ICONS]}
+                                  boxSize="20px"
+                                  alt={className}
+                                />
+                                <Text color={CLASS_COLORS[className as keyof typeof CLASS_COLORS]}>
+                                  {className}
+                                </Text>
+                              </HStack>
+                            </MenuItem>
+                          ))}
+                          <MenuDivider />
+                          {['Tank', 'Healer', 'DPS'].map(role => (
+                            <MenuItem
+                              key={role}
+                              onClick={() => setSelectedFilter({ type: 'role', value: role })}
                               bg="gray.800"
                               _hover={{ bg: 'gray.700' }}
                               color="white"
                             >
-                              Show All
+                              {role}
                             </MenuItem>
-                            <MenuDivider />
-                            {Object.keys(CLASS_COLORS)
-                              .filter(className => className !== 'TANK')
-                              .map(className => (
-                              <MenuItem
-                                key={className}
-                                onClick={() => setSelectedFilter({ type: 'class', value: className })}
-                                bg="gray.800"
-                                _hover={{ bg: 'gray.700' }}
-                              >
-                                <HStack>
-                                  <Image
-                                    src={CLASS_ICONS[className as keyof typeof CLASS_ICONS]}
-                                    boxSize="20px"
-                                    alt={className}
+                          ))}
+                        </MenuList>
+                      </Menu>
+
+                      {/* Unassigned Players */}
+                      <Box
+                        bg="background.tertiary"
+                        p={4}
+                        borderRadius="lg"
+                        borderLeft="4px solid"
+                        borderLeftColor="primary.400"
+                      >
+                        <Heading size="sm" color="text.primary" mb={3}>
+                          Unassigned Players ({regularUnassignedPlayers.length})
+                        </Heading>
+                        <Box
+                          bg="background.tertiary"
+                          p={2}
+                          borderRadius="md"
+                          minH="60px"
+                        >
+                          <VStack spacing={1} align="stretch">
+                            {regularUnassignedPlayers.map((player, index) => (
+                              <PlayerCard
+                                key={player.characterId}
+                                player={player}
+                                index={index}
+                                isMobile={true}
+                                isAdmin={isAdmin}
+                                event={event}
+                                raidGroups={raidGroups}
+                                assignedPlayers={assignedPlayers}
+                                assignPlayerToGroup={assignPlayerToGroup}
+                                unassignPlayer={unassignPlayer}
+                                benchPlayer={benchPlayer}
+                                isInRaidGroup={false}
+                              />
+                            ))}
+                          </VStack>
+                        </Box>
+                      </Box>
+
+                      {/* Bench Section */}
+                      <Box
+                        bg="background.tertiary"
+                        p={4}
+                        borderRadius="lg"
+                        borderLeft="4px solid"
+                        borderLeftColor="red.400"
+                      >
+                        <Heading size="sm" color="text.primary" mb={3}>
+                          <HStack>
+                            <Icon as={SiBlockbench} />
+                            <Text>Bench ({benchedPlayers.length})</Text>
+                          </HStack>
+                        </Heading>
+                        <Box
+                          bg="background.tertiary"
+                          p={2}
+                          borderRadius="md"
+                          minH="50px"
+                        >
+                          <VStack spacing={1} align="stretch">
+                            {benchedPlayers.map((player, index) => (
+                              <PlayerCard
+                                key={player.characterId}
+                                player={player}
+                                index={index}
+                                isMobile={true}
+                                isAdmin={isAdmin}
+                                event={event}
+                                raidGroups={raidGroups}
+                                assignedPlayers={assignedPlayers}
+                                assignPlayerToGroup={assignPlayerToGroup}
+                                unassignPlayer={unassignPlayer}
+                                benchPlayer={benchPlayer}
+                                isInRaidGroup={false}
+                              />
+                            ))}
+                          </VStack>
+                        </Box>
+                      </Box>
+
+                      {/* Absence Players */}
+                      {absencePlayers.length > 0 && (
+                        <Accordion allowToggle>
+                          <AccordionItem border="none">
+                            <AccordionButton
+                              bg="red.600"
+                              _hover={{ bg: 'red.700' }}
+                              borderRadius="lg"
+                              p={4}
+                            >
+                              <Box flex="1" textAlign="left">
+                                <Text color="white" fontWeight="bold" fontSize="sm">
+                                  Absence ({absencePlayers.length})
+                                </Text>
+                              </Box>
+                              <AccordionIcon color="white" />
+                            </AccordionButton>
+                            <AccordionPanel p={4} bg="background.tertiary" borderRadius="lg">
+                              <VStack spacing={2} align="stretch">
+                                {absencePlayers.map((player, index) => (
+                                  <AbsencePlayer
+                                    key={player.characterId}
+                                    player={player}
+                                    userNicknames={userNicknames}
                                   />
-                                  <Text color={CLASS_COLORS[className as keyof typeof CLASS_COLORS]}>
-                                    {className}
-                                  </Text>
-                                </HStack>
-                              </MenuItem>
-                            ))}
-                            <MenuDivider />
-                            {['Tank', 'Healer', 'DPS'].map(role => (
-                              <MenuItem
-                                key={role}
-                                onClick={() => setSelectedFilter({ type: 'role', value: role })}
-                                bg="gray.800"
-                                _hover={{ bg: 'gray.700' }}
-                                color="white"
-                              >
-                                {role}
-                              </MenuItem>
-                            ))}
-                          </MenuList>
-                        </Menu>
-
-                        {/* Unassigned Players */}
-                        <Box
-                          bg="background.tertiary"
-                          p={4}
-                          borderRadius="lg"
-                          borderLeft="4px solid"
-                          borderLeftColor="primary.400"
-                        >
-                          <Heading size="sm" color="text.primary" mb={3}>
-                            Unassigned Players ({regularUnassignedPlayers.length})
-                          </Heading>
-                          <Box
-                            bg="background.tertiary"
-                            p={2}
-                            borderRadius="md"
-                            minH="60px"
-                          >
-                            <VStack spacing={1} align="stretch">
-                              {regularUnassignedPlayers.map((player, index) => (
-                                <PlayerCard
-                                  key={player.characterId}
-                                  player={player}
-                                  index={index}
-                                  isMobile={true}
-                                  isAdmin={isAdmin}
-                                  event={event}
-                                  raidGroups={raidGroups}
-                                  assignedPlayers={assignedPlayers}
-                                  assignPlayerToGroup={assignPlayerToGroup}
-                                  unassignPlayer={unassignPlayer}
-                                  benchPlayer={benchPlayer}
-                                  isInRaidGroup={false}
-                                />
-                              ))}
-                            </VStack>
-                          </Box>
-                        </Box>
-
-                        {/* Bench Section */}
-                        <Box
-                          bg="background.tertiary"
-                          p={4}
-                          borderRadius="lg"
-                          borderLeft="4px solid"
-                          borderLeftColor="red.400"
-                        >
-                          <Heading size="sm" color="text.primary" mb={3}>
-                            <HStack>
-                              <Icon as={SiBlockbench} />
-                              <Text>Bench ({benchedPlayers.length})</Text>
-                            </HStack>
-                          </Heading>
-                          <Box
-                            bg="background.tertiary"
-                            p={2}
-                            borderRadius="md"
-                            minH="50px"
-                          >
-                            <VStack spacing={1} align="stretch">
-                              {benchedPlayers.map((player, index) => (
-                                <PlayerCard
-                                  key={player.characterId}
-                                  player={player}
-                                  index={index}
-                                  isMobile={true}
-                                  isAdmin={isAdmin}
-                                  event={event}
-                                  raidGroups={raidGroups}
-                                  assignedPlayers={assignedPlayers}
-                                  assignPlayerToGroup={assignPlayerToGroup}
-                                  unassignPlayer={unassignPlayer}
-                                  benchPlayer={benchPlayer}
-                                  isInRaidGroup={false}
-                                />
-                              ))}
-                            </VStack>
-                          </Box>
-                        </Box>
-
-                        {/* Absence Players */}
-                        {absencePlayers.length > 0 && (
-                          <Accordion allowToggle>
-                            <AccordionItem border="none">
-                              <AccordionButton
-                                bg="red.600"
-                                _hover={{ bg: 'red.700' }}
-                                borderRadius="lg"
-                                p={4}
-                              >
-                                <Box flex="1" textAlign="left">
-                                  <Text color="white" fontWeight="bold" fontSize="sm">
-                                    Absence ({absencePlayers.length})
-                                  </Text>
-                                </Box>
-                                <AccordionIcon color="white" />
-                              </AccordionButton>
-                              <AccordionPanel p={4} bg="background.tertiary" borderRadius="lg">
-                                <VStack spacing={2} align="stretch">
-                                  {absencePlayers.map((player, index) => (
-                                    <AbsencePlayer
-                                      key={player.characterId}
-                                      player={player}
-                                      userNicknames={userNicknames}
-                                    />
-                                  ))}
-                                </VStack>
-                              </AccordionPanel>
-                            </AccordionItem>
-                          </Accordion>
-                        )}
-                      </VStack>
-                    </TabPanel>
-                  </TabPanels>
-                </Tabs>
+                                ))}
+                              </VStack>
+                            </AccordionPanel>
+                          </AccordionItem>
+                        </Accordion>
+                      )}
+                    </VStack>
+                  </Box>
+                )}
               </Box>
             </>
           )}
