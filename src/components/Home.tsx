@@ -220,7 +220,7 @@ const Home = () => {
                   fontSize="lg"
                   textAlign="center"
                   fontFamily={"Satoshi"}
-                  fontWeight={"600"}
+                  fontWeight={"300"}
                   color={textColor}
                   lineHeight="1.7"
                   initial={{ opacity: 0 }}
@@ -234,7 +234,7 @@ const Home = () => {
                   fontSize="lg"
                   textAlign="center"
                   fontFamily={"Satoshi"}
-                  fontWeight={"600"}
+                  fontWeight={"300"}
                   color={textColor}
                   lineHeight="1.7"
                   initial={{ opacity: 0 }}
@@ -247,7 +247,7 @@ const Home = () => {
                   fontSize="lg"
                   textAlign="center"
                   fontFamily={"Satoshi"}
-                  fontWeight={"600"}
+                  fontWeight={"300"}
                   color={textColor}
                   lineHeight="1.7"
                   initial={{ opacity: 0 }}

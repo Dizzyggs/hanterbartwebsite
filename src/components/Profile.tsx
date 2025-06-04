@@ -15,11 +15,8 @@ import {
   Icon,
   Image,
   useColorModeValue,
-  Tooltip,
-  AvatarBadge,
   useToast,
   IconButton,
-  Link,
   AlertDialog,
   AlertDialogBody,
   AlertDialogFooter,
@@ -28,14 +25,13 @@ import {
   AlertDialogOverlay,
   Spinner,
   Input,
+  InputGroup,
+  InputRightElement,
   FormControl,
   FormLabel,
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
   useMediaQuery,
 } from '@chakra-ui/react';
-import { AddIcon, StarIcon, EditIcon, ExternalLinkIcon, DeleteIcon, ChevronRightIcon } from '@chakra-ui/icons';
+import { AddIcon, StarIcon, EditIcon, ExternalLinkIcon, DeleteIcon, ChevronRightIcon, EmailIcon, CalendarIcon, TimeIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
 import { useUser } from '../context/UserContext';
 import { useNavigate } from 'react-router-dom';
 import defaultAvatar from '../assets/avatar.jpg';
@@ -48,21 +44,27 @@ import mageIcon from '../assets/classes/mage.png';
 import warlockIcon from '../assets/classes/warlock.png';
 import druidIcon from '../assets/classes/druid.png';
 import logsIcon from '../assets/logsicon.png';
-import { doc, updateDoc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, getDoc, collection, getDocs, Timestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import type { Character, Event } from '../types/firebase';
 import CharacterCreationModal from './CharacterCreationModal';
 import CharacterEditModal from './CharacterEditModal';
-import { motion } from 'framer-motion';
-import { FaDiscord, FaBattleNet, FaCalendarAlt, FaClock, FaQuestionCircle } from 'react-icons/fa';
-import { format } from 'date-fns';
+import { EventSignupModal } from './EventSignupModal';
+import { motion, AnimatePresence } from 'framer-motion';
+import { FaDiscord } from 'react-icons/fa';
+import { FaRegCircleCheck } from "react-icons/fa6";
+import { RxCross2 } from "react-icons/rx";
+import { format, isAfter } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import { Link as RouterLink } from 'react-router-dom';
 import Breadcrumbs from './Breadcrumbs';
 
 const MotionBox = motion(Box);
 const MotionFlex = motion(Flex);
+const MotionVStack = motion(VStack);
+const MotionSimpleGrid = motion(SimpleGrid);
+const MotionHeading = motion(Heading);
 
 // Discord and Battle.net icons as SVG components
 const DiscordIcon = (props: any) => (
@@ -92,6 +94,7 @@ const Profile = () => {
   const [discordSignupNickname, setDiscordSignupNickname] = useState('');
   const [isUpdatingNickname, setIsUpdatingNickname] = useState(false);
   const [isEditingNickname, setIsEditingNickname] = useState(false);
+  const [originalNickname, setOriginalNickname] = useState('');
   const [isInitialDataFetched, setIsInitialDataFetched] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -108,6 +111,18 @@ const Profile = () => {
   const deleteAlertDialog = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
   const [isMobile] = useMediaQuery('(max-width: 768px)');
+  const cardBg = 'gray.700';
+  const discordIconColor = useColorModeValue('blue.500', 'blue.300');
+  const isNeonTheme = false;
+  const neonGreenColor = 'green.500';
+  const textColor = isNeonTheme ? neonGreenColor : 'white';
+  const [events, setEvents] = useState<Event[]>([]);
+  const [signedUpEvents, setSignedUpEvents] = useState<Event[]>([]);
+  const [notSignedUpEvents, setNotSignedUpEvents] = useState<Event[]>([]);
+  
+  // Add EventSignupModal state
+  const [selectedEventForSignup, setSelectedEventForSignup] = useState<Event | null>(null);
+  const { isOpen: isEventSignupOpen, onOpen: onEventSignupOpen, onClose: onEventSignupClose } = useDisclosure();
 
   const fetchCharacters = async () => {
     if (!user) return;
@@ -208,6 +223,7 @@ const Profile = () => {
           setAvatarUrl(userData.avatarUrl || defaultAvatar);
           setIsDiscordConnected(!!userData.discordId);
           setDiscordSignupNickname(userData.discordSignupNickname || '');
+          setOriginalNickname(userData.discordSignupNickname || '');
           
           // Update user context if needed
           if (JSON.stringify(userData.characters) !== JSON.stringify(user.characters)) {
@@ -379,29 +395,29 @@ const Profile = () => {
 
   const getClassColor = (characterClass: string): string => {
     const colors: { [key: string]: string } = {
-      'Warlock': 'purple.400',
-      'Priest': 'white',
-      'Paladin': 'pink.300',
-      'Rogue': 'yellow.400',
-      'Warrior': 'brown.400',
-      'Mage': 'blue.400',
-      'Druid': 'orange.400',
-      'Hunter': 'green.400',
-      'Shaman': 'blue.300',
-      'Death Knight': 'red.400',
-      'Monk': 'green.300',
-      'Demon Hunter': 'purple.300',
+      'Warlock': 'purple',
+      'Priest': 'gray',
+      'Paladin': 'pink',
+      'Rogue': 'yellow',
+      'Warrior': 'red',
+      'Mage': 'blue',
+      'Druid': 'orange',
+      'Hunter': 'green',
+      'Shaman': 'cyan',
+      'Death Knight': 'red',
+      'Monk': 'teal',
+      'Demon Hunter': 'purple',
     };
-    return colors[characterClass] || 'gray.400';
+    return colors[characterClass] || 'gray';
   };
 
   const getRoleColor = (role: string) => {
     const colors: { [key: string]: string } = {
-      'Tank': 'blue.400',
-      'Healer': 'green.400',
-      'DPS': 'red.400',
+      'Tank': 'blue',
+      'Healer': 'green',
+      'DPS': 'red',
     };
-    return colors[role] || 'gray.400';
+    return colors[role] || 'gray';
   };
 
   const getClassIcon = (className: string): string => {
@@ -434,11 +450,17 @@ const Profile = () => {
     }
   };
 
-  const formatLastActive = (date: Date | null | undefined, defaultText: string): string => {
+  const formatLastActive = (date: Date | Timestamp | null | undefined, defaultText: string): string => {
+    if (!date) {
+      return defaultText;
+    }
+    // Check if it's a Firestore Timestamp and convert to Date
+    const dateToFormat = date instanceof Timestamp ? date.toDate() : date;
+    
     try {
-      if (!date) return defaultText;
-      return format(date, 'dd MMM yyyy', { locale: sv });
+      return format(dateToFormat, 'PPP p', { locale: sv });
     } catch (error) {
+      console.error("Error formatting date:", error);
       return defaultText;
     }
   };
@@ -555,7 +577,7 @@ const Profile = () => {
       });
 
       toast({
-        title: 'Discord Signup Nickname Updated',
+        title: 'Calendar Nickname Updated',
         status: 'success',
         duration: 3000,
         isClosable: true,
@@ -567,13 +589,14 @@ const Profile = () => {
         discordSignupNickname
       });
       
-      // Exit edit mode after successful update
+      // Update original nickname and exit edit mode
+      setOriginalNickname(discordSignupNickname);
       setIsEditingNickname(false);
     } catch (error) {
       console.error('Error updating Discord signup nickname:', error);
       toast({
         title: 'Error',
-        description: 'Failed to update Discord signup nickname. Please try again.',
+        description: 'Failed to update calendar nickname. Please try again.',
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -583,507 +606,857 @@ const Profile = () => {
     }
   };
 
-  if (!user) {
-    return null;
+  // Fetch all events and filter signups
+  useEffect(() => {
+    async function fetchEventsAndSignups() {
+      if (!user) return;
+      const eventsSnapshot = await getDocs(collection(db, 'events'));
+      const allEvents: Event[] = [];
+      const signedUp: { event: Event, endDate: Date }[] = [];
+      const notSignedUp: Event[] = [];
+      const now = new Date();
+      
+      eventsSnapshot.forEach(docSnap => {
+        const event = docSnap.data() as Event;
+        event.id = docSnap.id;
+        
+        // Parse end time for filtering
+        let endDate: Date;
+        if (event.end instanceof Timestamp) {
+          endDate = event.end.toDate();
+        } else if (typeof event.end === 'string') {
+          endDate = new Date(event.end);
+        } else if (event.date && event.time) {
+          // If no end time, use date + time as the event time
+          endDate = new Date(`${event.date}T${event.time}`);
+        } else {
+          // Fallback: use date only (end of day)
+          endDate = new Date(event.date + 'T23:59:59');
+        }
+        allEvents.push(event);
+        
+        // Enhanced signup detection logic
+        let isSignedUp = false;
+        
+        // Check regular website signups
+        if (event.signups && !isSignedUp) {
+          for (const signupKey in event.signups) {
+            const signup = event.signups[signupKey];
+            if (!signup) continue;
+            
+            // Check by user ID/username
+            if (signup.userId === user.username || signup.username === user.username) {
+              isSignedUp = true;
+              break;
+            }
+            
+            // Check by character ID
+            if (user.characters && user.characters.some(char => char.id === signup.characterId)) {
+              isSignedUp = true;
+              break;
+            }
+            
+            // Check by character name (for Discord signups stored in regular signups)
+            if (user.discordSignupNickname && signup.characterName === user.discordSignupNickname) {
+              isSignedUp = true;
+              break;
+            }
+          }
+        }
+        
+        // Check RaidHelper signups (stored in event.raidHelperSignups)
+        if (!isSignedUp && event.raidHelperSignups && event.raidHelperSignups.signUps) {
+          for (const signup of event.raidHelperSignups.signUps) {
+            // Check by Discord ID
+            if (user.discordId && signup.userId === user.discordId) {
+              isSignedUp = true;
+              console.log(`Found Discord signup match by ID for event: ${event.title}`);
+              break;
+            }
+            
+            // Check by Discord username
+            if (user.discordUsername && signup.name === user.discordUsername) {
+              isSignedUp = true;
+              console.log(`Found Discord signup match by username for event: ${event.title}`);
+              break;
+            }
+            
+            // Check by calendar nickname (discordSignupNickname)
+            if (user.discordSignupNickname && signup.name === user.discordSignupNickname) {
+              isSignedUp = true;
+              console.log(`Found Discord signup match by nickname for event: ${event.title}`);
+              break;
+            }
+            
+            // Check by regular username as fallback
+            if (signup.name === user.username) {
+              isSignedUp = true;
+              console.log(`Found Discord signup match by regular username for event: ${event.title}`);
+              break;
+            }
+          }
+        }
+        
+        if (isSignedUp) {
+          signedUp.push({ event, endDate });
+        } else {
+          // Only add to notSignedUp if the event is in the future
+          if (isAfter(endDate, now)) {
+            notSignedUp.push(event);
+          }
+        }
+      });
+      
+      // Only keep upcoming signed up events
+      const upcomingSignedUp = signedUp.filter(({ endDate }) => isAfter(endDate, now)).map(({ event }) => event);
+      setEvents(allEvents);
+      setSignedUpEvents(upcomingSignedUp);
+      setNotSignedUpEvents(notSignedUp);
+    }
+    fetchEventsAndSignups();
+  }, [user]);
+
+  // Add event click handlers
+  const handleEventClick = (event: Event) => {
+    setSelectedEventForSignup(event);
+    onEventSignupOpen();
+  };
+
+  const handleSignupChange = (updatedEvent: Event) => {
+    // Refresh the events data after signup change
+    setEvents(prev => prev.map(e => e.id === updatedEvent.id ? updatedEvent : e));
+    // Re-fetch to update signed up/not signed up lists
+    async function refreshEvents() {
+      if (!user) return;
+      const eventsSnapshot = await getDocs(collection(db, 'events'));
+      const allEvents: Event[] = [];
+      const signedUp: { event: Event, endDate: Date }[] = [];
+      const notSignedUp: Event[] = [];
+      const now = new Date();
+      
+      eventsSnapshot.forEach(docSnap => {
+        const event = docSnap.data() as Event;
+        event.id = docSnap.id;
+        let endDate: Date;
+        if (event.end instanceof Timestamp) {
+          endDate = event.end.toDate();
+        } else if (typeof event.end === 'string') {
+          endDate = new Date(event.end);
+        } else if (event.date && event.time) {
+          // If no end time, use date + time as the event time
+          endDate = new Date(`${event.date}T${event.time}`);
+        } else {
+          // Fallback: use date only (end of day)
+          endDate = new Date(event.date + 'T23:59:59');
+        }
+        allEvents.push(event);
+        
+        // Enhanced signup detection logic (same as above)
+        let isSignedUp = false;
+        
+        // Check regular website signups
+        if (event.signups && !isSignedUp) {
+          for (const signupKey in event.signups) {
+            const signup = event.signups[signupKey];
+            if (!signup) continue;
+            
+            // Check by user ID/username
+            if (signup.userId === user.username || signup.username === user.username) {
+              isSignedUp = true;
+              break;
+            }
+            
+            // Check by character ID
+            if (user.characters && user.characters.some(char => char.id === signup.characterId)) {
+              isSignedUp = true;
+              break;
+            }
+            
+            // Check by character name (for Discord signups stored in regular signups)
+            if (user.discordSignupNickname && signup.characterName === user.discordSignupNickname) {
+              isSignedUp = true;
+              break;
+            }
+          }
+        }
+        
+        // Check RaidHelper signups (stored in event.raidHelperSignups)
+        if (!isSignedUp && event.raidHelperSignups && event.raidHelperSignups.signUps) {
+          for (const signup of event.raidHelperSignups.signUps) {
+            // Check by Discord ID
+            if (user.discordId && signup.userId === user.discordId) {
+              isSignedUp = true;
+              break;
+            }
+            
+            // Check by Discord username
+            if (user.discordUsername && signup.name === user.discordUsername) {
+              isSignedUp = true;
+              break;
+            }
+            
+            // Check by calendar nickname (discordSignupNickname)
+            if (user.discordSignupNickname && signup.name === user.discordSignupNickname) {
+              isSignedUp = true;
+              break;
+            }
+            
+            // Check by regular username as fallback
+            if (signup.name === user.username) {
+              isSignedUp = true;
+              break;
+            }
+          }
+        }
+        
+        if (isSignedUp) {
+          signedUp.push({ event, endDate });
+        } else {
+          // Only add to notSignedUp if the event is in the future
+          if (isAfter(endDate, now)) {
+            notSignedUp.push(event);
+          }
+        }
+      });
+      
+      const upcomingSignedUp = signedUp.filter(({ endDate }) => isAfter(endDate, now)).map(({ event }) => event);
+      setEvents(allEvents);
+      setSignedUpEvents(upcomingSignedUp);
+      setNotSignedUpEvents(notSignedUp);
+    }
+    refreshEvents();
+  };
+
+  // Enhanced event card component
+  const EventCard = ({ event, isSignedUp = false }: { event: Event; isSignedUp?: boolean }) => (
+    <Box 
+      bg="gray.750" 
+      borderRadius="xl" 
+      p={{ base: 3, md: 5 }}
+      border="0.5px solid"
+      borderColor={isSignedUp ? "green.500" : "yellow.500"}
+      cursor={isSignedUp ? "default" : "pointer"}
+      onClick={!isSignedUp ? () => handleEventClick(event) : undefined}
+      _hover={!isSignedUp ? { 
+        bg: 'gray.700', 
+        borderColor: 'yellow.400',
+        transform: 'translateY(-2px)',
+        boxShadow: '0 8px 25px rgba(0, 0, 0, 0.4)'
+      } : {
+        bg: 'gray.700',
+        transform: 'translateY(-1px)',
+        boxShadow: '0 6px 20px rgba(0, 0, 0, 0.3)'
+      }}
+      transition="all 0.3s ease"
+      position="relative"
+      overflow="hidden"
+      minH={{ base: "100px", md: "120px" }}
+    >
+      {/* Status indicator */}
+      <Box
+        position="absolute"
+        top={{ base: 2, md: 3 }}
+        right={{ base: 2, md: 3 }}
+        bg={isSignedUp ? "green.500" : "yellow.500"}
+        color="white"
+        px={2}
+        py={1}
+        borderRadius="md"
+        fontSize={{ base: "2xs", md: "xs" }}
+        fontWeight="bold"
+        textTransform="uppercase"
+        letterSpacing="wide"
+        zIndex={1}
+        maxW={{ base: "80px", md: "120px" }}
+        textAlign="center"
+      >
+        {isSignedUp ? "SIGNED UP" : "SIGN UP"}
+      </Box>
+
+      <VStack align="stretch" spacing={{ base: 2, md: 3 }} h="100%">
+        {/* Event title */}
+        <Box pr={{ base: 20, md: 28 }}>
+          <Heading 
+            size={{ base: "xs", md: "md" }}
+            color={textColor} 
+            fontFamily="Satoshi"
+            fontWeight="600"
+            fontSize={{ base: "sm", md: "md" }}
+            letterSpacing="tight"
+            lineHeight="1.3"
+            wordBreak="break-word"
+            noOfLines={2}
+          >
+            {event.title}
+          </Heading>
+        </Box>
+
+        {/* Event details - Always visible */}
+        <VStack align="stretch" spacing={{ base: 1, md: 2 }} flex="1">
+          {/* Date and Time - More prominent */}
+          <HStack spacing={{ base: 2, md: 4 }} flexWrap="wrap" mb={{ base: 1, md: 2 }}>
+            <Flex align="center" gap={2} minW="fit-content">
+              <Icon as={CalendarIcon} color={isSignedUp ? "green.400" : "yellow.400"} boxSize={{ base: 3, md: 4 }} />
+              <Text color="gray.200" fontSize={{ base: "xs", md: "sm" }} fontWeight="semibold">
+                {formatDate(event.date, 'N/A')}
+              </Text>
+            </Flex>
+            <Flex align="center" gap={2} minW="fit-content">
+              <Icon as={TimeIcon} color={isSignedUp ? "green.400" : "yellow.400"} boxSize={{ base: 3, md: 4 }} />
+              <Text color="gray.200" fontSize={{ base: "xs", md: "sm" }} fontWeight="semibold">
+                {event.time}
+              </Text>
+            </Flex>
+          </HStack>
+
+          {/* Event description if available */}
+          {event.description && (
+            <Text 
+              color="gray.400" 
+              fontSize={{ base: "xs", md: "sm" }}
+              noOfLines={1}
+              lineHeight="1.4"
+            >
+              {event.description}
+            </Text>
+          )}
+
+          {/* Signup count if available */}
+          {event.signups && (
+            <Flex align="center" gap={2}>
+              <Icon as={StarIcon} color="blue.400" boxSize={{ base: 2, md: 3 }} />
+              <Text color="gray.400" fontSize={{ base: "2xs", md: "xs" }}>
+                {Object.keys(event.signups).length} signed up
+              </Text>
+            </Flex>
+          )}
+
+          {/* Action indicator for non-signed up events */}
+          {!isSignedUp && (
+            <Flex align="center" justify="center" pt={1} mt="auto">
+              <Text 
+                color="yellow.400" 
+                fontSize={{ base: "2xs", md: "xs" }}
+                fontWeight="semibold"
+                textTransform="uppercase"
+                letterSpacing="wide"
+                textAlign="center"
+              >
+                ✨ Click to join this event
+              </Text>
+            </Flex>
+          )}
+        </VStack>
+      </VStack>
+    </Box>
+  );
+
+  const pageVariants = {
+    initial: { opacity: 0, y: 20 },
+    in: { opacity: 1, y: 0 },
+    out: { opacity: 0, y: -20 },
+  };
+
+  const sectionVariants = {
+    hidden: { opacity: 0, x: -30 },
+    visible: (i:number = 1) => ({
+      opacity: 1,
+      x: 0,
+      transition: { delay: i * 0.2, duration: 0.5, ease: 'easeOut' },
+    }),
+  };
+
+  const characterCardVariants = {
+    hidden: { opacity: 0, scale: 0.9 },
+    visible: (i:number = 1) => ({
+      opacity: 1,
+      scale: 1,
+      transition: { delay: i * 0.1, duration: 0.4, ease: 'easeOut' },
+    }),
+  };
+
+  if (loading && !isInitialDataFetched) {
+    return (
+      <Flex justify="center" align="center" minH="80vh">
+        <Spinner size="xl" />
+      </Flex>
+    );
   }
 
   return (
-    <Box 
-      minH="calc(100vh - 4rem)" 
-      bgGradient={bgGradient} 
-      py={8}
-      pt="80px"
+    <MotionBox
+      key="profile-page"
+      variants={pageVariants}
+      initial="initial"
+      animate="in"
+      exit="out"
+      transition={{ duration: 0.5, ease: 'easeInOut' }}
+      pt={isMobile ? 4 : 8}
+      pb={8}
+      px={isMobile ? 4 : 8}
     >
-      <Container maxW="7xl" px={{ base: 4, md: 8 }}>
-        <Breadcrumbs />
-        <Box
-          bg="background.secondary"
-          borderRadius="2xl"
-          p={{ base: 4, md: 8 }}
-          boxShadow="dark-lg"
+      <Container maxW="container.xl">
+        <Box mb={isMobile ? 4 : 8}>
+          <Breadcrumbs 
+            items={[
+              { label: 'Home', path: '/' },
+              { label: 'Profile', path: '/profile' },
+            ]}
+          />
+        </Box>
+        {/* Unified Profile Card */}
+        <Box 
+          bg={cardBg} 
+          borderRadius="2xl" 
+          boxShadow="2xl" 
+          p={{ base: 4, md: 12 }} 
+          minH={{ base: "auto", md: "70vh" }}
           border="1px solid"
-          borderColor="border.primary"
+          borderColor="gray.600"
         >
-          <VStack spacing={8} align="stretch">
-            {/* Enhanced User Profile Section */}
-            <MotionFlex
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-              gap={{ base: 4, md: 6 }}
-              direction={{ base: "column", md: "row" }}
-              align="center"
-              bg="background.tertiary"
-              p={{ base: 4, md: 6 }}
-              borderRadius="xl"
-              border="1px solid"
-              borderColor="border.primary"
+          <Flex direction={{ base: 'column', lg: 'row' }} gap={{ base: 6, md: 8, lg: 12 }} align="flex-start">
+            {/* Characters Block */}
+            <Box 
+              w={{ base: '100%', lg: '340px' }} 
+              flexShrink={0} 
+              pr={{ base: 0, lg: 6 }} 
+              borderRight={{ base: 'none', lg: '2px solid' }} 
+              borderBottom={{ base: '2px solid', lg: 'none' }}
+              borderColor={{ base: 'gray.600', lg: 'gray.600' }}
+              pb={{ base: 6, lg: 0 }}
             >
-              {/* Avatar Section */}
-              <Box position="relative">
-                <Avatar
-                  size={{ base: "xl", md: "2xl" }}
-                  src={avatarUrl}
-                  name={user.username}
-                  cursor="pointer"
-                  onClick={handleAvatarClick}
-                  border="4px solid"
-                  borderColor="border.primary"
-                  bg="background.tertiary"
-                  _hover={{
-                    transform: 'scale(1.05)',
-                    transition: 'all 0.2s',
-                  }}
-                >
-                  {isUploading && (
-                    <AvatarBadge boxSize="1.25em" bg="green.500">
-                      <Spinner size="xs" color="white" />
-                    </AvatarBadge>
-                  )}
-                </Avatar>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  style={{ display: 'none' }}
-                  accept="image/*"
-                />
-              </Box>
-
-              {/* Enhanced User Info Section */}
-              <VStack align={{ base: "center", md: "start" }} spacing={4} flex={1}>
-                <VStack align={{ base: "center", md: "start" }} spacing={1}>
-                  <HStack spacing={3} flexWrap="wrap" justify={{ base: "center", md: "start" }}>
-                    <Heading size={{ base: "md", md: "lg" }} color="text.primary">
-                      {user.username}
-                    </Heading>
-                    {user.role === 'admin' && (
-                      <Badge
-                        colorScheme="primary"
-                        variant="solid"
-                        px={3}
-                        py={1}
-                        borderRadius="full"
-                        fontSize="xs"
-                        textTransform="uppercase"
-                        letterSpacing="wider"
-                        bgGradient="linear(to-r, primary.400, secondary.500)"
-                        boxShadow="0 0 15px var(--chakra-colors-primary-400)"
-                        _hover={{
-                          transform: 'translateY(-1px)',
-                          boxShadow: '0 0 20px var(--chakra-colors-primary-500)'
-                        }}
-                        transition="all 0.2s"
-                      >
-                        Admin
-                      </Badge>
-                    )}
-                  </HStack>
-                  <HStack spacing={2} flexWrap="wrap" justify={{ base: "center", md: "start" }}>
-                    <HStack spacing={1}>
-                      <Icon as={FaCalendarAlt} color="text.secondary" boxSize={3} />
-                      <Text color="text.secondary" fontSize="sm">
-                        Joined {formatDate(user.createdAt, 'Unknown')}
-                      </Text>
-                    </HStack>
-                    <Text color="text.secondary" fontSize="sm">
-                      •
-                    </Text>
-                    <HStack spacing={1}>
-                      <Icon as={FaClock} color="text.secondary" boxSize={3} />
-                      <Text color="text.secondary" fontSize="sm">
-                        Last active {formatLastActive(user.lastLogin, 'Unknown')}
-                      </Text>
-                    </HStack>
-                  </HStack>
-                </VStack>
-
-                <HStack spacing={6} justify={{ base: "center", md: "start" }}>
-                  <Tooltip label={isDiscordConnected ? `Discord Connected (${user.discordUsername})` : "Connect Discord"} hasArrow>
-                    <Box 
-                      as="span" 
-                      cursor="pointer" 
-                      transition="all 0.2s"
-                      _hover={{ transform: 'scale(1.1)' }}
-                      position="relative"
-                      onClick={!isDiscordConnected ? handleConnectDiscord : undefined}
-                    >
-                      <Icon 
-                        as={FaDiscord} 
-                        w={6} 
-                        h={6} 
-                        color={isDiscordConnected ? "primary.400" : "gray.400"} 
-                      />
-                      {isDiscordConnected && (
-                        <Box
-                          position="absolute"
-                          bottom="-2px"
-                          right="-2px"
-                          w="10px"
-                          h="10px"
-                          bg="green.400"
-                          borderRadius="full"
-                          border="2px solid"
-                          borderColor="background.tertiary"
-                        />
-                      )}
-                    </Box>
-                  </Tooltip>
-                </HStack>
-
-                {/* Discord Signup Nickname Section */}
-                {isDiscordConnected && (
-                  <FormControl width="100%">
-                    <HStack spacing={2} mb={2}>
-                      <FormLabel color="blue.300" fontSize={{ base: "sm", md: "md" }}>Calendar Nickname (Your ingame name)</FormLabel>
-                      <Tooltip 
-                        label="This is what you will show up as in the calendar when you sign on discord. It makes it easier for admins to identify you."
-                        hasArrow
-                        placement="top"
-                      >
-                        <Box as="span" cursor="help">
-                          <Icon as={FaQuestionCircle} color="blue.300" />
-                        </Box>
-                      </Tooltip>
-                    </HStack>
-                    <HStack width="100%">
-                      <Input
-                        value={discordSignupNickname}
-                        onChange={(e) => setDiscordSignupNickname(e.target.value)}
-                        placeholder="Enter your calendar nickname (Your ingame name)"
-                        bg="whiteAlpha.50"
-                        color="white"
-                        borderColor="whiteAlpha.200"
-                        _hover={{ borderColor: isEditingNickname ? "whiteAlpha.300" : "whiteAlpha.200" }}
-                        _focus={{
-                          borderColor: "blue.300",
-                          boxShadow: "0 0 0 1px var(--chakra-colors-blue-300)"
-                        }}
-                        isDisabled={!isEditingNickname && discordSignupNickname !== ''}
-                        size={{ base: "sm", md: "md" }}
-                      />
-                      <Button
-                        colorScheme="blue"
-                        onClick={isEditingNickname ? handleUpdateDiscordNickname : () => setIsEditingNickname(true)}
-                        isLoading={isUpdatingNickname}
-                        size={{ base: "sm", md: "md" }}
-                      >
-                        {discordSignupNickname && !isEditingNickname ? 'Edit' : 'Save'}
-                      </Button>
-                    </HStack>
-                  </FormControl>
-                )}
-              </VStack>
-            </MotionFlex>
-
-            {/* Characters Section */}
-            <VStack spacing={6} align="stretch">
-              <HStack justify="space-between" align="center">
-                <Heading size="lg" color="text.primary">
-                  Characters
-                </Heading>
+              <VStack spacing={{ base: 4, md: 6 }} align="stretch">
                 <Button
-                  leftIcon={<AddIcon />}
                   colorScheme="blue"
+                  leftIcon={<AddIcon />}
                   onClick={onOpen}
-                  size={{ base: "sm", md: "md" }}
+                  w="100%"
+                  size={{ base: "md", md: "lg" }}
+                  height={{ base: "44px", md: "50px" }}
+                  fontSize={{ base: "sm", md: "md" }}
+                  fontWeight="semibold"
+                  as={motion.button}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  boxShadow="lg"
+                  _hover={{ boxShadow: "xl" }}
                 >
                   Add Character
                 </Button>
-              </HStack>
-
-              {loading ? (
-                <Flex justify="center" align="center" minH="200px">
-                  <Spinner size="xl" color="blue.400" />
-                </Flex>
-              ) : characters.length === 0 ? (
-                <Box
-                  bg="background.tertiary"
-                  p={6}
-                  borderRadius="xl"
-                  textAlign="center"
-                  border="1px solid"
-                  borderColor="border.primary"
-                >
-                  <Text color="text.secondary">
-                    No characters added yet. Click the button above to add your first character!
-                  </Text>
-                </Box>
-              ) : (
-                <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
-                  {characters.map((character: Character, index: number) => (
-                    <MotionBox
-                      key={character.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.1 }}
-                    >
-                      <Box
-                        bg="background.tertiary"
-                        borderRadius="xl"
-                        overflow="hidden"
-                        position="relative"
-                        transition="all 0.3s"
-                        _hover={{
-                          transform: 'translateY(-4px)',
-                          boxShadow: `0 0 20px ${getClassColor(character.class)}33`,
-                        }}
-                        border="1px solid"
-                        borderColor={`${getClassColor(character.class)}33`}
-                      >
-                        {/* Character card background with enhanced glow */}
+                
+                <Box>
+                  <Heading 
+                    size={{ base: "md", md: "lg" }}
+                    fontFamily="ClashDisplay" 
+                    color={textColor} 
+                    mb={4} 
+                    textAlign="left"
+                    letterSpacing="tight"
+                  >
+                    My Characters
+                  </Heading>
+                  
+                  <VStack spacing={3} align="stretch">
+                    {characters.length > 0 ? (
+                      characters.map((char, index) => (
                         <Box
-                          position="absolute"
-                          top={0}
-                          left={0}
-                          right={0}
-                          h="100%"
-                          bgGradient={`linear(to-br, ${getClassColor(character.class)}33, background.tertiary)`}
-                          opacity={0.8}
-                          zIndex={0}
-                          filter="blur(20px)"
-                        />
-
-                        {/* Action buttons positioned at top right */}
-                        <HStack 
-                          position="absolute" 
-                          top={2} 
-                          right={2} 
-                          spacing={1} 
-                          zIndex={2}
-                          bg="background.tertiary"
-                          p={1}
-                          borderRadius="md"
-                          // boxShadow="md"
+                          key={char.id || index}
+                          bg={char.isMain ? 'gray.750' : index % 2 === 0 ? 'gray.800' : 'gray.750'}
+                          borderRadius="xl"
+                          p={{ base: 3, md: 4 }}
+                          boxShadow={char.isMain ? 
+                            '0 0 0 2px rgba(255, 215, 0, 0.4), 0 4px 12px rgba(255, 215, 0, 0.15)' : 
+                            '0 2px 8px rgba(0, 0, 0, 0.3)'
+                          }
+                          borderWidth="1px"
+                          borderColor={char.isMain ? 'yellow.400' : 'gray.600'}
+                          _hover={{ 
+                            boxShadow: char.isMain ? 
+                              '0 0 0 2px rgba(255, 215, 0, 0.5), 0 6px 16px rgba(255, 215, 0, 0.2)' : 
+                              '0 4px 12px rgba(0, 0, 0, 0.4)', 
+                            borderColor: char.isMain ? 'yellow.300' : 'blue.400', 
+                            transform: 'translateY(-1px)',
+                            bg: char.isMain ? 'gray.700' : 'gray.700'
+                          }}
+                          transition="all 0.2s ease"
+                          cursor="pointer"
                         >
-                          <IconButton
-                            icon={<EditIcon />}
-                            aria-label="Edit character"
-                            size="sm"
-                            variant="ghost"
-                            colorScheme="primary"
-                            onClick={() => setEditingCharacter(character)}
-                            _hover={{
-                              bg: 'whiteAlpha.200',
-                              transform: 'scale(1.1)',
-                            }}
-                          />
-                          <IconButton
-                            aria-label="Delete character"
-                            icon={<DeleteIcon />}
-                            size="sm"
-                            variant="ghost"
-                            colorScheme="red"
-                            onClick={() => {
-                              setCharacterToDelete(character);
-                              deleteAlertDialog.onOpen();
-                            }}
-                            _hover={{
-                              bg: 'whiteAlpha.200',
-                              transform: 'scale(1.1)',
-                            }}
-                          />
-                        </HStack>
-
-                        <Flex p={{ base: 4, md: 6 }} position="relative" zIndex={1} direction="column">
-                          <Flex direction="row" align="center">
-                            <Box 
-                              position="relative" 
-                              minW={{ base: "40px", sm: "60px" }}
-                              h={{ base: "40px", sm: "60px" }}
-                              mr={{ base: 3, sm: 4 }}
-                              bg="background.secondary"
-                              borderRadius="lg"
-                              p={1}
-                              boxShadow={`0 0 10px ${getClassColor(character.class)}33`}
-                              _after={{
-                                content: '""',
-                                position: 'absolute',
-                                top: '-2px',
-                                left: '-2px',
-                                right: '-2px',
-                                bottom: '-2px',
-                                borderRadius: 'lg',
-                                border: '2px solid',
-                                borderColor: `${getClassColor(character.class)}33`,
-                                opacity: 0.5,
-                              }}
-                            >
-                              <Tooltip 
-                                label={`${character.race} ${character.class}`} 
-                                hasArrow
-                                placement="top"
-                              >
-                                <Image
-                                  src={getClassIcon(character.class)}
-                                  alt={character.class}
-                                  w="100%"
-                                  h="100%"
-                                  objectFit="cover"
-                                  borderRadius="lg"
-                                  filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.2))"
-                                />
-                              </Tooltip>
-                            </Box>
-
-                            <Box flex={1}>
-                              <VStack align="start" spacing={1}>
-                                <Heading 
-                                  size={{ base: "sm", sm: "md" }}
-                                  color="text.primary"
-                                  display="flex"
-                                  alignItems="center"
-                                  gap={2}
-                                  fontWeight="bold"
-                                >
-                                  {character.name}
-                                  {character.isMain && (
-                                    <Badge 
-                                      colorScheme="yellow"
-                                      variant="solid"
-                                      fontSize="xs"
-                                      px={2}
-                                      borderRadius="full"
-                                      textTransform="uppercase"
-                                      letterSpacing="wider"
-                                      boxShadow="0 0 10px rgba(236, 201, 75, 0.4)"
-                                    >
-                                      MAIN
-                                    </Badge>
-                                  )}
-                                </Heading>
-                                <Text 
-                                  color={getClassColor(character.class)}
-                                  fontWeight="bold"
-                                  fontSize="sm"
-                                  textShadow={`0 0 8px ${getClassColor(character.class)}66`}
-                                >
-                                  {character.race} {character.class}
-                                </Text>
-                              </VStack>
-                              <Flex 
-                                justify="space-between" 
-                                align="center" 
-                                mt={{ base: 2, sm: 2 }}
-                                direction="row"
-                              >
-                                <HStack spacing={2}>
-                                  <Tooltip label="Character Level" hasArrow>
-                                    <Text 
-                                      color="white" 
-                                      fontSize="xs"
-                                      fontWeight="bold"
-                                    >
-                                      Level {character.level}
-                                    </Text>
-                                  </Tooltip>
-                                  <Tooltip label={`Role: ${character.role}`} hasArrow>
-                                    <Badge
-                                      colorScheme={
-                                        character.role === 'Tank' ? 'red' :
-                                        character.role === 'Healer' ? 'green' : 'blue'
-                                      }
-                                      px={2}
-                                      py={1}
-                                      borderRadius="full"
-                                      fontSize="xs"
-                                      textTransform="uppercase"
-                                      letterSpacing="wider"
-                                      boxShadow={
-                                        character.role === 'Tank' ? '0 0 10px rgba(229, 62, 62, 0.4)' :
-                                        character.role === 'Healer' ? '0 0 10px rgba(72, 187, 120, 0.4)' :
-                                        '0 0 10px rgba(66, 153, 225, 0.4)'
-                                      }
-                                    >
-                                      {character.role}
-                                    </Badge>
-                                  </Tooltip>
-                                </HStack>
-                                <Tooltip label="View Warcraft Logs" hasArrow>
-                                  <Link 
-                                    href={`https://fresh.warcraftlogs.com/character/eu/spineshatter/${character.name}`} 
-                                    isExternal
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                          <Flex align="center" justify="space-between">
+                            <Flex align="center" gap={{ base: 2, md: 3 }} flex="1">
+                              <Image 
+                                src={getClassIcon(char.class)} 
+                                alt={char.class} 
+                                boxSize={{ base: "28px", md: "32px" }}
+                                borderRadius="md"
+                              />
+                              <Box flex="1">
+                                <Flex align="center" gap={2} mb={1}>
+                                  <Heading 
+                                    size="sm" 
+                                    fontFamily="ClashDisplay" 
+                                    color={textColor}
+                                    letterSpacing="tight"
+                                    fontSize={{ base: "sm", md: "md" }}
                                   >
-                                    <Image
-                                      src={logsIcon}
-                                      alt="Warcraft Logs"
-                                      boxSize="20px"
-                                      objectFit="contain"
-                                      _hover={{ transform: 'scale(1.1)' }}
-                                      transition="transform 0.2s"
-                                    />
-                                  </Link>
-                                </Tooltip>
-                              </Flex>
-                            </Box>
+                                    {char.name}
+                                  </Heading>
+                                  {char.isMain && (
+                                    <StarIcon color="yellow.400" boxSize={{ base: 2, md: 3 }} />
+                                  )}
+                                </Flex>
+                                <Badge 
+                                  colorScheme={getRoleColor(char.role)} 
+                                  size="sm"
+                                  borderRadius="md"
+                                  fontSize={{ base: "xs", md: "sm" }}
+                                >
+                                  {char.role}
+                                </Badge>
+                              </Box>
+                            </Flex>
+                            <IconButton
+                              aria-label="Edit Character"
+                              icon={<EditIcon />}
+                              size={{ base: "xs", md: "sm" }}
+                              variant="ghost"
+                              colorScheme="blue"
+                              onClick={() => setEditingCharacter(char)}
+                              _hover={{ bg: 'blue.600', color: 'white' }}
+                              borderRadius="lg"
+                            />
                           </Flex>
-                        </Flex>
+                        </Box>
+                      ))
+                    ) : (
+                      <Box 
+                        textAlign="center" 
+                        py={{ base: 6, md: 8 }}
+                        bg="gray.800" 
+                        borderRadius="xl" 
+                        border="2px dashed" 
+                        borderColor="gray.600"
+                      >
+                        <Text color={textColor} fontSize={{ base: "sm", md: "md" }} opacity={0.7}>
+                          No characters yet.
+                        </Text>
+                        <Text color={textColor} fontSize={{ base: "xs", md: "sm" }} opacity={0.5} mt={1}>
+                          Click "Add Character" to get started
+                        </Text>
                       </Box>
-                    </MotionBox>
-                  ))}
-                </SimpleGrid>
-              )}
-            </VStack>
-          </VStack>
+                    )}
+                  </VStack>
+                </Box>
+              </VStack>
+            </Box>
+
+            {/* Profile Info Block */}
+            <Box flex={1} pt={{ base: 0, lg: 0 }}>
+              <VStack spacing={{ base: 6, md: 8 }} align="stretch">
+                {/* Profile Info */}
+                <Box 
+                  bg="gray.800" 
+                  p={{ base: 4, md: 6 }}
+                  borderRadius="xl" 
+                  border="1px solid" 
+                  borderColor="gray.600"
+                  boxShadow="lg"
+                >
+                  <Flex direction={{ base: 'column', sm: 'row' }} align={{ base: 'center', sm: 'flex-start' }} gap={{ base: 4, md: 6 }}>
+                    <Box display="flex" flexDirection="column" alignItems="center">
+                      <Avatar 
+                        size={{ base: "xl", md: "2xl" }}
+                        name={user?.username} 
+                        src={avatarUrl} 
+                        mb={3}
+                        cursor="pointer"
+                        onClick={handleAvatarClick}
+                        _hover={{ 
+                          transform: 'scale(1.05)',
+                          boxShadow: 'lg'
+                        }}
+                        transition="all 0.2s ease"
+                        title="Click to change avatar"
+                      />
+                      <Input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        onChange={handleFileChange} 
+                        accept="image/*" 
+                        style={{ display: 'none' }} 
+                      />
+                      
+                      {/* Discord Info - moved here */}
+                      <Flex align="center" gap={3} mt={2}>
+                        <Icon as={FaDiscord} color={discordIconColor} w={{ base: 4, md: 5 }} h={{ base: 4, md: 5 }} />
+                        <Text fontWeight="semibold" color={textColor} fontSize={{ base: "xs", md: "sm" }}>
+                          Discord
+                        </Text>
+                        {isDiscordConnected ? (
+                          <Badge colorScheme="green" px={2} py={1} borderRadius="md" fontSize="xs">
+                            CONNECTED
+                          </Badge>
+                        ) : (
+                          <Button 
+                            colorScheme="blue" 
+                            size="xs" 
+                            onClick={handleConnectDiscord} 
+                            leftIcon={<FaDiscord />}
+                            borderRadius="md"
+                            _hover={{ transform: 'translateY(-1px)' }}
+                            fontSize="xs"
+                          >
+                            Connect
+                          </Button>
+                        )}
+                      </Flex>
+                    </Box>
+                    
+                    <Box flex={1} w="100%">
+                      <Heading 
+                        size={{ base: "lg", md: "xl" }}
+                        fontFamily="ClashDisplay" 
+                        color={textColor} 
+                        mb={4} 
+                        textAlign={{ base: 'center', sm: 'left' }}
+                        letterSpacing="tight"
+                      >
+                        {user?.username}
+                      </Heading>
+                      
+                      <VStack spacing={{ base: 3, md: 4 }} align="stretch">
+                        {/* Raider Status - more compact */}
+                        <Flex align="center" gap={3} flexWrap="wrap">
+                          <Icon 
+                            as={StarIcon} 
+                            color={user?.confirmedRaider ? 'green.400' : 'orange.400'} 
+                            w={{ base: 4, md: 5 }} 
+                            h={{ base: 4, md: 5 }}
+                          />
+                          <Text fontWeight="semibold" color={textColor} fontSize={{ base: "sm", md: "md" }}>
+                            Raider Status
+                          </Text>
+                          {user?.confirmedRaider ? (
+                            <Badge colorScheme="green" fontSize={{ base: "xs", md: "sm" }} px={3} py={1} borderRadius="lg">
+                              CONFIRMED
+                            </Badge>
+                          ) : (
+                            <Badge colorScheme="orange" fontSize={{ base: "xs", md: "sm" }} px={3} py={1} borderRadius="lg">
+                              PENDING
+                            </Badge>
+                          )}
+                        </Flex>
+
+                        {user?.email && (
+                          <Flex align="center" gap={3} flexWrap="wrap">
+                            <EmailIcon color="gray.400" w={{ base: 4, md: 5 }} h={{ base: 4, md: 5 }} />
+                            <Text color={textColor} fontSize={{ base: "sm", md: "md" }} wordBreak="break-word">
+                              {user?.email}
+                            </Text>
+                          </Flex>
+                        )}
+                        
+                        {/* Calendar Nickname */}
+                        <FormControl>
+                          <FormLabel color={textColor} fontWeight="semibold" fontSize={{ base: "sm", md: "md" }} mb={2}>
+                            <Flex align="center" gap={2}>
+                              <CalendarIcon w={4} h={4} />
+                              Calendar Nickname
+                            </Flex>
+                          </FormLabel>
+                          <InputGroup>
+                            <Input
+                              value={discordSignupNickname}
+                              onChange={e => setDiscordSignupNickname(e.target.value)}
+                              size={{ base: "sm", md: "md" }}
+                              color={textColor}
+                              bg="gray.700"
+                              borderColor="gray.500"
+                              _placeholder={{ color: 'gray.400' }}
+                              _focus={{ borderColor: 'blue.400', boxShadow: '0 0 0 1px #3182ce' }}
+                              _disabled={{ 
+                                bg: 'gray.750',
+                                borderColor: 'gray.600',
+                                color: 'gray.300',
+                                cursor: 'not-allowed'
+                              }}
+                              borderRadius="lg"
+                              h={{ base: "40px", md: "44px" }}
+                              fontSize={{ base: "sm", md: "md" }}
+                              disabled={!isEditingNickname}
+                              placeholder={isEditingNickname ? "Enter your calendar nickname" : ""}
+                              pr={isEditingNickname ? "90px" : "50px"}
+                            />
+                            <InputRightElement h={{ base: "40px", md: "44px" }} w={isEditingNickname ? "85px" : "45px"}>
+                              {!isEditingNickname ? (
+                                <IconButton
+                                  aria-label="Edit nickname"
+                                  icon={<EditIcon />}
+                                  size="xs"
+                                  variant="ghost"
+                                  colorScheme="blue"
+                                  onClick={() => {
+                                    setIsEditingNickname(true);
+                                    setOriginalNickname(discordSignupNickname);
+                                  }}
+                                  _hover={{ bg: 'blue.600', color: 'white' }}
+                                  borderRadius="md"
+                                />
+                              ) : (
+                                <HStack spacing={1} w="100%" justify="flex-end" pr={1}>
+                                  <IconButton
+                                    aria-label="Save nickname"
+                                    icon={<CheckIcon />}
+                                    size="xs"
+                                    variant="ghost"
+                                    colorScheme="green"
+                                    onClick={handleUpdateDiscordNickname}
+                                    isLoading={isUpdatingNickname}
+                                    _hover={{ bg: 'green.600', color: 'white' }}
+                                    borderRadius="md"
+                                  />
+                                  <IconButton
+                                    aria-label="Cancel edit"
+                                    icon={<CloseIcon />}
+                                    size="xs"
+                                    variant="ghost"
+                                    colorScheme="red"
+                                    onClick={() => {
+                                      setIsEditingNickname(false);
+                                      setDiscordSignupNickname(originalNickname);
+                                    }}
+                                    _hover={{ bg: 'red.600', color: 'white' }}
+                                    borderRadius="md"
+                                  />
+                                </HStack>
+                              )}
+                            </InputRightElement>
+                          </InputGroup>
+                        </FormControl>
+                      </VStack>
+                    </Box>
+                  </Flex>
+                </Box>
+
+                {/* Events Signed Up For */}
+                {user?.confirmedRaider && signedUpEvents.length > 0 && (
+                  <Box 
+                    bg="gray.800" 
+                    p={{ base: 4, md: 6 }}
+                    borderRadius="xl" 
+                    border="1px solid" 
+                    borderColor="gray.600"
+                    boxShadow="lg"
+                  >
+                    <Heading size={{ base: "sm", md: "md" }} color={textColor} mb={4} letterSpacing="tight" fontFamily="Satoshi" fontWeight="600" fontSize={{ base: "sm", md: "md" }}>
+                      <Flex align="center" gap={3}>
+                        <FaRegCircleCheck color='#24c223' />
+                        Events You're Signed Up For
+                      </Flex>
+                    </Heading>
+                    <VStack
+                      align="stretch"
+                      spacing={3}
+                      maxH={{ base: "250px", md: "300px" }}
+                      overflowY="auto"
+                      sx={{
+                        scrollbarWidth: 'none',
+                        '&::-webkit-scrollbar': { 
+                          display: 'none'
+                        }
+                      }}
+                    >
+                      {signedUpEvents.slice(0, 4).map((event, idx) => (
+                        <EventCard key={event.id} event={event} isSignedUp />
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
+
+                {/* Events Not Signed Up For */}
+                {user?.confirmedRaider && notSignedUpEvents.length > 0 && (
+                  <Box 
+                    bg="gray.800" 
+                    p={{ base: 4, md: 6 }}
+                    borderRadius="xl" 
+                    boxShadow="0 4px 20px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.1)"
+                  >
+                    <Heading size={{ base: "sm", md: "md" }} color={textColor} mb={4} letterSpacing="tight" fontFamily="Satoshi" fontWeight="600" fontSize={{ base: "sm", md: "md" }}>
+                      <Flex align="center" gap={3}>
+                        <RxCross2 color="red" />
+                        Events You Haven't Signed Up For
+                      </Flex>
+                    </Heading>
+                    <VStack
+                      align="stretch"
+                      spacing={3}
+                      maxH={{ base: "250px", md: "300px" }}
+                      overflowY="auto"
+                      sx={{
+                        scrollbarWidth: 'none',
+                        '&::-webkit-scrollbar': { 
+                          display: 'none'
+                        }
+                      }}
+                    >
+                      {notSignedUpEvents.slice(0, 4).map((event, idx) => (
+                        <EventCard key={event.id} event={event} />
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
+              </VStack>
+            </Box>
+          </Flex>
         </Box>
+        {/* Modals and Dialogs */}
+        <CharacterCreationModal isOpen={isOpen} onClose={onClose} onCharacterCreated={memoizedFetchCharacters} />
+        {editingCharacter && (
+          <CharacterEditModal
+            isOpen={!!editingCharacter}
+            onClose={() => setEditingCharacter(null)}
+            character={editingCharacter}
+            onCharacterUpdated={memoizedFetchCharacters}
+          />
+        )}
+        {selectedEventForSignup && (
+          <EventSignupModal
+            isOpen={isEventSignupOpen}
+            onClose={() => {
+              onEventSignupClose();
+              setSelectedEventForSignup(null);
+            }}
+            event={selectedEventForSignup}
+            onSignupChange={handleSignupChange}
+          />
+        )}
+        {characterToDelete && (
+          <AlertDialog
+            isOpen={deleteAlertDialog.isOpen}
+            leastDestructiveRef={cancelRef}
+            onClose={deleteAlertDialog.onClose}
+          >
+            <AlertDialogOverlay>
+              <AlertDialogContent bg={cardBg}>
+                <AlertDialogHeader fontSize="lg" fontWeight="bold">
+                  Delete Character
+                </AlertDialogHeader>
+                <AlertDialogBody>
+                  Are you sure you want to delete {characterToDelete.name}?
+                </AlertDialogBody>
+                <AlertDialogFooter>
+                  <Button ref={cancelRef} onClick={deleteAlertDialog.onClose}>
+                    Cancel
+                  </Button>
+                  <Button colorScheme="red" onClick={handleDeleteCharacter} ml={3}>
+                    Delete
+                  </Button>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialogOverlay>
+          </AlertDialog>
+        )}
       </Container>
-
-      {/* Existing modals */}
-      <CharacterCreationModal 
-        isOpen={isOpen} 
-        onClose={onClose}
-        onCharacterCreated={fetchCharacters}
-      />
-
-      {editingCharacter && (
-        <CharacterEditModal
-          isOpen={!!editingCharacter}
-          onClose={() => setEditingCharacter(null)}
-          character={editingCharacter}
-          onCharacterUpdated={fetchCharacters}
-        />
-      )}
-
-      <AlertDialog
-        isOpen={deleteAlertDialog.isOpen}
-        leastDestructiveRef={cancelRef}
-        onClose={deleteAlertDialog.onClose}
-        isCentered
-      >
-        <AlertDialogOverlay backdropFilter="blur(10px)">
-          <AlertDialogContent bg="#1A202C" boxShadow="dark-lg">
-            <AlertDialogHeader color="white" fontSize="lg">
-              Delete Character
-            </AlertDialogHeader>
-
-            <AlertDialogBody color="gray.300">
-              Are you sure you want to delete {characterToDelete?.name}? This action cannot be undone.
-            </AlertDialogBody>
-
-            <AlertDialogFooter>
-              <Button
-                ref={cancelRef}
-                onClick={deleteAlertDialog.onClose}
-                variant="ghost"
-                color="white"
-                _hover={{ bg: '#2D3748' }}
-              >
-                Cancel
-              </Button>
-              <Button
-                colorScheme="red"
-                onClick={handleDeleteCharacter}
-                ml={3}
-              >
-                Delete
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
-    </Box>
+    </MotionBox>
   );
 };
 

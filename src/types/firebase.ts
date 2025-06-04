@@ -30,6 +30,8 @@ export interface Character {
   isMain: boolean;
   createdAt: Date;
   updatedAt: Date;
+  lastActive?: Date | Timestamp | null;
+  warcraftLogsLink?: string;
 }
 
 export interface User {
