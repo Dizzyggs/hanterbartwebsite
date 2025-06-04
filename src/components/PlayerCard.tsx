@@ -101,217 +101,225 @@ const PlayerCardComponent = ({
 
   const cardOpacity = player.isPreview && !isInRaidGroup ? 0.7 : 1;
 
+  // Render the card content
+  const renderCardContent = (provided?: DraggableProvided, snapshot?: any) => (
+    <Box position="relative">
+      <Menu isOpen={isMenuOpen && (!isInRaidGroup || !player.isPreview)} onOpen={onMenuOpen} onClose={onMenuClose}>
+        <MenuButton
+          as={Box}
+          ref={provided?.innerRef}
+          {...(provided?.draggableProps || {})}
+          {...(provided?.dragHandleProps || {})}
+          bg={cardBgColor}
+          p={2}
+          borderRadius="md"
+          border="1.5px solid"
+          borderColor={player.isPreview 
+            ? (player.matchedPlayerId ? "green.500" : "gray.500") 
+            : `${classColor}30`}
+          opacity={cardOpacity}
+          _hover={{
+            bg: snapshot?.isDragging ? "rgba(44, 49, 60, 0.95)" : "rgba(52, 58, 70, 0.95)",
+            cursor: isAdmin && (!player.isPreview) && !isMobile ? "grab" : "default",
+            boxShadow: snapshot?.isDragging ? "none" : `0 0 10px ${classColor}20`,
+            borderColor: player.isPreview 
+              ? (player.matchedPlayerId ? "green.400" : "gray.400") 
+              : `${classColor}50`,
+            transform: snapshot?.isDragging ? "scale(1)" : "translateY(-1px)"
+          }}
+          transition={snapshot?.isDragging ? "none" : "all 0.2s ease"}
+        >
+          <HStack spacing={2} justify="space-between" width="100%">
+            <HStack spacing={2}>
+              {player.characterClass && player.characterClass !== 'Absence' && player.characterClass !== 'Tentative' && (
+                <Box
+                  position="relative"
+                  padding="1px"
+                  borderRadius="full"
+                  background={getClassGradient(player.characterClass)}
+                  boxShadow={snapshot?.isDragging ? "none" : `0 0 8px ${classColor}80`}
+                  transition="all 0.2s ease"
+                >
+                  <Image
+                    src={classIcon}
+                    alt={player.characterClass}
+                    boxSize="20px"
+                    objectFit="cover"
+                    borderRadius="full"
+                    bg={classColor}
+                  />
+                </Box>
+              )}
+              <Text 
+                color={isInRaidGroup && player.isPreview 
+                  ? (player.matchedPlayerId ? "green.300" : "red.300")
+                  : "white"
+                }
+                fontSize="sm" 
+                fontWeight="medium"
+                textShadow={snapshot?.isDragging ? "none" : `0 0 8px ${classColor}80`}
+              >
+                {getDisplayName()}
+              </Text>
+            </HStack>
+            {player.characterClass === 'Tentative' ? (
+              <Text 
+                color="#FFDBBB"
+                fontSize="xs" 
+                textTransform="uppercase"
+              >
+                Tentative
+              </Text>
+            ) : player.characterClass !== 'Absence' && (
+              <Text 
+                color={classColor}
+                fontSize="xs" 
+                textTransform="uppercase"
+                textShadow={snapshot?.isDragging ? "none" : `0 0 8px ${classColor}80`}
+              >
+                {player.characterClass}
+              </Text>
+            )}
+          </HStack>
+        </MenuButton>
+
+        {isAdmin && (!isInRaidGroup || !player.isPreview) && (
+          <Portal>
+            <MenuList 
+              bg="background.secondary" 
+              borderColor="border.primary"
+              zIndex={2000}
+              position="relative"
+              py={1}
+              boxShadow="dark-lg"
+            >
+              <MenuItem
+                _hover={{ bg: 'background.tertiary' }}
+                _focus={{ bg: 'background.tertiary' }}
+                color="red.400"
+                bg="background.secondary"
+                onClick={() => {
+                  unassignPlayer(player);
+                  onMenuClose();
+                }}
+              >
+                Unassign
+              </MenuItem>
+              <MenuItem
+                _hover={{ bg: 'background.tertiary' }}
+                _focus={{ bg: 'background.tertiary' }}
+                color="red.400"
+                bg="background.secondary"
+                onClick={() => {
+                  benchPlayer(player);
+                }}
+              >
+                Mark as Benched
+              </MenuItem>
+              <MenuDivider borderColor="border.primary" />
+              <SubMenu label="Raid 1-8">
+                {raidGroups.slice(0, 8).map(group => (
+                  <MenuItem
+                    key={group.id}
+                    onClick={() => {
+                      assignPlayerToGroup(player, group.id);
+                      onMenuClose();
+                    }}
+                    bg="transparent"
+                    _hover={{ bg: 'gray.700' }}
+                    _focus={{ bg: 'gray.700' }}
+                    color="white"
+                    borderRadius="md"
+                    mb={1}
+                    p={2}
+                    fontSize="sm"
+                    fontWeight="medium"
+                  >
+                    {group.name}
+                  </MenuItem>
+                ))}
+              </SubMenu>
+              <SubMenu label="Raid 11-18">
+                {raidGroups.slice(8, 16).map(group => (
+                  <MenuItem
+                    key={group.id}
+                    onClick={() => {
+                      assignPlayerToGroup(player, group.id);
+                      onMenuClose();
+                    }}
+                    bg="transparent"
+                    _hover={{ bg: 'gray.700' }}
+                    _focus={{ bg: 'gray.700' }}
+                    color="white"
+                    borderRadius="md"
+                    mb={1}
+                    p={2}
+                    fontSize="sm"
+                    fontWeight="medium"
+                  >
+                    {group.name}
+                  </MenuItem>
+                ))}
+              </SubMenu>
+            </MenuList>
+          </Portal>
+        )}
+      </Menu>
+
+      {isInRaidGroup && player.isPreview && player.matchedPlayerId && (
+        <Box 
+          position="absolute"
+          right="8px"
+          top="50%"
+          transform="translateY(-50%)"
+          zIndex={2000}
+        >
+          <Tooltip label="Click to assign player to this position" placement="top">
+            <IconButton
+              icon={<ArrowForwardIcon />}
+              aria-label="Assign player"
+              size="xs"
+              variant="ghost"
+              color="green.500"
+              _hover={{ color: "green.400", transform: "scale(1.1)" }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (player.matchedPlayerId && groupId && !assignedPlayers.has(player.matchedPlayerId)) {
+                  // Only assign if the player is not already assigned somewhere
+                  const playerToAssign = {
+                    ...player,
+                    characterId: player.matchedPlayerId,
+                    isPreview: false
+                  };
+                  assignPlayerToGroup(playerToAssign, groupId);
+                } else {
+                  console.log("Conditions not met:", {
+                    hasMatchedId: !!player.matchedPlayerId,
+                    hasGroupId: !!groupId,
+                    isNotAssigned: !assignedPlayers.has(player.matchedPlayerId || '')
+                  });
+                }
+              }}
+            />
+          </Tooltip>
+        </Box>
+      )}
+    </Box>
+  );
+
+  // Conditionally wrap with Draggable for desktop mode only
+  if (isMobile) {
+    return renderCardContent();
+  }
+
   return (
     <Draggable 
       draggableId={player.characterId} 
       index={index}
       isDragDisabled={isDragDisabled}
     >
-      {(provided: DraggableProvided, snapshot) => (
-        <Box position="relative">
-          <Menu isOpen={isMenuOpen && (!isInRaidGroup || !player.isPreview)} onOpen={onMenuOpen} onClose={onMenuClose}>
-            <MenuButton
-              as={Box}
-              ref={provided.innerRef}
-              {...provided.draggableProps}
-              {...provided.dragHandleProps}
-              bg={cardBgColor}
-              p={2}
-              borderRadius="md"
-              border="1.5px solid"
-              borderColor={player.isPreview 
-                ? (player.matchedPlayerId ? "green.500" : "gray.500") 
-                : `${classColor}30`}
-              opacity={cardOpacity}
-              _hover={{
-                bg: snapshot.isDragging ? "rgba(44, 49, 60, 0.95)" : "rgba(52, 58, 70, 0.95)",
-                cursor: isAdmin && (!player.isPreview) ? "grab" : "default",
-                boxShadow: snapshot.isDragging ? "none" : `0 0 10px ${classColor}20`,
-                borderColor: player.isPreview 
-                  ? (player.matchedPlayerId ? "green.400" : "gray.400") 
-                  : `${classColor}50`,
-                transform: snapshot.isDragging ? "scale(1)" : "translateY(-1px)"
-              }}
-              transition={snapshot.isDragging ? "none" : "all 0.2s ease"}
-            >
-              <HStack spacing={2} justify="space-between" width="100%">
-                <HStack spacing={2}>
-                  {player.characterClass && player.characterClass !== 'Absence' && player.characterClass !== 'Tentative' && (
-                    <Box
-                      position="relative"
-                      padding="1px"
-                      borderRadius="full"
-                      background={getClassGradient(player.characterClass)}
-                      boxShadow={snapshot.isDragging ? "none" : `0 0 8px ${classColor}80`}
-                      transition="all 0.2s ease"
-                    >
-                      <Image
-                        src={classIcon}
-                        alt={player.characterClass}
-                        boxSize="20px"
-                        objectFit="cover"
-                        borderRadius="full"
-                        bg={classColor}
-                      />
-                    </Box>
-                  )}
-                  <Text 
-                    color={isInRaidGroup && player.isPreview 
-                      ? (player.matchedPlayerId ? "green.300" : "red.300")
-                      : "white"
-                    }
-                    fontSize="sm" 
-                    fontWeight="medium"
-                    textShadow={snapshot.isDragging ? "none" : `0 0 8px ${classColor}80`}
-                  >
-                    {getDisplayName()}
-                  </Text>
-                </HStack>
-                {player.characterClass === 'Tentative' ? (
-                  <Text 
-                    color="#FFDBBB"
-                    fontSize="xs" 
-                    textTransform="uppercase"
-                  >
-                    Tentative
-                  </Text>
-                ) : player.characterClass !== 'Absence' && (
-                  <Text 
-                    color={classColor}
-                    fontSize="xs" 
-                    textTransform="uppercase"
-                    textShadow={snapshot.isDragging ? "none" : `0 0 8px ${classColor}80`}
-                  >
-                    {player.characterClass}
-                  </Text>
-                )}
-              </HStack>
-            </MenuButton>
-
-            {isAdmin && (!isInRaidGroup || !player.isPreview) && (
-              <Portal>
-                <MenuList 
-                  bg="background.secondary" 
-                  borderColor="border.primary"
-                  zIndex={2000}
-                  position="relative"
-                  py={1}
-                  boxShadow="dark-lg"
-                >
-                  <MenuItem
-                    _hover={{ bg: 'background.tertiary' }}
-                    _focus={{ bg: 'background.tertiary' }}
-                    color="red.400"
-                    bg="background.secondary"
-                    onClick={() => {
-                      unassignPlayer(player);
-                      onMenuClose();
-                    }}
-                  >
-                    Unassign
-                  </MenuItem>
-                  <MenuItem
-                    _hover={{ bg: 'background.tertiary' }}
-                    _focus={{ bg: 'background.tertiary' }}
-                    color="red.400"
-                    bg="background.secondary"
-                    onClick={() => {
-                      benchPlayer(player);
-                    }}
-                  >
-                    Mark as Benched
-                  </MenuItem>
-                  <MenuDivider borderColor="border.primary" />
-                  <SubMenu label="Raid 1-8">
-                    {raidGroups.slice(0, 8).map(group => (
-                      <MenuItem
-                        key={group.id}
-                        onClick={() => {
-                          assignPlayerToGroup(player, group.id);
-                          onMenuClose();
-                        }}
-                        bg="transparent"
-                        _hover={{ bg: 'gray.700' }}
-                        _focus={{ bg: 'gray.700' }}
-                        color="white"
-                        borderRadius="md"
-                        mb={1}
-                        p={2}
-                        fontSize="sm"
-                        fontWeight="medium"
-                      >
-                        {group.name}
-                      </MenuItem>
-                    ))}
-                  </SubMenu>
-                  <SubMenu label="Raid 11-18">
-                    {raidGroups.slice(8, 16).map(group => (
-                      <MenuItem
-                        key={group.id}
-                        onClick={() => {
-                          assignPlayerToGroup(player, group.id);
-                          onMenuClose();
-                        }}
-                        bg="transparent"
-                        _hover={{ bg: 'gray.700' }}
-                        _focus={{ bg: 'gray.700' }}
-                        color="white"
-                        borderRadius="md"
-                        mb={1}
-                        p={2}
-                        fontSize="sm"
-                        fontWeight="medium"
-                      >
-                        {group.name}
-                      </MenuItem>
-                    ))}
-                  </SubMenu>
-                </MenuList>
-              </Portal>
-            )}
-          </Menu>
-
-          {isInRaidGroup && player.isPreview && player.matchedPlayerId && (
-            <Box 
-              position="absolute"
-              right="8px"
-              top="50%"
-              transform="translateY(-50%)"
-              zIndex={2000}
-            >
-              <Tooltip label="Click to assign player to this position" placement="top">
-                <IconButton
-                  icon={<ArrowForwardIcon />}
-                  aria-label="Assign player"
-                  size="xs"
-                  variant="ghost"
-                  color="green.500"
-                  _hover={{ color: "green.400", transform: "scale(1.1)" }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (player.matchedPlayerId && groupId && !assignedPlayers.has(player.matchedPlayerId)) {
-                      // Only assign if the player is not already assigned somewhere
-                      const playerToAssign = {
-                        ...player,
-                        characterId: player.matchedPlayerId,
-                        isPreview: false
-                      };
-                      assignPlayerToGroup(playerToAssign, groupId);
-                    } else {
-                      console.log("Conditions not met:", {
-                        hasMatchedId: !!player.matchedPlayerId,
-                        hasGroupId: !!groupId,
-                        isNotAssigned: !assignedPlayers.has(player.matchedPlayerId || '')
-                      });
-                    }
-                  }}
-                />
-              </Tooltip>
-            </Box>
-          )}
-        </Box>
-      )}
+      {(provided: DraggableProvided, snapshot) => renderCardContent(provided, snapshot)}
     </Draggable>
   );
 };

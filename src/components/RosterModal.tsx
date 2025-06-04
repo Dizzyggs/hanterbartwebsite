@@ -60,6 +60,7 @@ import { PlayerCard } from './PlayerCard';
 import { CLASS_ICONS, CLASS_COLORS, ClassIconType } from '../utils/classIcons';
 import AbsencePlayer from './AbsencePlayer';
 import { getMRTExport } from '../hooks/rosterHelpers';
+import MobileRosterModal from './MobileRosterModal';
 
 // Suppress defaultProps warning from react-beautiful-dnd
 const originalError = console.error;
@@ -276,26 +277,120 @@ const MemoizedRaidGroup = memo(({
 
 MemoizedRaidGroup.displayName = 'MemoizedRaidGroup';
 
+// Move SubMenu component outside of RosterModal to avoid hooks issues
+const SubMenu = ({ label = '', children }: { label: string; children: React.ReactNode }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  return (
+    <Box
+      position="relative"
+      role="group"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      bg="background.tertiary"
+    >
+      <MenuItem
+        _hover={{ bg: 'background.secondary' }}
+        _focus={{ bg: 'background.secondary' }}
+        color="text.primary"
+        bg="background.tertiary"
+      >
+        {label} <Text as="span" float="right" ml={2}>▶</Text>
+      </MenuItem>
+      {isHovered && (
+        <Box
+          position="absolute"
+          left="100%"
+          top="0"
+          bg="background.tertiary"
+          borderColor="border.primary"
+          borderWidth="1px"
+          borderRadius="md"
+          width="200px"
+          zIndex={2001}
+          boxShadow="dark-lg"
+          py={1}
+        >
+          {children}
+        </Box>
+      )}
+    </Box>
+  );
+};
+
 const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
-  // Add mobile detection
+  // Add mobile detection - but don't return early yet
   const isTesting = false;
   const [isMobile] = useMediaQuery('(max-width: 768px)');
   
   // Add loading state
   const [isLoading, setIsLoading] = useState(true);
-
-  // Update the useEffect to handle loading state
-  useEffect(() => {
-    if (isOpen) {
-      setIsLoading(true);
-      const timer = setTimeout(() => {
-        setIsLoading(false);
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen]);
   
-  // Combine manual and Discord signups
+  // All state hooks first
+  const [unassignedPlayers, setUnassignedPlayers] = useState<SignupPlayer[]>([]);
+  const [benchedPlayers, setBenchedPlayers] = useState<SignupPlayer[]>([]);
+  const [assignedPlayers, setAssignedPlayers] = useState<Set<string>>(new Set());
+  const [raidGroups, setRaidGroups] = useState<RaidGroup[]>([
+    { id: '1', name: 'Group 1', players: [] },
+    { id: '2', name: 'Group 2', players: [] },
+    { id: '3', name: 'Group 3', players: [] },
+    { id: '4', name: 'Group 4', players: [] },
+    { id: '5', name: 'Group 5', players: [] },
+    { id: '6', name: 'Group 6', players: [] },
+    { id: '7', name: 'Group 7', players: [] },
+    { id: '8', name: 'Group 8', players: [] },
+    { id: '11', name: 'Group 1', players: [] },
+    { id: '12', name: 'Group 2', players: [] },
+    { id: '13', name: 'Group 3', players: [] },
+    { id: '14', name: 'Group 4', players: [] },
+    { id: '15', name: 'Group 5', players: [] },
+    { id: '16', name: 'Group 6', players: [] },
+    { id: '17', name: 'Group 7', players: [] },
+    { id: '18', name: 'Group 8', players: [] }
+  ]);
+  const [selectedRole, setSelectedRole] = useState<'Tank' | 'Healer' | 'DPS' | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [selectedRaid, setSelectedRaid] = useState<'1-8' | '11-18' | null>(null);
+  const [userNicknames, setUserNicknames] = useState<Record<string, string>>({});
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [initialState, setInitialState] = useState<{
+    groups: RaidGroup[];
+    unassigned: SignupPlayer[];
+  } | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<{
+    type: 'class' | 'name' | 'role' | null;
+    value: string | null;
+  }>({ type: null, value: null });
+  const [filterRaidGroups, setFilterRaidGroups] = useState(false);
+  const [rosterTemplates, setRosterTemplates] = useState<RosterTemplate[]>([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+
+  // Refs
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  // Context hooks
+  const { user } = useUser();
+  const toast = useToast({
+    position: 'top',
+    duration: 3000,
+    isClosable: true,
+  });
+
+  // Disclosure hooks
+  const {
+    isOpen: isClassViewOpen,
+    onOpen: onClassViewOpen,
+    onClose: onClassViewClose
+  } = useDisclosure();
+  
+  const {
+    isOpen: isAlertOpen,
+    onOpen: onAlertOpen,
+    onClose: onAlertClose
+  } = useAlertDisclosure();
+
+  // Combine manual and Discord signups - these are computed values, not hooks
   const manualSignups = Object.entries(event.signups || {})
     .filter((entry): entry is [string, NonNullable<typeof entry[1]>] => entry[1] !== null)
     .map(([userId, signup]) => ({
@@ -334,107 +429,119 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   const healers = allSignups.filter(signup => signup?.characterRole === 'Healer');
   const dps = allSignups.filter(signup => signup?.characterRole === 'DPS');
 
-  // Create unassigned players array from all signups
-  const [unassignedPlayers, setUnassignedPlayers] = useState<SignupPlayer[]>([]);
-  const [benchedPlayers, setBenchedPlayers] = useState<SignupPlayer[]>([]);
+  // ALL useMemo hooks
+  const { absencePlayers, regularUnassignedPlayers } = useMemo(() => {
+    const allPlayers = [...unassignedPlayers, ...raidGroups.flatMap(group => group.players)];
+    
+    const absent = allPlayers.filter(p => {
+      if (!p.isDiscordSignup) {
+        return p.characterClass === "Absence" || p.characterClass === "Tentative";
+      }
+      return p.characterClass === "Absence" || p.characterClass === "Tentative";
+    });
+    
+    let regular = unassignedPlayers.filter(p => {
+      if (!p.isDiscordSignup) {
+        return p.characterClass !== "Absence" && p.characterClass !== "Tentative";
+      }
+      return p.characterClass !== "Absence" && p.characterClass !== "Tentative";
+    });
 
-  // Track which players are assigned to groups
-  const [assignedPlayers, setAssignedPlayers] = useState<Set<string>>(new Set());
+    // Duplicate players 5 times if in testing mode
+    if (isTesting) {
+      const originalPlayers = [...regular];
+      regular = [];
+      for (let i = 0; i < 26; i++) {
+        regular.push(...originalPlayers.map(player => ({
+          ...player,
+          characterId: `${player.characterId}-${i}`,
+          userId: `${player.userId}-${i}`,
+        })));
+      }
+    }
 
-  const [raidGroups, setRaidGroups] = useState<RaidGroup[]>([
-    { id: '1', name: 'Group 1', players: [] },
-    { id: '2', name: 'Group 2', players: [] },
-    { id: '3', name: 'Group 3', players: [] },
-    { id: '4', name: 'Group 4', players: [] },
-    { id: '5', name: 'Group 5', players: [] },
-    { id: '6', name: 'Group 6', players: [] },
-    { id: '7', name: 'Group 7', players: [] },
-    { id: '8', name: 'Group 8', players: [] },
-    { id: '11', name: 'Group 1', players: [] },
-    { id: '12', name: 'Group 2', players: [] },
-    { id: '13', name: 'Group 3', players: [] },
-    { id: '14', name: 'Group 4', players: [] },
-    { id: '15', name: 'Group 5', players: [] },
-    { id: '16', name: 'Group 6', players: [] },
-    { id: '17', name: 'Group 7', players: [] },
-    { id: '18', name: 'Group 8', players: [] }
-  ]);
+    // Apply filters
+    if (selectedFilter.type === 'class' && selectedFilter.value) {
+      if(selectedFilter.value === "FURY") {
+        regular = regular.filter(p => {
+          // For Discord signups, check spec directly
+          if (p.isDiscordSignup) {
+            return p.spec?.toUpperCase() === "FURY";
+          }
+          // For website signups, check if they're a Warrior with DPS role
+          return p.characterClass === "Warrior" && p.characterRole === "DPS";
+        });
+      } else if (selectedFilter.value == "WARRIOR") {
+        regular = regular.filter(p => (p.characterClass === "Warrior" || p.spec?.toUpperCase() === "FURY" || p.spec?.toUpperCase() == "PROTECTION"));
+      }
+      else {
+        regular = regular.filter(p => (p.characterClass.toUpperCase() === selectedFilter.value));
+      }
+    } else if (selectedFilter.type === 'name') {
+      regular = [...regular].sort((a, b) => {
+        const nameA = (a.discordNickname || a.characterName).toLowerCase();
+        const nameB = (b.discordNickname || b.characterName).toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+    } else if (selectedFilter.type === 'role' && selectedFilter.value) {
+      regular = regular.filter(p => {
+        if (selectedFilter.value === 'Tank') {
+          const isTank = 
+            p.characterRole?.toLowerCase() === 'tank' || 
+            p.characterClass?.toLowerCase() === 'tank';
+          const isFeralDruid = 
+            p.characterClass?.toLowerCase() === 'druid' && 
+            p.spec?.toLowerCase() === 'feral';
+          
+          return isTank || isFeralDruid;
+        } else if (selectedFilter.value === 'Healer') {
+          return (p.characterRole?.toLowerCase() === selectedFilter.value?.toLowerCase() || p.characterClass == "Priest" || p.characterClass == "Paladin" || p.characterClass == "Druid")
+        } else if (selectedFilter.value === 'DPS') {
+          const DPS_SPECS = ['frost', 'arcane', 'fury', 'fire', 'arms', 'beastmastery', 'survival', "assassination", 'combat', 'subtlety', 'affliction', 'demonology', 'destruction', 'shadow']
+          return (DPS_SPECS.includes(p.spec?.toLowerCase() || '') || p?.characterRole?.toLowerCase() == "dps")
+        }
+        return p.characterRole === selectedFilter.value;
+      });
+    }
 
-  const [selectedRole, setSelectedRole] = useState<'Tank' | 'Healer' | 'DPS' | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [selectedRaid, setSelectedRaid] = useState<'1-8' | '11-18' | null>(null);
-  const [userNicknames, setUserNicknames] = useState<Record<string, string>>({});
-  const { user } = useUser();
-
-  const toast = useToast({
-    position: 'top',
-    duration: 3000,
-    isClosable: true,
+    // Sort regular unassigned players
+    const sortedRegular = [...regular].sort((a, b) => {
+      if (selectedFilter.type === 'name') {
+        return 0; // Skip role sorting if we're sorting by name
+      }
+      
+    if (selectedRole) {
+      if (a.characterRole === selectedRole && b.characterRole !== selectedRole) return -1;
+      if (a.characterRole !== selectedRole && b.characterRole === selectedRole) return 1;
+    }
+      const roleOrder: Record<'Tank' | 'Healer' | 'DPS', number> = { Tank: 0, Healer: 1, DPS: 2 };
+      if (a.characterRole !== b.characterRole) {
+      return roleOrder[a.characterRole as keyof typeof roleOrder] - roleOrder[b.characterRole as keyof typeof roleOrder];
+    }
+    return a.characterName.localeCompare(b.characterName);
   });
 
-  // Add isOpen to the component's state tracking
-  const [hasInitialized, setHasInitialized] = useState(false);
+    return {
+      absencePlayers: absent,
+      regularUnassignedPlayers: sortedRegular
+    };
+  }, [unassignedPlayers, selectedRole, raidGroups, selectedFilter, isTesting]);
 
-  const {
-    isOpen: isClassViewOpen,
-    onOpen: onClassViewOpen,
-    onClose: onClassViewClose
-  } = useDisclosure();
+  const hasWebsiteSignup = useMemo(() => {
+    if (!user || !event.signups) return false;
+    return !!event.signups[user.username];
+  }, [user, event.signups]);
 
-  // Add state for tracking changes
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [initialState, setInitialState] = useState<{
-    groups: RaidGroup[];
-    unassigned: SignupPlayer[];
-  } | null>(null);
-  
-  // Add alert dialog state
-  const {
-    isOpen: isAlertOpen,
-    onOpen: onAlertOpen,
-    onClose: onAlertClose
-  } = useAlertDisclosure();
-  const cancelRef = useRef<HTMLButtonElement>(null);
-
-  // Function to create a clean copy of state
-  const createCleanState = () => ({
-    groups: raidGroups.map(group => ({
-      ...group,
-      players: group.players.map(player => ({
-        userId: player.userId,
-        username: player.username,
-        characterId: player.characterId,
-        characterName: player.characterName,
-        characterClass: player.characterClass,
-        characterRole: player.characterRole,
-        discordNickname: player.discordNickname,
-        originalDiscordName: player.originalDiscordName,
-        spec: player.spec
-      }))
-    })),
-    unassigned: unassignedPlayers.map(player => ({
-      userId: player.userId,
-      username: player.username,
-      characterId: player.characterId,
-      characterName: player.characterName,
-      characterClass: player.characterClass,
-      characterRole: player.characterRole,
-      discordNickname: player.discordNickname,
-      originalDiscordName: player.originalDiscordName,
-      spec: player.spec
-    })),
-    benched: benchedPlayers.map(player => ({
-      userId: player.userId,
-      username: player.username,
-      characterId: player.characterId,
-      characterName: player.characterName,
-      characterClass: player.characterClass,
-      characterRole: player.characterRole,
-      discordNickname: player.discordNickname,
-      originalDiscordName: player.originalDiscordName,
-      spec: player.spec
-    }))
-  });
+  // ALL useEffect hooks
+  useEffect(() => {
+    if (isOpen) {
+      setIsLoading(true);
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   // Set initial state when modal opens
   useEffect(() => {
@@ -453,20 +560,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       }
     }
   }, [isOpen, raidGroups, unassignedPlayers]);
-
-  // Function to compare players
-  const arePlayersEqual = (p1: SignupPlayer, p2: SignupPlayer) => 
-    p1.characterId === p2.characterId &&
-    p1.userId === p2.userId &&
-    p1.characterName === p2.characterName &&
-    p1.characterClass === p2.characterClass &&
-    p1.characterRole === p2.characterRole;
-
-  // Function to compare groups
-  const areGroupsEqual = (g1: RaidGroup, g2: RaidGroup) => {
-    if (g1.players.length !== g2.players.length) return false;
-    return g1.players.every((player, index) => arePlayersEqual(player, g2.players[index]));
-  };
 
   // Update change detection
   useEffect(() => {
@@ -518,154 +611,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       setHasUnsavedChanges(hasChanges);
     }
   }, [raidGroups, unassignedPlayers, initialState, isAdmin, hasUnsavedChanges]);
-
-// Update handleSaveRaidComp
-const handleSaveRaidComp = async () => {
-  if (!isAdmin || !user) return;
-  
-  setIsSaving(true);
-  try {
-    // Filter out empty groups and clean up the data
-    const nonEmptyGroups = raidGroups
-      .filter(group => group.players.length > 0)
-      .map(group => ({
-        id: group.id,
-        name: group.name,
-        players: group.players.map(player => {
-          // Base player object with required fields
-          const cleanPlayer = {
-            userId: player.userId || '',
-            username: player.username || '',
-            characterId: player.characterId || '',
-            characterName: player.characterName || '',
-            characterClass: player.characterClass || 'Unknown',
-            characterRole: player.characterRole || 'DPS'
-          };
-
-          // Add Discord-specific fields only if they exist and we're in Discord mode
-          if (event.signupType === 'raidhelper' && player.originalDiscordName) {
-            return {
-              ...cleanPlayer,
-              originalDiscordName: player.originalDiscordName,
-              ...(player.discordNickname && { discordNickname: player.discordNickname }),
-              isDiscordSignup: true
-            };
-          }
-
-          return cleanPlayer;
-        })
-      }));
-
-    // Clean up benched players data
-    const cleanBenchedPlayers = benchedPlayers.map(player => ({
-      userId: player.userId || '',
-      username: player.username || '',
-      characterId: player.characterId || '',
-      characterName: player.characterName || '',
-      characterClass: player.characterClass || 'Unknown',
-      characterRole: player.characterRole || 'DPS'
-    }));
-
-    const raidComposition = {
-      lastUpdated: new Date(),
-      updatedBy: {
-        userId: user.username || '',
-        username: user.username || ''
-      },
-      groups: nonEmptyGroups,
-      benchedPlayers: cleanBenchedPlayers
-    };
-
-    await updateDoc(doc(db, 'events', event.id), {
-      raidComposition
-    });
-
-    // After successful save, update the initial state
-    setInitialState(createCleanState());
-    setHasUnsavedChanges(false);
-
-        toast({
-      title: "Raid composition saved",
-      description: "The raid composition has been updated successfully",
-      status: "success",
-          duration: 3000,
-          isClosable: true,
-          position: "top"
-        });
-  } catch (error) {
-    console.error('Error saving raid composition:', error);
-    console.error('Error details:', {
-      eventId: event.id,
-      userId: user.username,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-
-    toast({
-      title: "Error saving raid composition",
-      description: error instanceof Error ? error.message : "There was an error saving the raid composition. Please try again.",
-      status: "error",
-      duration: 5000,
-      isClosable: true,
-      position: "top"
-    });
-  } finally {
-    setIsSaving(false);
-  }
-};
-
-  // Function to handle modal close
-  const handleModalClose = () => {
-    if (isAdmin && hasUnsavedChanges) {
-      onAlertOpen();
-    } else {
-      // Reset state when closing
-      setInitialState(null);
-      setHasUnsavedChanges(false);
-      onClose();
-    }
-  };
-
-  // Function to close without saving
-  const closeWithoutSaving = () => {
-    onAlertClose();
-    onClose();
-  };
-
-  // Function to save and close
-  const saveAndClose = async () => {
-    await handleSaveRaidComp();
-    onAlertClose();
-    onClose();
-  };
-
-  // Find user's character group
-  const getUserCharacterGroup = (user: any, event: Event, raidGroups: RaidGroup[]) => {
-    if (!user || !event.signups) return null;
-    
-    const userSignup = Object.values(event.signups).find(signup => signup?.userId === user.username);
-    if (!userSignup) return null;
-
-    const assignedGroup = raidGroups.find(group => 
-      group.players.some(player => player.characterId === userSignup.characterId)
-    );
-    
-    return {
-      character: userSignup,
-      group: assignedGroup || null
-    };
-  };
-
-  const getGroupName = (groupNumber: number) => {
-    if (groupNumber >= 1 && groupNumber <= 8) return 'Raid 1-8';
-    if (groupNumber >= 11 && groupNumber <= 18) return 'Raid 11-18';
-    return '';
-  };
-
-  const getRaidPlayerCount = (raidGroups: RaidGroup[], startGroup: number, endGroup: number) => {
-    return raidGroups
-      .slice(startGroup, endGroup)
-      .reduce((total, group) => total + group.players.filter(p => !p.isPreview).length, 0);
-  };
 
   // Update the useEffect to only run on initial open
   useEffect(() => {
@@ -762,6 +707,316 @@ const handleSaveRaidComp = async () => {
     
     fetchNicknames();
   }, [event.signupType, unassignedPlayers, raidGroups]);
+
+  // Load templates when modal opens
+  useEffect(() => {
+    const loadTemplates = async () => {
+      if (!isAdmin) return;
+      
+      setIsLoadingTemplates(true);
+      try {
+        const templatesSnap = await getDocs(collection(db, 'rosterTemplates'));
+        const templates = templatesSnap.docs.map(doc => ({ ...doc.data(), id: doc.id } as RosterTemplate));
+        setRosterTemplates(templates);
+      } catch (error) {
+        console.error('Error loading templates:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load roster templates',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+      });
+    } finally {
+        setIsLoadingTemplates(false);
+      }
+    };
+
+    if (isOpen) {
+      loadTemplates();
+    }
+  }, [isOpen, isAdmin]);
+
+  // Move helper functions that are used in hooks before the mobile return
+  const fetchDiscordNicknames = async (signups: SignupPlayer[]) => {
+    try {
+      const userDocs = await Promise.all(
+        signups.map(signup => getDoc(doc(db, 'users', signup.userId)))
+      );
+      
+      const nicknames: Record<string, string> = {};
+      userDocs.forEach((userDoc, index) => {
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData.discordSignupNickname) {
+            nicknames[signups[index].userId] = userData.discordSignupNickname;
+          }
+        }
+      });
+      
+      setUserNicknames(nicknames);
+    } catch (error) {
+      console.error('Error fetching Discord nicknames:', error);
+    }
+  };
+
+  const matchDiscordSignupsWithUsers = async (discordSignups: RaidHelperSignupType[]) => {
+    try {
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const firebaseUsers = new Map<string, FirebaseUser>();
+      const discordIdToUser = new Map<string, FirebaseUser>();
+      
+      // Create maps for both username and Discord ID lookups
+      usersSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        firebaseUsers.set(doc.id, { id: doc.id, ...data });
+        if (data.discordId) {
+          discordIdToUser.set(data.discordId, { id: doc.id, ...data });
+        }
+      });
+
+      const validSignups = discordSignups
+        .filter((signup: RaidHelperSignupType) => signup.status === "primary")
+        .map((signup: RaidHelperSignupType): SignupPlayer => {
+          // Try to find the user by Discord ID first
+          const matchingUser = signup.userId ? discordIdToUser.get(signup.userId) : undefined;
+
+          const player: SignupPlayer = {
+            userId: matchingUser?.id || signup.userId || signup.name,
+            username: matchingUser?.username || signup.name,
+            characterId: signup.id.toString(),
+            characterName: matchingUser?.discordSignupNickname || signup.name,
+            characterClass: signup.className || '',
+            characterRole: signup.role || '',
+            originalDiscordName: signup.name,
+            discordNickname: matchingUser?.discordSignupNickname || undefined,
+            spec: signup.specName || '',
+            isDiscordSignup: true,
+            ...(typeof (signup as any).originalClass === 'string' ? { originalClass: (signup as any).originalClass } : {})
+          };
+          return player;
+        });
+
+      return validSignups;
+    } catch (error) {
+      console.error('Error matching Discord signups with users:', error);
+      return [];
+    }
+  };
+
+  // NOW we can use the mobile check and return early - after all hooks are declared
+  if (isMobile) {
+    return (
+      <MobileRosterModal
+        isOpen={isOpen}
+        onClose={onClose}
+        event={event}
+        isAdmin={isAdmin}
+      />
+    );
+  }
+
+  // Function to create a clean copy of state
+  const createCleanState = () => ({
+    groups: raidGroups.map(group => ({
+      ...group,
+      players: group.players.map(player => ({
+        userId: player.userId,
+        username: player.username,
+        characterId: player.characterId,
+        characterName: player.characterName,
+        characterClass: player.characterClass,
+        characterRole: player.characterRole,
+        discordNickname: player.discordNickname,
+        originalDiscordName: player.originalDiscordName,
+        spec: player.spec
+      }))
+    })),
+    unassigned: unassignedPlayers.map(player => ({
+      userId: player.userId,
+      username: player.username,
+      characterId: player.characterId,
+      characterName: player.characterName,
+      characterClass: player.characterClass,
+      characterRole: player.characterRole,
+      discordNickname: player.discordNickname,
+      originalDiscordName: player.originalDiscordName,
+      spec: player.spec
+    })),
+    benched: benchedPlayers.map(player => ({
+      userId: player.userId,
+      username: player.username,
+      characterId: player.characterId,
+      characterName: player.characterName,
+      characterClass: player.characterClass,
+      characterRole: player.characterRole,
+      discordNickname: player.discordNickname,
+      originalDiscordName: player.originalDiscordName,
+      spec: player.spec
+    }))
+  });
+
+  // Function to compare players
+  const arePlayersEqual = (p1: SignupPlayer, p2: SignupPlayer) => 
+    p1.characterId === p2.characterId &&
+    p1.userId === p2.userId &&
+    p1.characterName === p2.characterName &&
+    p1.characterClass === p2.characterClass &&
+    p1.characterRole === p2.characterRole;
+
+  // Function to compare groups
+  const areGroupsEqual = (g1: RaidGroup, g2: RaidGroup) => {
+    if (g1.players.length !== g2.players.length) return false;
+    return g1.players.every((player, index) => arePlayersEqual(player, g2.players[index]));
+  };
+
+  // Update handleSaveRaidComp
+  const handleSaveRaidComp = async () => {
+    if (!isAdmin || !user) return;
+    
+    setIsSaving(true);
+    try {
+      // Filter out empty groups and clean up the data
+      const nonEmptyGroups = raidGroups
+        .filter(group => group.players.length > 0)
+        .map(group => ({
+          id: group.id,
+          name: group.name,
+          players: group.players.map(player => {
+            // Base player object with required fields
+            const cleanPlayer = {
+              userId: player.userId || '',
+              username: player.username || '',
+              characterId: player.characterId || '',
+              characterName: player.characterName || '',
+              characterClass: player.characterClass || 'Unknown',
+              characterRole: player.characterRole || 'DPS'
+            };
+
+            // Add Discord-specific fields only if they exist and we're in Discord mode
+            if (event.signupType === 'raidhelper' && player.originalDiscordName) {
+              return {
+                ...cleanPlayer,
+                originalDiscordName: player.originalDiscordName,
+                ...(player.discordNickname && { discordNickname: player.discordNickname }),
+                isDiscordSignup: true
+              };
+            }
+
+            return cleanPlayer;
+          })
+        }));
+
+      // Clean up benched players data
+      const cleanBenchedPlayers = benchedPlayers.map(player => ({
+        userId: player.userId || '',
+        username: player.username || '',
+        characterId: player.characterId || '',
+        characterName: player.characterName || '',
+        characterClass: player.characterClass || 'Unknown',
+        characterRole: player.characterRole || 'DPS'
+      }));
+
+      const raidComposition = {
+        lastUpdated: new Date(),
+        updatedBy: {
+          userId: user.username || '',
+          username: user.username || ''
+        },
+        groups: nonEmptyGroups,
+        benchedPlayers: cleanBenchedPlayers
+      };
+
+      await updateDoc(doc(db, 'events', event.id), {
+        raidComposition
+      });
+
+      // After successful save, update the initial state
+      setInitialState(createCleanState());
+      setHasUnsavedChanges(false);
+
+          toast({
+        title: "Raid composition saved",
+        description: "The raid composition has been updated successfully",
+        status: "success",
+            duration: 3000,
+            isClosable: true,
+            position: "top"
+          });
+    } catch (error) {
+      console.error('Error saving raid composition:', error);
+      console.error('Error details:', {
+        eventId: event.id,
+        userId: user.username,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+
+      toast({
+        title: "Error saving raid composition",
+        description: error instanceof Error ? error.message : "There was an error saving the raid composition. Please try again.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+        position: "top"
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Function to handle modal close
+  const handleModalClose = () => {
+    if (isAdmin && hasUnsavedChanges) {
+      onAlertOpen();
+    } else {
+      // Reset state when closing
+      setInitialState(null);
+      setHasUnsavedChanges(false);
+      onClose();
+    }
+  };
+
+  // Function to close without saving
+  const closeWithoutSaving = () => {
+    onAlertClose();
+    onClose();
+  };
+
+  // Function to save and close
+  const saveAndClose = async () => {
+    await handleSaveRaidComp();
+    onAlertClose();
+    onClose();
+  };
+
+  // Find user's character group
+  const getUserCharacterGroup = (user: any, event: Event, raidGroups: RaidGroup[]) => {
+    if (!user || !event.signups) return null;
+    
+    const userSignup = Object.values(event.signups).find(signup => signup?.userId === user.username);
+    if (!userSignup) return null;
+
+    const assignedGroup = raidGroups.find(group => 
+      group.players.some(player => player.characterId === userSignup.characterId)
+    );
+    
+    return {
+      character: userSignup,
+      group: assignedGroup || null
+    };
+  };
+
+  const getGroupName = (groupNumber: number) => {
+    if (groupNumber >= 1 && groupNumber <= 8) return 'Raid 1-8';
+    if (groupNumber >= 11 && groupNumber <= 18) return 'Raid 11-18';
+    return '';
+  };
+
+  const getRaidPlayerCount = (raidGroups: RaidGroup[], startGroup: number, endGroup: number) => {
+    return raidGroups
+      .slice(startGroup, endGroup)
+      .reduce((total, group) => total + group.players.filter(p => !p.isPreview).length, 0);
+  };
 
   const onDragEnd = (result: DropResult) => {
     const { destination, draggableId } = result;
@@ -867,220 +1122,7 @@ const handleSaveRaidComp = async () => {
     setUnassignedPlayers(prev => prev.some(p => p.characterId === player.characterId) ? prev : [...prev, canonicalPlayer]);
   };
 
-  const SubMenu = ({ label = '', children }: { label: string; children: React.ReactNode }) => {
-    const [isHovered, setIsHovered] = useState(false);
-    
-    return (
-      <Box
-        position="relative"
-        role="group"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        bg="background.tertiary"
-      >
-        <MenuItem
-          _hover={{ bg: 'background.secondary' }}
-          _focus={{ bg: 'background.secondary' }}
-          color="text.primary"
-          bg="background.tertiary"
-        >
-          {label} <Text as="span" float="right" ml={2}>▶</Text>
-        </MenuItem>
-        {isHovered && (
-          <Box
-            position="absolute"
-            left="100%"
-            top="0"
-            bg="background.tertiary"
-            borderColor="border.primary"
-            borderWidth="1px"
-            borderRadius="md"
-            width="200px"
-            zIndex={2001}
-            boxShadow="dark-lg"
-            py={1}
-          >
-            {children}
-          </Box>
-        )}
-      </Box>
-    );
-  };
-
-  // Replace the View Classes button with Filter List menu
-  const [selectedFilter, setSelectedFilter] = useState<{
-    type: 'class' | 'name' | 'role' | null;
-    value: string | null;
-  }>({ type: null, value: null });
-
-  const [filterRaidGroups, setFilterRaidGroups] = useState(false);
-
-  // Update the regularUnassignedPlayers filtering
-  const { absencePlayers, regularUnassignedPlayers } = useMemo(() => {
-    const allPlayers = [...unassignedPlayers, ...raidGroups.flatMap(group => group.players)];
-    
-    const absent = allPlayers.filter(p => {
-      if (!p.isDiscordSignup) {
-        return p.characterClass === "Absence" || p.characterClass === "Tentative";
-      }
-      return p.characterClass === "Absence" || p.characterClass === "Tentative";
-    });
-    
-    let regular = unassignedPlayers.filter(p => {
-      if (!p.isDiscordSignup) {
-        return p.characterClass !== "Absence" && p.characterClass !== "Tentative";
-      }
-      return p.characterClass !== "Absence" && p.characterClass !== "Tentative";
-    });
-
-    // Duplicate players 5 times if in testing mode
-    if (isTesting) {
-      const originalPlayers = [...regular];
-      regular = [];
-      for (let i = 0; i < 26; i++) {
-        regular.push(...originalPlayers.map(player => ({
-          ...player,
-          characterId: `${player.characterId}-${i}`,
-          userId: `${player.userId}-${i}`,
-        })));
-      }
-    }
-
-    // Apply filters
-    if (selectedFilter.type === 'class' && selectedFilter.value) {
-      if(selectedFilter.value === "FURY") {
-        regular = regular.filter(p => {
-          // For Discord signups, check spec directly
-          if (p.isDiscordSignup) {
-            return p.spec?.toUpperCase() === "FURY";
-          }
-          // For website signups, check if they're a Warrior with DPS role
-          return p.characterClass === "Warrior" && p.characterRole === "DPS";
-        });
-      } else if (selectedFilter.value == "WARRIOR") {
-        regular = regular.filter(p => (p.characterClass === "Warrior" || p.spec?.toUpperCase() === "FURY" || p.spec?.toUpperCase() == "PROTECTION"));
-      }
-      else {
-        regular = regular.filter(p => (p.characterClass.toUpperCase() === selectedFilter.value));
-      }
-    } else if (selectedFilter.type === 'name') {
-      regular = [...regular].sort((a, b) => {
-        const nameA = (a.discordNickname || a.characterName).toLowerCase();
-        const nameB = (b.discordNickname || b.characterName).toLowerCase();
-        return nameA.localeCompare(nameB);
-      });
-    } else if (selectedFilter.type === 'role' && selectedFilter.value) {
-      regular = regular.filter(p => {
-        if (selectedFilter.value === 'Tank') {
-          const isTank = 
-            p.characterRole?.toLowerCase() === 'tank' || 
-            p.characterClass?.toLowerCase() === 'tank';
-          const isFeralDruid = 
-            p.characterClass?.toLowerCase() === 'druid' && 
-            p.spec?.toLowerCase() === 'feral';
-          
-          return isTank || isFeralDruid;
-        } else if (selectedFilter.value === 'Healer') {
-          return (p.characterRole?.toLowerCase() === selectedFilter.value?.toLowerCase() || p.characterClass == "Priest" || p.characterClass == "Paladin" || p.characterClass == "Druid")
-        } else if (selectedFilter.value === 'DPS') {
-          const DPS_SPECS = ['frost', 'arcane', 'fury', 'fire', 'arms', 'beastmastery', 'survival', "assassination", 'combat', 'subtlety', 'affliction', 'demonology', 'destruction', 'shadow']
-          return (DPS_SPECS.includes(p.spec?.toLowerCase() || '') || p?.characterRole?.toLowerCase() == "dps")
-        }
-        return p.characterRole === selectedFilter.value;
-      });
-    }
-
-    // Sort regular unassigned players
-    const sortedRegular = [...regular].sort((a, b) => {
-      if (selectedFilter.type === 'name') {
-        return 0; // Skip role sorting if we're sorting by name
-      }
-      
-    if (selectedRole) {
-      if (a.characterRole === selectedRole && b.characterRole !== selectedRole) return -1;
-      if (a.characterRole !== selectedRole && b.characterRole === selectedRole) return 1;
-    }
-      const roleOrder: Record<'Tank' | 'Healer' | 'DPS', number> = { Tank: 0, Healer: 1, DPS: 2 };
-      if (a.characterRole !== b.characterRole) {
-      return roleOrder[a.characterRole as keyof typeof roleOrder] - roleOrder[b.characterRole as keyof typeof roleOrder];
-    }
-    return a.characterName.localeCompare(b.characterName);
-  });
-
-    return {
-      absencePlayers: absent,
-      regularUnassignedPlayers: sortedRegular
-    };
-  }, [unassignedPlayers, selectedRole, raidGroups, selectedFilter, isTesting]);
-
   const userCharacterInfo = getUserCharacterGroup(user, event, raidGroups);
-
-
-  const fetchDiscordNicknames = async (signups: SignupPlayer[]) => {
-    try {
-      const userDocs = await Promise.all(
-        signups.map(signup => getDoc(doc(db, 'users', signup.userId)))
-      );
-      
-      const nicknames: Record<string, string> = {};
-      userDocs.forEach((userDoc, index) => {
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          if (userData.discordSignupNickname) {
-            nicknames[signups[index].userId] = userData.discordSignupNickname;
-          }
-        }
-      });
-      
-      setUserNicknames(nicknames);
-    } catch (error) {
-      console.error('Error fetching Discord nicknames:', error);
-    }
-  };
-
-  const matchDiscordSignupsWithUsers = async (discordSignups: RaidHelperSignupType[]) => {
-    try {
-      const usersSnapshot = await getDocs(collection(db, 'users'));
-      const firebaseUsers = new Map<string, FirebaseUser>();
-      const discordIdToUser = new Map<string, FirebaseUser>();
-      
-      // Create maps for both username and Discord ID lookups
-      usersSnapshot.docs.forEach(doc => {
-        const data = doc.data();
-        firebaseUsers.set(doc.id, { id: doc.id, ...data });
-        if (data.discordId) {
-          discordIdToUser.set(data.discordId, { id: doc.id, ...data });
-        }
-      });
-
-      const validSignups = discordSignups
-        .filter((signup: RaidHelperSignupType) => signup.status === "primary")
-        .map((signup: RaidHelperSignupType): SignupPlayer => {
-          // Try to find the user by Discord ID first
-          const matchingUser = signup.userId ? discordIdToUser.get(signup.userId) : undefined;
-
-          const player: SignupPlayer = {
-            userId: matchingUser?.id || signup.userId || signup.name,
-            username: matchingUser?.username || signup.name,
-            characterId: signup.id.toString(),
-            characterName: matchingUser?.discordSignupNickname || signup.name,
-            characterClass: signup.className || '',
-            characterRole: signup.role || '',
-            originalDiscordName: signup.name,
-            discordNickname: matchingUser?.discordSignupNickname || undefined,
-            spec: signup.specName || '',
-            isDiscordSignup: true,
-            ...(typeof (signup as any).originalClass === 'string' ? { originalClass: (signup as any).originalClass } : {})
-          };
-          return player;
-        });
-
-      return validSignups;
-    } catch (error) {
-      console.error('Error matching Discord signups with users:', error);
-      return [];
-    }
-  };
 
   const handleUnsign = async () => {
     if (!user || !event.id) return;
@@ -1117,44 +1159,6 @@ const handleSaveRaidComp = async () => {
       });
     }
   };
-
-  // Add check for if user has signed up through website
-  const hasWebsiteSignup = useMemo(() => {
-    if (!user || !event.signups) return false;
-    return !!event.signups[user.username];
-  }, [user, event.signups]);
-
-  const [rosterTemplates, setRosterTemplates] = useState<RosterTemplate[]>([]);
-  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
-
-  // Load templates when modal opens
-  useEffect(() => {
-    const loadTemplates = async () => {
-      if (!isAdmin) return;
-      
-      setIsLoadingTemplates(true);
-      try {
-        const templatesSnap = await getDocs(collection(db, 'rosterTemplates'));
-        const templates = templatesSnap.docs.map(doc => ({ ...doc.data(), id: doc.id } as RosterTemplate));
-        setRosterTemplates(templates);
-      } catch (error) {
-        console.error('Error loading templates:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load roster templates',
-          status: 'error',
-          duration: 3000,
-          isClosable: true,
-      });
-    } finally {
-        setIsLoadingTemplates(false);
-      }
-    };
-
-    if (isOpen) {
-      loadTemplates();
-    }
-  }, [isOpen, isAdmin]);
 
   const handleApplyTemplate = (template: RosterTemplate, raidSection: '1-8' | '11-18') => {
     console.log('Applying template:', template.name);
