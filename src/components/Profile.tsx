@@ -30,6 +30,11 @@ import {
   FormControl,
   FormLabel,
   useMediaQuery,
+  Accordion,
+  AccordionItem,
+  AccordionButton,
+  AccordionPanel,
+  AccordionIcon,
 } from '@chakra-ui/react';
 import { AddIcon, StarIcon, EditIcon, ExternalLinkIcon, DeleteIcon, ChevronRightIcon, EmailIcon, CalendarIcon, TimeIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
 import { useUser } from '../context/UserContext';
@@ -59,6 +64,7 @@ import { format, isAfter } from 'date-fns';
 import { sv } from 'date-fns/locale';
 import { Link as RouterLink } from 'react-router-dom';
 import Breadcrumbs from './Breadcrumbs';
+import { raidHelperService } from '../services/raidhelper';
 
 const MotionBox = motion(Box);
 const MotionFlex = motion(Flex);
@@ -606,6 +612,134 @@ const Profile = () => {
     }
   };
 
+  // Function to fetch live Discord signups for RaidHelper events
+  const fetchLiveDiscordSignups = async (event: Event) => {
+    if (event.signupType !== 'raidhelper' || !event.raidHelperId) {
+      return [];
+    }
+    
+    try {
+      const response = await raidHelperService.getEvent(event.raidHelperId);
+      return response?.signUps?.filter((signup: any) => signup.status === "primary") || [];
+    } catch (error) {
+      console.error('Error fetching live Discord signups:', error);
+      return [];
+    }
+  };
+
+  // Enhanced function to check if user is signed up (with live Discord data)
+  const checkUserSignedUp = async (event: Event, user: any): Promise<boolean> => {
+    let isSignedUp = false;
+    
+    // Debug logging for test events
+    if (event.title.toLowerCase().includes('test')) {
+      console.log('=== CHECKING SIGNUP FOR:', event.title, '===');
+      console.log('User Discord Info:', {
+        discordId: user.discordId,
+        discordUsername: user.discordUsername,
+        discordSignupNickname: user.discordSignupNickname,
+        username: user.username
+      });
+    }
+    
+    // Check regular website signups
+    if (event.signups && !isSignedUp) {
+      for (const signupKey in event.signups) {
+        const signup = event.signups[signupKey];
+        if (!signup) continue;
+        
+        if (event.title.toLowerCase().includes('test')) {
+          console.log('Checking website signup:', signupKey, signup);
+        }
+        
+        // Check by user ID/username
+        if (signup.userId === user.username || signup.username === user.username) {
+          isSignedUp = true;
+          if (event.title.toLowerCase().includes('test')) {
+            console.log('✅ Found website signup match by username');
+          }
+          break;
+        }
+        
+        // Check by character ID
+        if (user.characters && user.characters.some((char: any) => char.id === signup.characterId)) {
+          isSignedUp = true;
+          if (event.title.toLowerCase().includes('test')) {
+            console.log('✅ Found website signup match by character ID');
+          }
+          break;
+        }
+        
+        // Check by character name (for Discord signups stored in regular signups)
+        if (user.discordSignupNickname && signup.characterName === user.discordSignupNickname) {
+          isSignedUp = true;
+          if (event.title.toLowerCase().includes('test')) {
+            console.log('✅ Found website signup match by character name');
+          }
+          break;
+        }
+      }
+    }
+    
+    // Check live Discord signups for RaidHelper events
+    if (!isSignedUp && event.signupType === 'raidhelper') {
+      const liveDiscordSignups = await fetchLiveDiscordSignups(event);
+      
+      if (event.title.toLowerCase().includes('test')) {
+        console.log('Live Discord signups:', liveDiscordSignups);
+      }
+      
+      for (const signup of liveDiscordSignups) {
+        if (event.title.toLowerCase().includes('test')) {
+          console.log('Checking Discord signup:', signup);
+        }
+        
+        // Check by Discord ID
+        if (user.discordId && signup.userId === user.discordId) {
+          isSignedUp = true;
+          if (event.title.toLowerCase().includes('test')) {
+            console.log('✅ Found Discord signup match by Discord ID');
+          }
+          break;
+        }
+        
+        // Check by Discord username
+        if (user.discordUsername && signup.name === user.discordUsername) {
+          isSignedUp = true;
+          if (event.title.toLowerCase().includes('test')) {
+            console.log('✅ Found Discord signup match by Discord username');
+          }
+          break;
+        }
+        
+        // Check by calendar nickname (discordSignupNickname)
+        if (user.discordSignupNickname && signup.name === user.discordSignupNickname) {
+          isSignedUp = true;
+          if (event.title.toLowerCase().includes('test')) {
+            console.log('✅ Found Discord signup match by calendar nickname');
+          }
+          break;
+        }
+        
+        // Check by regular username as fallback
+        if (signup.name === user.username) {
+          isSignedUp = true;
+          if (event.title.toLowerCase().includes('test')) {
+            console.log('✅ Found Discord signup match by regular username');
+          }
+          break;
+        }
+      }
+    }
+    
+    if (event.title.toLowerCase().includes('test')) {
+      console.log('Final result for', event.title, '- isSignedUp:', isSignedUp);
+      console.log('=== END CHECK ===');
+    }
+    
+    return isSignedUp;
+  };
+
   // Fetch all events and filter signups
   useEffect(() => {
     async function fetchEventsAndSignups() {
@@ -616,11 +750,17 @@ const Profile = () => {
       const notSignedUp: Event[] = [];
       const now = new Date();
       
+      // Convert to array for async processing
+      const eventsArray: Event[] = [];
       eventsSnapshot.forEach(docSnap => {
         const event = docSnap.data() as Event;
         event.id = docSnap.id;
-        
-        // Parse end time for filtering
+        eventsArray.push(event);
+        allEvents.push(event);
+      });
+      
+      // Process each event to check signup status
+      for (const event of eventsArray) {
         let endDate: Date;
         if (event.end instanceof Timestamp) {
           endDate = event.end.toDate();
@@ -633,69 +773,9 @@ const Profile = () => {
           // Fallback: use date only (end of day)
           endDate = new Date(event.date + 'T23:59:59');
         }
-        allEvents.push(event);
         
-        // Enhanced signup detection logic
-        let isSignedUp = false;
-        
-        // Check regular website signups
-        if (event.signups && !isSignedUp) {
-          for (const signupKey in event.signups) {
-            const signup = event.signups[signupKey];
-            if (!signup) continue;
-            
-            // Check by user ID/username
-            if (signup.userId === user.username || signup.username === user.username) {
-              isSignedUp = true;
-              break;
-            }
-            
-            // Check by character ID
-            if (user.characters && user.characters.some(char => char.id === signup.characterId)) {
-              isSignedUp = true;
-              break;
-            }
-            
-            // Check by character name (for Discord signups stored in regular signups)
-            if (user.discordSignupNickname && signup.characterName === user.discordSignupNickname) {
-              isSignedUp = true;
-              break;
-            }
-          }
-        }
-        
-        // Check RaidHelper signups (stored in event.raidHelperSignups)
-        if (!isSignedUp && event.raidHelperSignups && event.raidHelperSignups.signUps) {
-          for (const signup of event.raidHelperSignups.signUps) {
-            // Check by Discord ID
-            if (user.discordId && signup.userId === user.discordId) {
-              isSignedUp = true;
-              console.log(`Found Discord signup match by ID for event: ${event.title}`);
-              break;
-            }
-            
-            // Check by Discord username
-            if (user.discordUsername && signup.name === user.discordUsername) {
-              isSignedUp = true;
-              console.log(`Found Discord signup match by username for event: ${event.title}`);
-              break;
-            }
-            
-            // Check by calendar nickname (discordSignupNickname)
-            if (user.discordSignupNickname && signup.name === user.discordSignupNickname) {
-              isSignedUp = true;
-              console.log(`Found Discord signup match by nickname for event: ${event.title}`);
-              break;
-            }
-            
-            // Check by regular username as fallback
-            if (signup.name === user.username) {
-              isSignedUp = true;
-              console.log(`Found Discord signup match by regular username for event: ${event.title}`);
-              break;
-            }
-          }
-        }
+        // Check if user is signed up using our enhanced function
+        const isSignedUp = await checkUserSignedUp(event, user);
         
         if (isSignedUp) {
           signedUp.push({ event, endDate });
@@ -705,9 +785,8 @@ const Profile = () => {
             notSignedUp.push(event);
           }
         }
-      });
+      }
       
-      // Only keep upcoming signed up events
       const upcomingSignedUp = signedUp.filter(({ endDate }) => isAfter(endDate, now)).map(({ event }) => event);
       setEvents(allEvents);
       setSignedUpEvents(upcomingSignedUp);
@@ -734,9 +813,17 @@ const Profile = () => {
       const notSignedUp: Event[] = [];
       const now = new Date();
       
+      // Convert to array for async processing
+      const eventsArray: Event[] = [];
       eventsSnapshot.forEach(docSnap => {
         const event = docSnap.data() as Event;
         event.id = docSnap.id;
+        eventsArray.push(event);
+        allEvents.push(event);
+      });
+      
+      // Process each event to check signup status
+      for (const event of eventsArray) {
         let endDate: Date;
         if (event.end instanceof Timestamp) {
           endDate = event.end.toDate();
@@ -749,65 +836,9 @@ const Profile = () => {
           // Fallback: use date only (end of day)
           endDate = new Date(event.date + 'T23:59:59');
         }
-        allEvents.push(event);
         
-        // Enhanced signup detection logic (same as above)
-        let isSignedUp = false;
-        
-        // Check regular website signups
-        if (event.signups && !isSignedUp) {
-          for (const signupKey in event.signups) {
-            const signup = event.signups[signupKey];
-            if (!signup) continue;
-            
-            // Check by user ID/username
-            if (signup.userId === user.username || signup.username === user.username) {
-              isSignedUp = true;
-              break;
-            }
-            
-            // Check by character ID
-            if (user.characters && user.characters.some(char => char.id === signup.characterId)) {
-              isSignedUp = true;
-              break;
-            }
-            
-            // Check by character name (for Discord signups stored in regular signups)
-            if (user.discordSignupNickname && signup.characterName === user.discordSignupNickname) {
-              isSignedUp = true;
-              break;
-            }
-          }
-        }
-        
-        // Check RaidHelper signups (stored in event.raidHelperSignups)
-        if (!isSignedUp && event.raidHelperSignups && event.raidHelperSignups.signUps) {
-          for (const signup of event.raidHelperSignups.signUps) {
-            // Check by Discord ID
-            if (user.discordId && signup.userId === user.discordId) {
-              isSignedUp = true;
-              break;
-            }
-            
-            // Check by Discord username
-            if (user.discordUsername && signup.name === user.discordUsername) {
-              isSignedUp = true;
-              break;
-            }
-            
-            // Check by calendar nickname (discordSignupNickname)
-            if (user.discordSignupNickname && signup.name === user.discordSignupNickname) {
-              isSignedUp = true;
-              break;
-            }
-            
-            // Check by regular username as fallback
-            if (signup.name === user.username) {
-              isSignedUp = true;
-              break;
-            }
-          }
-        }
+        // Check if user is signed up using our enhanced function
+        const isSignedUp = await checkUserSignedUp(event, user);
         
         if (isSignedUp) {
           signedUp.push({ event, endDate });
@@ -817,7 +848,7 @@ const Profile = () => {
             notSignedUp.push(event);
           }
         }
-      });
+      }
       
       const upcomingSignedUp = signedUp.filter(({ endDate }) => isAfter(endDate, now)).map(({ event }) => event);
       setEvents(allEvents);
@@ -1337,7 +1368,7 @@ const Profile = () => {
                   </Flex>
                 </Box>
 
-                {/* Events Signed Up For */}
+                {/* Events You're Signed Up For */}
                 {user?.confirmedRaider && signedUpEvents.length > 0 && (
                   <Box 
                     bg="gray.800" 
@@ -1347,61 +1378,93 @@ const Profile = () => {
                     borderColor="gray.600"
                     boxShadow="lg"
                   >
-                    <Heading size={{ base: "sm", md: "md" }} color={textColor} mb={4} letterSpacing="tight" fontFamily="Satoshi" fontWeight="600" fontSize={{ base: "sm", md: "md" }}>
-                      <Flex align="center" gap={3}>
-                        <FaRegCircleCheck color='#24c223' />
-                        Events You're Signed Up For
-                      </Flex>
-                    </Heading>
-                    <VStack
-                      align="stretch"
-                      spacing={3}
-                      maxH={{ base: "250px", md: "300px" }}
-                      overflowY="auto"
-                      sx={{
-                        scrollbarWidth: 'none',
-                        '&::-webkit-scrollbar': { 
-                          display: 'none'
-                        }
-                      }}
-                    >
-                      {signedUpEvents.slice(0, 4).map((event, idx) => (
-                        <EventCard key={event.id} event={event} isSignedUp />
-                      ))}
-                    </VStack>
+                    <Accordion allowMultiple>
+                      <AccordionItem border="none">
+                        <AccordionButton
+                          p={0}
+                          _hover={{ bg: 'transparent' }}
+                          _focus={{ boxShadow: 'none' }}
+                        >
+                          <Box flex="1" textAlign="left">
+                            <Heading size={{ base: "sm", md: "md" }} color={textColor} letterSpacing="tight" fontFamily="Satoshi" fontWeight="600" fontSize={{ base: "sm", md: "md" }}>
+                              <Flex align="center" gap={3}>
+                                <FaRegCircleCheck color='#24c223' />
+                                <Text>Events You're Signed Up For ({signedUpEvents.length})</Text>
+                                <AccordionIcon />
+                              </Flex>
+                            </Heading>
+                          </Box>
+                        </AccordionButton>
+                        <AccordionPanel p={0} pt={4}>
+                          <VStack
+                            align="stretch"
+                            spacing={3}
+                            maxH={{ base: "250px", md: "300px" }}
+                            overflowY="auto"
+                            sx={{
+                              scrollbarWidth: 'none',
+                              '&::-webkit-scrollbar': { 
+                                display: 'none'
+                              }
+                            }}
+                          >
+                            {signedUpEvents.slice(0, 4).map((event, idx) => (
+                              <EventCard key={event.id} event={event} isSignedUp />
+                            ))}
+                          </VStack>
+                        </AccordionPanel>
+                      </AccordionItem>
+                    </Accordion>
                   </Box>
                 )}
 
-                {/* Events Not Signed Up For */}
+                {/* Events You Haven't Signed Up For */}
                 {user?.confirmedRaider && notSignedUpEvents.length > 0 && (
                   <Box 
                     bg="gray.800" 
                     p={{ base: 4, md: 6 }}
                     borderRadius="xl" 
-                    boxShadow="0 4px 20px rgba(0, 0, 0, 0.15), 0 1px 3px rgba(0, 0, 0, 0.1)"
+                    border="1px solid" 
+                    borderColor="gray.600"
+                    boxShadow="lg"
                   >
-                    <Heading size={{ base: "sm", md: "md" }} color={textColor} mb={4} letterSpacing="tight" fontFamily="Satoshi" fontWeight="600" fontSize={{ base: "sm", md: "md" }}>
-                      <Flex align="center" gap={3}>
-                        <RxCross2 color="red" />
-                        Events You Haven't Signed Up For
-                      </Flex>
-                    </Heading>
-                    <VStack
-                      align="stretch"
-                      spacing={3}
-                      maxH={{ base: "250px", md: "300px" }}
-                      overflowY="auto"
-                      sx={{
-                        scrollbarWidth: 'none',
-                        '&::-webkit-scrollbar': { 
-                          display: 'none'
-                        }
-                      }}
-                    >
-                      {notSignedUpEvents.slice(0, 4).map((event, idx) => (
-                        <EventCard key={event.id} event={event} />
-                      ))}
-                    </VStack>
+                    <Accordion allowMultiple>
+                      <AccordionItem border="none">
+                        <AccordionButton
+                          p={0}
+                          _hover={{ bg: 'transparent' }}
+                          _focus={{ boxShadow: 'none' }}
+                        >
+                          <Box flex="1" textAlign="left">
+                            <Heading size={{ base: "sm", md: "md" }} color={textColor} letterSpacing="tight" fontFamily="Satoshi" fontWeight="600" fontSize={{ base: "sm", md: "md" }}>
+                              <Flex align="center" gap={3}>
+                                <RxCross2 color="red" />
+                                <Text>Events You Haven't Signed Up For ({notSignedUpEvents.length})</Text>
+                                <AccordionIcon />
+                              </Flex>
+                            </Heading>
+                          </Box>
+                        </AccordionButton>
+                        <AccordionPanel p={0} pt={4}>
+                          <VStack
+                            align="stretch"
+                            spacing={3}
+                            maxH={{ base: "250px", md: "300px" }}
+                            overflowY="auto"
+                            sx={{
+                              scrollbarWidth: 'none',
+                              '&::-webkit-scrollbar': { 
+                                display: 'none'
+                              }
+                            }}
+                          >
+                            {notSignedUpEvents.slice(0, 4).map((event, idx) => (
+                              <EventCard key={event.id} event={event} />
+                            ))}
+                          </VStack>
+                        </AccordionPanel>
+                      </AccordionItem>
+                    </Accordion>
                   </Box>
                 )}
               </VStack>
