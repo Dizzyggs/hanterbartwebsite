@@ -184,7 +184,7 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
         };
       }
 
-      console.log('Final event data being sent to Firestore:', JSON.stringify(finalEventData, null, 2));
+      // console.log('Final event data being sent to Firestore:', JSON.stringify(finalEventData, null, 2));
 
       // Create the Firestore event
       const docRef = await addDoc(collection(db, 'events'), finalEventData);

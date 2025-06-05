@@ -8,7 +8,6 @@ interface AbsencePlayerProps {
 }
 
 const AbsencePlayer = memo(({ player, userNicknames }: AbsencePlayerProps) => {
-  console.log(player);
   const getDisplayName = () => {
     if (player.isDiscordSignup) {
       return player.discordNickname || player.username;

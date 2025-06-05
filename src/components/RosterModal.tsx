@@ -1161,7 +1161,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   };
 
   const handleApplyTemplate = (template: RosterTemplate, raidSection: '1-8' | '11-18') => {
-    console.log('Applying template:', template.name);
     const startIndex = raidSection === '1-8' ? 0 : 8;
     const endIndex = raidSection === '1-8' ? 8 : 16;
     
@@ -1172,8 +1171,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
     template.groupData.forEach((templateGroup, index) => {
       const raidGroupIndex = startIndex + index;
       if (raidGroupIndex >= endIndex) return; // Don't exceed the raid section
-      
-      console.log(`Processing Group ${raidGroupIndex + 1}:`);
       
       // Initialize empty players array for this group if it doesn't exist
       if (!newRaidGroups[raidGroupIndex].players) {
@@ -1189,12 +1186,6 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
           const templateName = templatePlayer.name.toLowerCase();
           return upName === templateName;
         });
-
-        if (matchingPlayer) {
-          console.log(`  Found matching player: ${matchingPlayer.username || matchingPlayer.characterName}`);
-        } else {
-          console.log('  No matching player found in unassigned list');
-        }
 
         // Create preview player
         const previewPlayer: SignupPlayer = {

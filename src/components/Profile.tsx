@@ -125,10 +125,15 @@ const Profile = () => {
   const [events, setEvents] = useState<Event[]>([]);
   const [signedUpEvents, setSignedUpEvents] = useState<Event[]>([]);
   const [notSignedUpEvents, setNotSignedUpEvents] = useState<Event[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
   
   // Add EventSignupModal state
   const [selectedEventForSignup, setSelectedEventForSignup] = useState<Event | null>(null);
   const { isOpen: isEventSignupOpen, onOpen: onEventSignupOpen, onClose: onEventSignupClose } = useDisclosure();
+
+  // Add memoization and caching for Discord signups
+  const [discordSignupsCache, setDiscordSignupsCache] = useState<Record<string, { data: any[], timestamp: number }>>({});
+  const CACHE_DURATION = 30000; // 30 seconds cache
 
   const fetchCharacters = async () => {
     if (!user) return;
@@ -612,129 +617,119 @@ const Profile = () => {
     }
   };
 
-  // Function to fetch live Discord signups for RaidHelper events
-  const fetchLiveDiscordSignups = async (event: Event) => {
-    if (event.signupType !== 'raidhelper' || !event.raidHelperId) {
-      return [];
-    }
+  // Optimized batch fetching of Discord signups
+  const fetchLiveDiscordSignupsBatch = async (raidHelperEvents: Event[]): Promise<Record<string, any[]>> => {
+    const results: Record<string, any[]> = {};
+    const now = Date.now();
     
-    try {
-      const response = await raidHelperService.getEvent(event.raidHelperId);
-      return response?.signUps?.filter((signup: any) => signup.status === "primary") || [];
-    } catch (error) {
-      console.error('Error fetching live Discord signups:', error);
-      return [];
+    // Filter events that need fresh data
+    const eventsToFetch = raidHelperEvents.filter(event => {
+      if (!event.raidHelperId) return false;
+      
+      const cached = discordSignupsCache[event.raidHelperId];
+      if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+        results[event.raidHelperId] = cached.data;
+        return false;
+      }
+      return true;
+    });
+
+    if (eventsToFetch.length === 0) {
+      return results;
     }
+
+    // Batch API calls with Promise.allSettled for better error handling
+    const promises = eventsToFetch.map(async (event) => {
+      if (!event.raidHelperId) return { eventId: event.raidHelperId, data: [] };
+      
+      try {
+        const response = await raidHelperService.getEvent(event.raidHelperId);
+        const signups = response?.signUps?.filter((signup: any) => signup.status === "primary") || [];
+        return { eventId: event.raidHelperId, data: signups };
+      } catch (error) {
+        console.error(`Error fetching Discord signups for event ${event.raidHelperId}:`, error);
+        return { eventId: event.raidHelperId, data: [] };
+      }
+    });
+
+    const responses = await Promise.allSettled(promises);
+    
+    // Process results and update cache
+    const newCacheEntries: Record<string, { data: any[], timestamp: number }> = {};
+    
+    responses.forEach((response, index) => {
+      if (response.status === 'fulfilled' && response.value) {
+        const { eventId, data } = response.value;
+        if (eventId) {
+          results[eventId] = data;
+          newCacheEntries[eventId] = { data, timestamp: now };
+        }
+      }
+    });
+
+    // Update cache
+    setDiscordSignupsCache(prev => ({ ...prev, ...newCacheEntries }));
+    
+    return results;
   };
 
-  // Enhanced function to check if user is signed up (with live Discord data)
-  const checkUserSignedUp = async (event: Event, user: any): Promise<boolean> => {
+  // Optimized function to check if user is signed up (with cached Discord data)
+  const checkUserSignedUpOptimized = (event: Event, user: any, discordSignupsData?: any[]): boolean => {
     let isSignedUp = false;
     
-    // Debug logging for test events
-    if (event.title.toLowerCase().includes('test')) {
-      console.log('=== CHECKING SIGNUP FOR:', event.title, '===');
-      console.log('User Discord Info:', {
-        discordId: user.discordId,
-        discordUsername: user.discordUsername,
-        discordSignupNickname: user.discordSignupNickname,
-        username: user.username
-      });
-    }
-    
-    // Check regular website signups
+    // Check regular website signups first (no API call needed)
     if (event.signups && !isSignedUp) {
       for (const signupKey in event.signups) {
         const signup = event.signups[signupKey];
         if (!signup) continue;
         
-        if (event.title.toLowerCase().includes('test')) {
-          console.log('Checking website signup:', signupKey, signup);
-        }
-        
         // Check by user ID/username
         if (signup.userId === user.username || signup.username === user.username) {
           isSignedUp = true;
-          if (event.title.toLowerCase().includes('test')) {
-            console.log('✅ Found website signup match by username');
-          }
           break;
         }
         
         // Check by character ID
         if (user.characters && user.characters.some((char: any) => char.id === signup.characterId)) {
           isSignedUp = true;
-          if (event.title.toLowerCase().includes('test')) {
-            console.log('✅ Found website signup match by character ID');
-          }
           break;
         }
         
         // Check by character name (for Discord signups stored in regular signups)
         if (user.discordSignupNickname && signup.characterName === user.discordSignupNickname) {
           isSignedUp = true;
-          if (event.title.toLowerCase().includes('test')) {
-            console.log('✅ Found website signup match by character name');
-          }
           break;
         }
       }
     }
     
-    // Check live Discord signups for RaidHelper events
-    if (!isSignedUp && event.signupType === 'raidhelper') {
-      const liveDiscordSignups = await fetchLiveDiscordSignups(event);
-      
-      if (event.title.toLowerCase().includes('test')) {
-        console.log('Live Discord signups:', liveDiscordSignups);
-      }
-      
-      for (const signup of liveDiscordSignups) {
-        if (event.title.toLowerCase().includes('test')) {
-          console.log('Checking Discord signup:', signup);
-        }
-        
+    // Check live Discord signups for RaidHelper events (using cached data)
+    if (!isSignedUp && event.signupType === 'raidhelper' && discordSignupsData) {
+      for (const signup of discordSignupsData) {
         // Check by Discord ID
         if (user.discordId && signup.userId === user.discordId) {
           isSignedUp = true;
-          if (event.title.toLowerCase().includes('test')) {
-            console.log('✅ Found Discord signup match by Discord ID');
-          }
           break;
         }
         
         // Check by Discord username
         if (user.discordUsername && signup.name === user.discordUsername) {
           isSignedUp = true;
-          if (event.title.toLowerCase().includes('test')) {
-            console.log('✅ Found Discord signup match by Discord username');
-          }
           break;
         }
         
         // Check by calendar nickname (discordSignupNickname)
         if (user.discordSignupNickname && signup.name === user.discordSignupNickname) {
           isSignedUp = true;
-          if (event.title.toLowerCase().includes('test')) {
-            console.log('✅ Found Discord signup match by calendar nickname');
-          }
           break;
         }
         
         // Check by regular username as fallback
         if (signup.name === user.username) {
           isSignedUp = true;
-          if (event.title.toLowerCase().includes('test')) {
-            console.log('✅ Found Discord signup match by regular username');
-          }
           break;
         }
       }
-    }
-    
-    if (event.title.toLowerCase().includes('test')) {
-      console.log('Final result for', event.title, '- isSignedUp:', isSignedUp);
-      console.log('=== END CHECK ===');
     }
     
     return isSignedUp;
@@ -744,53 +739,85 @@ const Profile = () => {
   useEffect(() => {
     async function fetchEventsAndSignups() {
       if (!user) return;
-      const eventsSnapshot = await getDocs(collection(db, 'events'));
-      const allEvents: Event[] = [];
-      const signedUp: { event: Event, endDate: Date }[] = [];
-      const notSignedUp: Event[] = [];
-      const now = new Date();
       
-      // Convert to array for async processing
-      const eventsArray: Event[] = [];
-      eventsSnapshot.forEach(docSnap => {
-        const event = docSnap.data() as Event;
-        event.id = docSnap.id;
-        eventsArray.push(event);
-        allEvents.push(event);
-      });
-      
-      // Process each event to check signup status
-      for (const event of eventsArray) {
-        let endDate: Date;
-        if (event.end instanceof Timestamp) {
-          endDate = event.end.toDate();
-        } else if (typeof event.end === 'string') {
-          endDate = new Date(event.end);
-        } else if (event.date && event.time) {
-          // If no end time, use date + time as the event time
-          endDate = new Date(`${event.date}T${event.time}`);
-        } else {
-          // Fallback: use date only (end of day)
-          endDate = new Date(event.date + 'T23:59:59');
-        }
+      const startTime = performance.now();
+      setIsLoadingEvents(true);
+      try {
+        console.log('📅 Starting event fetch for profile...');
         
-        // Check if user is signed up using our enhanced function
-        const isSignedUp = await checkUserSignedUp(event, user);
+        const eventsSnapshot = await getDocs(collection(db, 'events'));
+        const fetchEventsTime = performance.now() - startTime;
+        console.log(`📄 Firestore events fetched in ${fetchEventsTime.toFixed(2)}ms`);
         
-        if (isSignedUp) {
-          signedUp.push({ event, endDate });
-        } else {
-          // Only add to notSignedUp if the event is in the future
-          if (isAfter(endDate, now)) {
-            notSignedUp.push(event);
+        const allEvents: Event[] = [];
+        const signedUp: { event: Event, endDate: Date }[] = [];
+        const notSignedUp: Event[] = [];
+        const now = new Date();
+        
+        // Convert to array for async processing
+        const eventsArray: Event[] = [];
+        eventsSnapshot.forEach(docSnap => {
+          const event = docSnap.data() as Event;
+          event.id = docSnap.id;
+          eventsArray.push(event);
+          allEvents.push(event);
+        });
+        
+        // Get all RaidHelper events that need Discord signup checks
+        const raidHelperEvents = eventsArray.filter(event => 
+          event.signupType === 'raidhelper' && event.raidHelperId
+        );
+        
+        console.log(`🎮 Found ${raidHelperEvents.length} RaidHelper events to check`);
+        
+        // Batch fetch Discord signups for all RaidHelper events
+        const discordFetchStart = performance.now();
+        const discordSignupsData = await fetchLiveDiscordSignupsBatch(raidHelperEvents);
+        const discordFetchTime = performance.now() - discordFetchStart;
+        console.log(`🔗 Discord signups fetched in ${discordFetchTime.toFixed(2)}ms`);
+        
+        // Process each event to check signup status
+        for (const event of eventsArray) {
+          let endDate: Date;
+          if (event.end instanceof Timestamp) {
+            endDate = event.end.toDate();
+          } else if (typeof event.end === 'string') {
+            endDate = new Date(event.end);
+          } else if (event.date && event.time) {
+            // If no end time, use date + time as the event time
+            endDate = new Date(`${event.date}T${event.time}`);
+          } else {
+            // Fallback: use date only (end of day)
+            endDate = new Date(event.date + 'T23:59:59');
+          }
+          
+          // Check if user is signed up using our enhanced function
+          const discordData = event.raidHelperId ? discordSignupsData[event.raidHelperId] : undefined;
+          const isSignedUp = checkUserSignedUpOptimized(event, user, discordData);
+          
+          if (isSignedUp) {
+            signedUp.push({ event, endDate });
+          } else {
+            // Only add to notSignedUp if the event is in the future
+            if (isAfter(endDate, now)) {
+              notSignedUp.push(event);
+            }
           }
         }
+        
+        const upcomingSignedUp = signedUp.filter(({ endDate }) => isAfter(endDate, now)).map(({ event }) => event);
+        setEvents(allEvents);
+        setSignedUpEvents(upcomingSignedUp);
+        setNotSignedUpEvents(notSignedUp);
+        
+        const totalTime = performance.now() - startTime;
+        console.log(`✅ Total event processing completed in ${totalTime.toFixed(2)}ms`);
+        console.log(`📊 Results: ${upcomingSignedUp.length} signed up, ${notSignedUp.length} not signed up`);
+      } catch (error) {
+        console.error('❌ Error fetching events and signups:', error);
+      } finally {
+        setIsLoadingEvents(false);
       }
-      
-      const upcomingSignedUp = signedUp.filter(({ endDate }) => isAfter(endDate, now)).map(({ event }) => event);
-      setEvents(allEvents);
-      setSignedUpEvents(upcomingSignedUp);
-      setNotSignedUpEvents(notSignedUp);
     }
     fetchEventsAndSignups();
   }, [user]);
@@ -807,53 +834,70 @@ const Profile = () => {
     // Re-fetch to update signed up/not signed up lists
     async function refreshEvents() {
       if (!user) return;
-      const eventsSnapshot = await getDocs(collection(db, 'events'));
-      const allEvents: Event[] = [];
-      const signedUp: { event: Event, endDate: Date }[] = [];
-      const notSignedUp: Event[] = [];
-      const now = new Date();
       
-      // Convert to array for async processing
-      const eventsArray: Event[] = [];
-      eventsSnapshot.forEach(docSnap => {
-        const event = docSnap.data() as Event;
-        event.id = docSnap.id;
-        eventsArray.push(event);
-        allEvents.push(event);
-      });
-      
-      // Process each event to check signup status
-      for (const event of eventsArray) {
-        let endDate: Date;
-        if (event.end instanceof Timestamp) {
-          endDate = event.end.toDate();
-        } else if (typeof event.end === 'string') {
-          endDate = new Date(event.end);
-        } else if (event.date && event.time) {
-          // If no end time, use date + time as the event time
-          endDate = new Date(`${event.date}T${event.time}`);
-        } else {
-          // Fallback: use date only (end of day)
-          endDate = new Date(event.date + 'T23:59:59');
-        }
+      setIsLoadingEvents(true);
+      try {
+        const eventsSnapshot = await getDocs(collection(db, 'events'));
+        const allEvents: Event[] = [];
+        const signedUp: { event: Event, endDate: Date }[] = [];
+        const notSignedUp: Event[] = [];
+        const now = new Date();
         
-        // Check if user is signed up using our enhanced function
-        const isSignedUp = await checkUserSignedUp(event, user);
+        // Convert to array for async processing
+        const eventsArray: Event[] = [];
+        eventsSnapshot.forEach(docSnap => {
+          const event = docSnap.data() as Event;
+          event.id = docSnap.id;
+          eventsArray.push(event);
+          allEvents.push(event);
+        });
         
-        if (isSignedUp) {
-          signedUp.push({ event, endDate });
-        } else {
-          // Only add to notSignedUp if the event is in the future
-          if (isAfter(endDate, now)) {
-            notSignedUp.push(event);
+        // Get all RaidHelper events that need Discord signup checks
+        const raidHelperEvents = eventsArray.filter(event => 
+          event.signupType === 'raidhelper' && event.raidHelperId
+        );
+        
+        // Batch fetch Discord signups for all RaidHelper events
+        const discordSignupsData = await fetchLiveDiscordSignupsBatch(raidHelperEvents);
+        
+        // Process each event to check signup status
+        for (const event of eventsArray) {
+          let endDate: Date;
+          if (event.end instanceof Timestamp) {
+            endDate = event.end.toDate();
+          } else if (typeof event.end === 'string') {
+            endDate = new Date(event.end);
+          } else if (event.date && event.time) {
+            // If no end time, use date + time as the event time
+            endDate = new Date(`${event.date}T${event.time}`);
+          } else {
+            // Fallback: use date only (end of day)
+            endDate = new Date(event.date + 'T23:59:59');
+          }
+          
+          // Check if user is signed up using our enhanced function
+          const discordData = event.raidHelperId ? discordSignupsData[event.raidHelperId] : undefined;
+          const isSignedUp = checkUserSignedUpOptimized(event, user, discordData);
+          
+          if (isSignedUp) {
+            signedUp.push({ event, endDate });
+          } else {
+            // Only add to notSignedUp if the event is in the future
+            if (isAfter(endDate, now)) {
+              notSignedUp.push(event);
+            }
           }
         }
+        
+        const upcomingSignedUp = signedUp.filter(({ endDate }) => isAfter(endDate, now)).map(({ event }) => event);
+        setEvents(allEvents);
+        setSignedUpEvents(upcomingSignedUp);
+        setNotSignedUpEvents(notSignedUp);
+      } catch (error) {
+        console.error('Error refreshing events:', error);
+      } finally {
+        setIsLoadingEvents(false);
       }
-      
-      const upcomingSignedUp = signedUp.filter(({ endDate }) => isAfter(endDate, now)).map(({ event }) => event);
-      setEvents(allEvents);
-      setSignedUpEvents(upcomingSignedUp);
-      setNotSignedUpEvents(notSignedUp);
     }
     refreshEvents();
   };
@@ -1369,7 +1413,7 @@ const Profile = () => {
                 </Box>
 
                 {/* Events You're Signed Up For */}
-                {user?.confirmedRaider && signedUpEvents.length > 0 && (
+                {user?.confirmedRaider && (
                   <Box 
                     bg="gray.800" 
                     p={{ base: 4, md: 6 }}
@@ -1389,29 +1433,43 @@ const Profile = () => {
                             <Heading size={{ base: "sm", md: "md" }} color={textColor} letterSpacing="tight" fontFamily="Satoshi" fontWeight="600" fontSize={{ base: "sm", md: "md" }}>
                               <Flex align="center" gap={3}>
                                 <FaRegCircleCheck color='#24c223' />
-                                <Text>Events You're Signed Up For ({signedUpEvents.length})</Text>
-                                <AccordionIcon />
+                                <Text>Events You're Signed Up For ({isLoadingEvents ? '...' : signedUpEvents.length})</Text>
+                                {!isLoadingEvents && <AccordionIcon />}
+                                {isLoadingEvents && <Spinner size="sm" color="blue.400" />}
                               </Flex>
                             </Heading>
                           </Box>
                         </AccordionButton>
                         <AccordionPanel p={0} pt={4}>
-                          <VStack
-                            align="stretch"
-                            spacing={3}
-                            maxH={{ base: "250px", md: "300px" }}
-                            overflowY="auto"
-                            sx={{
-                              scrollbarWidth: 'none',
-                              '&::-webkit-scrollbar': { 
-                                display: 'none'
-                              }
-                            }}
-                          >
-                            {signedUpEvents.slice(0, 4).map((event, idx) => (
-                              <EventCard key={event.id} event={event} isSignedUp />
-                            ))}
-                          </VStack>
+                          {isLoadingEvents ? (
+                            <Flex justify="center" align="center" h="100px">
+                              <VStack spacing={3}>
+                                <Spinner size="lg" color="blue.400" />
+                                <Text color="gray.400" fontSize="sm">Loading events...</Text>
+                              </VStack>
+                            </Flex>
+                          ) : signedUpEvents.length > 0 ? (
+                            <VStack
+                              align="stretch"
+                              spacing={3}
+                              maxH={{ base: "250px", md: "300px" }}
+                              overflowY="auto"
+                              sx={{
+                                scrollbarWidth: 'none',
+                                '&::-webkit-scrollbar': { 
+                                  display: 'none'
+                                }
+                              }}
+                            >
+                              {signedUpEvents.slice(0, 4).map((event, idx) => (
+                                <EventCard key={event.id} event={event} isSignedUp />
+                              ))}
+                            </VStack>
+                          ) : (
+                            <Flex justify="center" align="center" h="100px">
+                              <Text color="gray.400" fontSize="sm">No events signed up for</Text>
+                            </Flex>
+                          )}
                         </AccordionPanel>
                       </AccordionItem>
                     </Accordion>
@@ -1419,7 +1477,7 @@ const Profile = () => {
                 )}
 
                 {/* Events You Haven't Signed Up For */}
-                {user?.confirmedRaider && notSignedUpEvents.length > 0 && (
+                {user?.confirmedRaider && (
                   <Box 
                     bg="gray.800" 
                     p={{ base: 4, md: 6 }}
@@ -1439,29 +1497,43 @@ const Profile = () => {
                             <Heading size={{ base: "sm", md: "md" }} color={textColor} letterSpacing="tight" fontFamily="Satoshi" fontWeight="600" fontSize={{ base: "sm", md: "md" }}>
                               <Flex align="center" gap={3}>
                                 <RxCross2 color="red" />
-                                <Text>Events You Haven't Signed Up For ({notSignedUpEvents.length})</Text>
-                                <AccordionIcon />
+                                <Text>Events You Haven't Signed Up For ({isLoadingEvents ? '...' : notSignedUpEvents.length})</Text>
+                                {!isLoadingEvents && <AccordionIcon />}
+                                {isLoadingEvents && <Spinner size="sm" color="blue.400" />}
                               </Flex>
                             </Heading>
                           </Box>
                         </AccordionButton>
                         <AccordionPanel p={0} pt={4}>
-                          <VStack
-                            align="stretch"
-                            spacing={3}
-                            maxH={{ base: "250px", md: "300px" }}
-                            overflowY="auto"
-                            sx={{
-                              scrollbarWidth: 'none',
-                              '&::-webkit-scrollbar': { 
-                                display: 'none'
-                              }
-                            }}
-                          >
-                            {notSignedUpEvents.slice(0, 4).map((event, idx) => (
-                              <EventCard key={event.id} event={event} />
-                            ))}
-                          </VStack>
+                          {isLoadingEvents ? (
+                            <Flex justify="center" align="center" h="100px">
+                              <VStack spacing={3}>
+                                <Spinner size="lg" color="blue.400" />
+                                <Text color="gray.400" fontSize="sm">Loading events...</Text>
+                              </VStack>
+                            </Flex>
+                          ) : notSignedUpEvents.length > 0 ? (
+                            <VStack
+                              align="stretch"
+                              spacing={3}
+                              maxH={{ base: "250px", md: "300px" }}
+                              overflowY="auto"
+                              sx={{
+                                scrollbarWidth: 'none',
+                                '&::-webkit-scrollbar': { 
+                                  display: 'none'
+                                }
+                              }}
+                            >
+                              {notSignedUpEvents.slice(0, 4).map((event, idx) => (
+                                <EventCard key={event.id} event={event} />
+                              ))}
+                            </VStack>
+                          ) : (
+                            <Flex justify="center" align="center" h="100px">
+                              <Text color="gray.400" fontSize="sm">No upcoming events available</Text>
+                            </Flex>
+                          )}
                         </AccordionPanel>
                       </AccordionItem>
                     </Accordion>
