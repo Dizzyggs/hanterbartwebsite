@@ -449,19 +449,19 @@ const MobileRosterModal = ({ isOpen, onClose, event, isAdmin }: MobileRosterModa
         if (movedToAbsence.length > 0 || movedToTentative.length > 0) {
           const messages = [];
           if (movedToAbsence.length > 0) {
-            messages.push(`${movedToAbsence.length} player(s) moved to absence list`);
+            // messages.push(`${movedToAbsence.length} player(s) moved to absence list`);
           }
           if (movedToTentative.length > 0) {
-            messages.push(`${movedToTentative.length} player(s) moved to tentative list`);
+            // messages.push(`${movedToTentative.length} player(s) moved to tentative list`);
           }
           
-          toast({
-            title: 'Roster Updated',
-            description: messages.join(', '),
-            status: 'info',
-            duration: 5000,
-            isClosable: true,
-          });
+          // toast({
+          //   title: 'Roster Updated',
+          //   description: messages.join(', '),
+          //   status: 'info',
+          //   duration: 5000,
+          //   isClosable: true,
+          // });
         }
 
       } catch (error) {
