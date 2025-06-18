@@ -10,25 +10,18 @@ import {
   Text,
   Box,
   Heading,
-  Avatar,
   HStack,
-  Badge,
-  Divider,
   Image,
   Menu,
   MenuButton,
   MenuList,
   MenuItem,
-  Portal,
   useDisclosure,
-  MenuGroup,
   MenuDivider,
   useToast,
   Button,
   Flex,
   Icon,
-  ButtonGroup,
-  Select,
   AlertDialog,
   AlertDialogBody,
   AlertDialogFooter,
@@ -39,7 +32,6 @@ import {
   useMediaQuery,
   Spinner,
   Center,
-  Tooltip,
   Accordion,
   AccordionItem,
   AccordionButton,
@@ -430,14 +422,21 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
   const dps = allSignups.filter(signup => signup?.characterRole === 'DPS');
 
   // ALL useMemo hooks
-  const { absencePlayers, regularUnassignedPlayers } = useMemo(() => {
+  const { absencePlayers, tentativePlayers, regularUnassignedPlayers } = useMemo(() => {
     const allPlayers = [...unassignedPlayers, ...raidGroups.flatMap(group => group.players)];
     
     const absent = allPlayers.filter(p => {
       if (!p.isDiscordSignup) {
-        return p.characterClass === "Absence" || p.characterClass === "Tentative";
+        return p.characterClass === "Absence";
       }
-      return p.characterClass === "Absence" || p.characterClass === "Tentative";
+      return p.characterClass === "Absence";
+    });
+    
+    const tentative = allPlayers.filter(p => {
+      if (!p.isDiscordSignup) {
+        return p.characterClass === "Tentative";
+      }
+      return p.characterClass === "Tentative";
     });
     
     let regular = unassignedPlayers.filter(p => {
@@ -523,6 +522,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
 
     return {
       absencePlayers: absent,
+      tentativePlayers: tentative,
       regularUnassignedPlayers: sortedRegular
     };
   }, [unassignedPlayers, selectedRole, raidGroups, selectedFilter, isTesting]);
@@ -628,6 +628,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
           characterClass: signup.characterClass || 'WARRIOR',
           characterRole: signup.characterRole || 'DPS',
           absenceReason: signup.absenceReason,
+          attendanceStatus: signup.attendanceStatus,
           ...(typeof (signup as any).originalClass === 'string' ? { originalClass: (signup as any).originalClass } : {})
         } as SignupPlayer));
 
@@ -644,37 +645,160 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       // Initialize empty groups
       const initialGroups: RaidGroup[] = raidGroups.map(group => ({ ...group, players: [] }));
       const assignedPlayerIds = new Set<string>();
+      const movedToAbsence: SignupPlayer[] = [];
+      const movedToTentative: SignupPlayer[] = [];
 
       // Load existing raid composition if available
       if (event.raidComposition) {
-        // Load groups
+        // Load groups and validate each player's current status
         event.raidComposition.groups.forEach(group => {
           const groupIndex = initialGroups.findIndex(g => g.id === group.id);
           if (groupIndex !== -1) {
-            initialGroups[groupIndex].players = group.players.map(player => ({
-              ...player,
-              isPreview: false
-            }));
-            group.players.forEach(player => assignedPlayerIds.add(player.characterId));
+            const validatedPlayers: SignupPlayer[] = [];
+            
+            group.players.forEach(player => {
+              // Find the current signup status for this player
+              const currentSignup = allSignups.find(signup => 
+                signup.characterId === player.characterId || 
+                signup.userId === player.userId
+              );
+              
+              if (currentSignup) {
+                // Check if player is currently absent
+                if (currentSignup.characterClass === "Absence" || 
+                    currentSignup.absenceReason || 
+                    currentSignup.attendanceStatus === 'absent') {
+                  // Move to absence list
+                  movedToAbsence.push({
+                    ...currentSignup,
+                    isPreview: false
+                  });
+                  assignedPlayerIds.add(currentSignup.characterId);
+                } 
+                // Check if player is currently tentative
+                else if (currentSignup.characterClass === "Tentative" || 
+                         currentSignup.attendanceStatus === 'tentative') {
+                  // Move to tentative list
+                  movedToTentative.push({
+                    ...currentSignup,
+                    isPreview: false
+                  });
+                  assignedPlayerIds.add(currentSignup.characterId);
+                } 
+                // Player is still attending - keep in group
+                else {
+                  validatedPlayers.push({
+                    ...player,
+                    isPreview: false
+                  });
+                  assignedPlayerIds.add(player.characterId);
+                }
+              } else {
+                // Player no longer exists in signups - remove from group
+                // Don't add to any list, they'll go to unassigned if they re-signup
+              }
+            });
+            
+            initialGroups[groupIndex].players = validatedPlayers;
           }
         });
 
-        // Load benched players
+        // Load benched players and validate their status too
         if (event.raidComposition.benchedPlayers) {
-          setBenchedPlayers(event.raidComposition.benchedPlayers.map(player => ({
-            ...player,
-            isPreview: false
-          })));
-          event.raidComposition.benchedPlayers.forEach(player => assignedPlayerIds.add(player.characterId));
+          const validatedBenchedPlayers: SignupPlayer[] = [];
+          
+          event.raidComposition.benchedPlayers.forEach(player => {
+            const currentSignup = allSignups.find(signup => 
+              signup.characterId === player.characterId || 
+              signup.userId === player.userId
+            );
+            
+            if (currentSignup) {
+              // Check if benched player is now absent or tentative
+              if (currentSignup.characterClass === "Absence" || 
+                  currentSignup.absenceReason || 
+                  currentSignup.attendanceStatus === 'absent') {
+                movedToAbsence.push({
+                  ...currentSignup,
+                  isPreview: false
+                });
+              } else if (currentSignup.characterClass === "Tentative" || 
+                         currentSignup.attendanceStatus === 'tentative') {
+                movedToTentative.push({
+                  ...currentSignup,
+                  isPreview: false
+                });
+              } else {
+                // Still available for bench
+                validatedBenchedPlayers.push({
+                  ...player,
+                  isPreview: false
+                });
+              }
+              assignedPlayerIds.add(currentSignup.characterId);
+            }
+          });
+          
+          setBenchedPlayers(validatedBenchedPlayers);
         }
       }
 
-      // Set unassigned players (those not in groups or bench)
+      // Set unassigned players (those not in groups, bench, absence, or tentative)
       const unassigned = allSignups.filter(signup => !assignedPlayerIds.has(signup.characterId));
-      setUnassignedPlayers(unassigned);
+      
+      // Separate absence and tentative players from unassigned
+      const regularUnassigned = unassigned.filter(signup => 
+        signup.characterClass !== "Absence" && 
+        signup.characterClass !== "Tentative" &&
+        !signup.absenceReason &&
+        signup.attendanceStatus !== 'absent' &&
+        signup.attendanceStatus !== 'tentative'
+      );
+      
+      // Add any remaining absence/tentative players from unassigned
+      const additionalAbsence = unassigned.filter(signup => 
+        signup.characterClass === "Absence" || 
+        signup.absenceReason ||
+        signup.attendanceStatus === 'absent'
+      );
+      
+      const additionalTentative = unassigned.filter(signup => 
+        signup.characterClass === "Tentative" ||
+        signup.attendanceStatus === 'tentative'
+      );
+
+      // Combine moved players with unassigned players so they show up in the lists
+      const allUnassignedIncludingMoved = [
+        ...regularUnassigned,
+        ...movedToAbsence,
+        ...movedToTentative,
+        ...additionalAbsence,
+        ...additionalTentative
+      ];
+
+      setUnassignedPlayers(allUnassignedIncludingMoved);
       setRaidGroups(initialGroups);
       setAssignedPlayers(assignedPlayerIds);
       setHasInitialized(true);
+
+      // Show notification if players were moved
+      if (movedToAbsence.length > 0 || movedToTentative.length > 0) {
+        const messages = [];
+        if (movedToAbsence.length > 0) {
+          messages.push(`${movedToAbsence.length} player(s) moved to absence list`);
+        }
+        if (movedToTentative.length > 0) {
+          messages.push(`${movedToTentative.length} player(s) moved to tentative list`);
+        }
+        
+        toast({
+          title: 'Roster Updated',
+          description: messages.join(', '),
+          status: 'info',
+          duration: 5000,
+          isClosable: true,
+        });
+      }
     };
 
     initializeSignups();
@@ -1727,7 +1851,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                           </Droppable>
                     </Box>
                     {absencePlayers.length > 0 && (
-                          <Accordion allowToggle defaultIndex={[]} mb={4}>
+                          <Accordion allowToggle defaultIndex={[]} mb={0}>
                             <AccordionItem border="none">
                               <AccordionButton
                                 bg="background.tertiary"
@@ -1754,6 +1878,49 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
                                       {...provided.droppableProps}
                                     >
                                       {absencePlayers.map((player, index) => (
+                                        <AbsencePlayer
+                                          key={player.characterId}
+                                          player={player}
+                                          userNicknames={userNicknames}
+                                        />
+                                      ))}
+                                      {provided.placeholder}
+                                    </VStack>
+                                  )}
+                                </Droppable>
+                              </AccordionPanel>
+                            </AccordionItem>
+                          </Accordion>
+                        )}
+                        
+                        {tentativePlayers.length > 0 && (
+                          <Accordion allowToggle defaultIndex={[]} mb={0}>
+                            <AccordionItem border="none">
+                              <AccordionButton
+                                bg="background.tertiary"
+                                borderRadius="lg"
+                                borderLeft="4px solid"
+                                borderLeftColor="yellow.400"
+                                mt={4}
+                                _expanded={{ bg: 'background.tertiary' }}
+                                px={4}
+                                py={3}
+                              >
+                                <Heading size="sm" color="text.primary" mb={0} flex="1" textAlign="left">
+                                  Tentative ({tentativePlayers.length})
+                                </Heading>
+                                <AccordionIcon />
+                              </AccordionButton>
+                              <AccordionPanel px={4} pb={4} pt={2} bg="background.tertiary" borderRadius="lg">
+                                <Droppable droppableId="tentative" type="player" isDropDisabled={true}>
+                                  {(provided) => (
+                                    <VStack 
+                                      align="stretch" 
+                                      spacing={2}
+                                      ref={provided.innerRef}
+                                      {...provided.droppableProps}
+                                    >
+                                      {tentativePlayers.map((player, index) => (
                                         <AbsencePlayer
                                           key={player.characterId}
                                           player={player}

@@ -2,10 +2,7 @@ import {
   Modal,
   ModalOverlay,
   ModalContent,
-  ModalHeader,
-  ModalBody,
   ModalCloseButton,
-  SimpleGrid,
   VStack,
   Text,
   Box,
@@ -37,9 +34,7 @@ import {
   AccordionIcon,
   Tabs,
   TabList,
-  TabPanels,
   Tab,
-  TabPanel,
 } from '@chakra-ui/react';
 import { Event, RaidHelperSignup as RaidHelperSignupType, SignupPlayer } from '../types/firebase';
 import { useState, useEffect, memo, useMemo, useRef } from 'react';
@@ -299,6 +294,7 @@ const MobileRosterModal = ({ isOpen, onClose, event, isAdmin }: MobileRosterModa
             characterClass: signup.characterClass || 'WARRIOR',
             characterRole: signup.characterRole || 'DPS',
             absenceReason: signup.absenceReason,
+            attendanceStatus: signup.attendanceStatus,
           } as SignupPlayer));
 
         // Process Discord signups
@@ -314,37 +310,159 @@ const MobileRosterModal = ({ isOpen, onClose, event, isAdmin }: MobileRosterModa
         // Initialize empty groups
         const initialGroups: RaidGroup[] = raidGroups.map(group => ({ ...group, players: [] }));
         const assignedPlayerIds = new Set<string>();
+        const movedToAbsence: SignupPlayer[] = [];
+        const movedToTentative: SignupPlayer[] = [];
 
         // Load existing raid composition if available
         if (event.raidComposition) {
-          // Load groups
+          // Load groups and validate each player's current status
           event.raidComposition.groups.forEach(group => {
             const groupIndex = initialGroups.findIndex(g => g.id === group.id);
             if (groupIndex !== -1) {
-              initialGroups[groupIndex].players = group.players.map(player => ({
-                ...player,
-                isPreview: false
-              }));
-              group.players.forEach(player => assignedPlayerIds.add(player.characterId));
+              const validatedPlayers: SignupPlayer[] = [];
+              
+              group.players.forEach(player => {
+                // Find the current signup status for this player
+                const currentSignup = allSignups.find(signup => 
+                  signup.characterId === player.characterId || 
+                  signup.userId === player.userId
+                );
+                
+                if (currentSignup) {
+                  // Check if player is currently absent
+                  if (currentSignup.characterClass === "Absence" || 
+                      currentSignup.absenceReason || 
+                      currentSignup.attendanceStatus === 'absent') {
+                    // Move to absence list
+                    movedToAbsence.push({
+                      ...currentSignup,
+                      isPreview: false
+                    });
+                    assignedPlayerIds.add(currentSignup.characterId);
+                  } 
+                  // Check if player is currently tentative
+                  else if (currentSignup.characterClass === "Tentative" || 
+                           currentSignup.attendanceStatus === 'tentative') {
+                    // Move to tentative list
+                    movedToTentative.push({
+                      ...currentSignup,
+                      isPreview: false
+                    });
+                    assignedPlayerIds.add(currentSignup.characterId);
+                  } 
+                  // Player is still attending - keep in group
+                  else {
+                    validatedPlayers.push({
+                      ...player,
+                      isPreview: false
+                    });
+                    assignedPlayerIds.add(player.characterId);
+                  }
+                } else {
+                  // Player no longer exists in signups - remove from group
+                  // Don't add to any list, they'll go to unassigned if they re-signup
+                }
+              });
+              
+              initialGroups[groupIndex].players = validatedPlayers;
             }
           });
 
-          // Load benched players
+          // Load benched players and validate their status too
           if (event.raidComposition.benchedPlayers) {
-            setBenchedPlayers(event.raidComposition.benchedPlayers.map(player => ({
-              ...player,
-              isPreview: false
-            })));
-            event.raidComposition.benchedPlayers.forEach(player => assignedPlayerIds.add(player.characterId));
+            const validatedBenchedPlayers: SignupPlayer[] = [];
+            
+            event.raidComposition.benchedPlayers.forEach(player => {
+              const currentSignup = allSignups.find(signup => 
+                signup.characterId === player.characterId || 
+                signup.userId === player.userId
+              );
+              
+              if (currentSignup) {
+                // Check if benched player is now absent or tentative
+                if (currentSignup.characterClass === "Absence" || 
+                    currentSignup.absenceReason || 
+                    currentSignup.attendanceStatus === 'absent') {
+                  movedToAbsence.push({
+                    ...currentSignup,
+                    isPreview: false
+                  });
+                } else if (currentSignup.characterClass === "Tentative" || 
+                           currentSignup.attendanceStatus === 'tentative') {
+                  movedToTentative.push({
+                    ...currentSignup,
+                    isPreview: false
+                  });
+                } else {
+                  // Still available for bench
+                  validatedBenchedPlayers.push({
+                    ...player,
+                    isPreview: false
+                  });
+                }
+                assignedPlayerIds.add(currentSignup.characterId);
+              }
+            });
+            
+            setBenchedPlayers(validatedBenchedPlayers);
           }
         }
 
-        // Set unassigned players
-        const unassigned = allSignups.filter(player => !assignedPlayerIds.has(player.characterId));
+        // Set unassigned players (those not in groups, bench, absence, or tentative)
+        const unassigned = allSignups.filter(signup => !assignedPlayerIds.has(signup.characterId));
+        
+        // Separate absence and tentative players from unassigned
+        const regularUnassigned = unassigned.filter(signup => 
+          signup.characterClass !== "Absence" && 
+          signup.characterClass !== "Tentative" &&
+          !signup.absenceReason &&
+          signup.attendanceStatus !== 'absent' &&
+          signup.attendanceStatus !== 'tentative'
+        );
+        
+        // Add any remaining absence/tentative players from unassigned
+        const additionalAbsence = unassigned.filter(signup => 
+          signup.characterClass === "Absence" || 
+          signup.absenceReason ||
+          signup.attendanceStatus === 'absent'
+        );
+        
+        const additionalTentative = unassigned.filter(signup => 
+          signup.characterClass === "Tentative" ||
+          signup.attendanceStatus === 'tentative'
+        );
+
+        // Combine moved players with unassigned players so they show up in the lists
+        const allUnassignedIncludingMoved = [
+          ...regularUnassigned,
+          ...movedToAbsence,
+          ...movedToTentative,
+          ...additionalAbsence,
+          ...additionalTentative
+        ];
         
         setRaidGroups(initialGroups);
-        setUnassignedPlayers(unassigned);
+        setUnassignedPlayers(allUnassignedIncludingMoved);
         setAssignedPlayers(assignedPlayerIds);
+
+        // Show notification if players were moved
+        if (movedToAbsence.length > 0 || movedToTentative.length > 0) {
+          const messages = [];
+          if (movedToAbsence.length > 0) {
+            messages.push(`${movedToAbsence.length} player(s) moved to absence list`);
+          }
+          if (movedToTentative.length > 0) {
+            messages.push(`${movedToTentative.length} player(s) moved to tentative list`);
+          }
+          
+          toast({
+            title: 'Roster Updated',
+            description: messages.join(', '),
+            status: 'info',
+            duration: 5000,
+            isClosable: true,
+          });
+        }
 
       } catch (error) {
         console.error('Error initializing signups:', error);
@@ -515,11 +633,15 @@ const MobileRosterModal = ({ isOpen, onClose, event, isAdmin }: MobileRosterModa
   };
 
   // Get filtered players for absence/regular
-  const { absencePlayers, regularUnassignedPlayers } = useMemo(() => {
+  const { absencePlayers, tentativePlayers, regularUnassignedPlayers } = useMemo(() => {
     const allPlayers = [...unassignedPlayers, ...raidGroups.flatMap(group => group.players)];
     
     const absent = allPlayers.filter(p => {
-      return p.characterClass === "Absence" || p.characterClass === "Tentative";
+      return p.characterClass === "Absence";
+    });
+    
+    const tentative = allPlayers.filter(p => {
+      return p.characterClass === "Tentative";
     });
     
     let regular = unassignedPlayers.filter(p => {
@@ -533,7 +655,7 @@ const MobileRosterModal = ({ isOpen, onClose, event, isAdmin }: MobileRosterModa
       regular = regular.filter(p => p.characterRole === selectedFilter.value);
     }
 
-    return { absencePlayers: absent, regularUnassignedPlayers: regular };
+    return { absencePlayers: absent, tentativePlayers: tentative, regularUnassignedPlayers: regular };
   }, [unassignedPlayers, raidGroups, selectedFilter]);
 
   return (
@@ -915,6 +1037,38 @@ const MobileRosterModal = ({ isOpen, onClose, event, isAdmin }: MobileRosterModa
                             <AccordionPanel p={4} bg="background.tertiary" borderRadius="lg">
                               <VStack spacing={2} align="stretch">
                                 {absencePlayers.map((player, index) => (
+                                  <AbsencePlayer
+                                    key={player.characterId}
+                                    player={player}
+                                    userNicknames={userNicknames}
+                                  />
+                                ))}
+                              </VStack>
+                            </AccordionPanel>
+                          </AccordionItem>
+                        </Accordion>
+                      )}
+
+                      {/* Tentative Players */}
+                      {tentativePlayers.length > 0 && (
+                        <Accordion allowToggle>
+                          <AccordionItem border="none">
+                            <AccordionButton
+                              bg="yellow.600"
+                              _hover={{ bg: 'yellow.700' }}
+                              borderRadius="lg"
+                              p={4}
+                            >
+                              <Box flex="1" textAlign="left">
+                                <Text color="white" fontWeight="bold" fontSize="sm">
+                                  Tentative ({tentativePlayers.length})
+                                </Text>
+                              </Box>
+                              <AccordionIcon color="white" />
+                            </AccordionButton>
+                            <AccordionPanel p={4} bg="background.tertiary" borderRadius="lg">
+                              <VStack spacing={2} align="stretch">
+                                {tentativePlayers.map((player, index) => (
                                   <AbsencePlayer
                                     key={player.characterId}
                                     player={player}

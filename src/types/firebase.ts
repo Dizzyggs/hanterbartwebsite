@@ -104,6 +104,8 @@ export interface Event {
     characterClass: string;
     characterRole: string;
     absenceReason?: string;
+    attendanceStatus?: 'attending' | 'absent' | 'tentative';
+    originalClass?: string;
   } | null>;
   raidHelperSignups?: RaidHelperResponse;
   raidComposition?: {
@@ -173,6 +175,7 @@ export interface SignupPlayer {
   discordNickname?: string;
   spec?: string;
   absenceReason?: string;
+  attendanceStatus?: 'attending' | 'absent' | 'tentative';
   isDiscordSignup?: boolean;
   isPreview?: boolean;
   matchedPlayerId?: string;

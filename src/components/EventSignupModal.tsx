@@ -8,7 +8,6 @@ import {
   Button,
   VStack,
   Text,
-  Select,
   useToast,
   Box,
   Heading,
@@ -22,8 +21,6 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
-  Alert,
-  AlertIcon,
   IconButton,
   useDisclosure,
   AlertDialog,
@@ -31,13 +28,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogContent,
-  AlertDialogOverlay,
   ButtonGroup,
-  Spacer,
   Badge,
-  AlertTitle,
-  AlertDescription,
-  SimpleGrid,
   Spinner,
   FormControl,
   FormLabel,
@@ -50,7 +42,7 @@ import { useUser } from '../context/UserContext';
 import { doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Event, Character } from '../types/firebase';
-import { ChevronDownIcon, DeleteIcon, ViewIcon, TimeIcon } from '@chakra-ui/icons';
+import { ChevronDownIcon, DeleteIcon, ViewIcon, TimeIcon, CheckIcon, CloseIcon } from '@chakra-ui/icons';
 import { logAdminAction } from '../utils/auditLogger';
 import RosterModal from './RosterModal';
 import { raidHelperService } from '../services/raidhelper';
@@ -135,6 +127,7 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
   const [absenceReason, setAbsenceReason] = useState('');
   const [selectedAbsenceCharacter, setSelectedAbsenceCharacter] = useState<Character | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [selectedAttendanceStatus, setSelectedAttendanceStatus] = useState<'attending' | 'absent' | 'tentative'>('attending');
   
   const toast = useToast({
     position: 'top',
@@ -158,6 +151,23 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
 
   // Check if user is already signed up
   const userSignup = user ? event.signups?.[user.username] : undefined;
+
+  // Initialize attendance status and absence reason based on current signup
+  useEffect(() => {
+    if (userSignup) {
+      if (userSignup.absenceReason) {
+        setSelectedAttendanceStatus('absent');
+        setAbsenceReason(userSignup.absenceReason);
+      } else if (userSignup.attendanceStatus) {
+        setSelectedAttendanceStatus(userSignup.attendanceStatus);
+      } else {
+        setSelectedAttendanceStatus('attending');
+      }
+    } else {
+      setSelectedAttendanceStatus('attending');
+      setAbsenceReason('');
+    }
+  }, [userSignup]);
 
   // Add new function to fetch Discord signup nicknames
   const fetchDiscordNicknames = async (signups: RaidHelperSignup[]) => {
@@ -227,7 +237,6 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
   const handleSignup = async () => {
     if (!user || !selectedCharacter) return;
 
-
     setIsSubmitting(true);
     try {
       const character = user.characters?.find(char => char.id === selectedCharacter.id);
@@ -244,12 +253,13 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
           characterName: character.name,
           characterClass: character.class,
           characterRole: character.role,
+          attendanceStatus: 'attending'
         }
       });
 
       toast({
-        title: 'Success!',
-        description: `You signed up for ${event.title} with ${character.name}`,
+        title: 'Signed Up Successfully',
+        description: `You have signed up for ${event.title} with ${character.name}`,
         status: 'success',
       });
 
@@ -538,7 +548,8 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
           characterClass: 'Absence',
           characterRole: 'Absence',
           absenceReason: absenceReason.trim(),
-          originalClass: selectedAbsenceCharacter.class
+          originalClass: selectedAbsenceCharacter.class,
+          attendanceStatus: 'absent'
         }
       });
 
@@ -556,6 +567,92 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
       toast({
         title: 'Error',
         description: 'Failed to register absence. Please try again.',
+        status: 'error',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAttendanceStatusChange = async () => {
+    if (!user || !userSignup) return;
+
+    setIsSubmitting(true);
+    try {
+      const updateData: any = {
+        [`signups.${user.username}.attendanceStatus`]: selectedAttendanceStatus,
+      };
+
+      // If changing to absent, require reason and store original class
+      if (selectedAttendanceStatus === 'absent') {
+        if (!absenceReason.trim()) {
+          toast({
+            title: 'Error',
+            description: 'Please provide a reason for your absence',
+            status: 'error',
+          });
+          setIsSubmitting(false);
+          return;
+        }
+        updateData[`signups.${user.username}.absenceReason`] = absenceReason.trim();
+        
+        // Store original class if not already stored
+        if (!userSignup.originalClass && userSignup.characterClass !== 'Absence') {
+          updateData[`signups.${user.username}.originalClass`] = userSignup.characterClass;
+        }
+        
+        updateData[`signups.${user.username}.characterClass`] = 'Absence';
+        updateData[`signups.${user.username}.characterRole`] = 'Absence';
+      } else if (selectedAttendanceStatus === 'tentative') {
+        // Remove absence reason if switching from absent
+        updateData[`signups.${user.username}.absenceReason`] = null;
+        
+        // Store original class if not already stored
+        if (!userSignup.originalClass && userSignup.characterClass !== 'Tentative' && userSignup.characterClass !== 'Absence') {
+          updateData[`signups.${user.username}.originalClass`] = userSignup.characterClass;
+        }
+        
+        updateData[`signups.${user.username}.characterClass`] = 'Tentative';
+        updateData[`signups.${user.username}.characterRole`] = 'Tentative';
+      } else {
+        // Attending status - remove absence reason
+        updateData[`signups.${user.username}.absenceReason`] = null;
+        
+        // Restore original class and role if available
+        if (userSignup.originalClass) {
+          updateData[`signups.${user.username}.characterClass`] = userSignup.originalClass;
+        } else {
+          // Fallback: try to find the character and use its class
+          const character = user.characters?.find(char => char.id === userSignup.characterId);
+          if (character) {
+            updateData[`signups.${user.username}.characterClass`] = character.class;
+          }
+        }
+        
+        const character = user.characters?.find(char => char.id === userSignup.characterId);
+        if (character) {
+          updateData[`signups.${user.username}.characterRole`] = character.role;
+        }
+      }
+
+      await updateDoc(doc(db, 'events', event.id), updateData);
+
+      const statusText = selectedAttendanceStatus === 'attending' ? 'attending' : 
+                        selectedAttendanceStatus === 'absent' ? 'absent' : 'tentative';
+
+      toast({
+        title: 'Attendance Updated',
+        description: `Your attendance status has been changed to ${statusText}`,
+        status: 'success',
+      });
+
+      onClose();
+      onSignupChange(event);
+    } catch (error) {
+      console.error('Error updating attendance status:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update attendance status. Please try again.',
         status: 'error',
       });
     } finally {
@@ -693,9 +790,31 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
                         {userSignup && (
                           <>
                             <Text color="text.primary" fontSize="sm">
-                              {userSignup.absenceReason 
-                                ? "You are currently marked as absent through website"
-                                : `You are currently signed up with ${userSignup.characterName}`}
+                              {userSignup.absenceReason || userSignup.attendanceStatus === 'absent' ? (
+                                <>
+                                  You are currently marked as{" "}
+                                  <Text as="span" color="red.400" fontWeight="bold">
+                                    ABSENT
+                                  </Text>
+                                  {" "}through website
+                                </>
+                              ) : userSignup.attendanceStatus === 'tentative' ? (
+                                <>
+                                  You are currently marked as{" "}
+                                  <Text as="span" color="yellow.400" fontWeight="bold">
+                                    TENTATIVE
+                                  </Text>
+                                  {" "}with {userSignup.characterName}
+                                </>
+                              ) : (
+                                <>
+                                  You are currently{" "}
+                                  <Text as="span" color="green.400" fontWeight="bold">
+                                    ATTENDING
+                                  </Text>
+                                  {" "}with {userSignup.characterName}
+                                </>
+                              )}
                             </Text>
                             <Text color="text.secondary" fontSize="sm">
                               Use the options below to modify your attendance
@@ -712,30 +831,159 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
                     (signup.status === "primary" || signup.status === "absence" || signup.className === "Absence")
                   ) && (
                     <>
-                      {/* Absence Section */}
-                      <Box
-                        bg="background.tertiary"
-                        p={4}
-                        borderRadius="lg"
-                        borderLeft="4px solid"
-                        borderLeftColor="red.400"
-                      >
-                        <VStack spacing={2} align="stretch">
-                          <Text color="text.primary" fontSize="sm" fontWeight="semibold">
-                            Can't make it to the event?
-                          </Text>
-                          <Button
-                            onClick={() => setIsAbsenceModalOpen(true)}
-                            width="100%"
-                            colorScheme="red"
-                            variant="outline"
-                            size="md"
-                            leftIcon={<TimeIcon />}
-                          >
-                            Sign as absence
-                          </Button>
-                        </VStack>
-                      </Box>
+                      {/* Change Attendance Status Section - only show if user has signed up through website */}
+                      {userSignup && (
+                        <Box
+                          bg="background.tertiary"
+                          p={4}
+                          borderRadius="lg"
+                          borderLeft="4px solid"
+                          borderLeftColor="orange.400"
+                        >
+                          <VStack spacing={3} align="stretch">
+                            <Text color="text.primary" fontSize="sm" fontWeight="semibold">
+                              Change attendance status
+                            </Text>
+                            <Menu>
+                              <MenuButton
+                                as={Button}
+                                rightIcon={<ChevronDownIcon />}
+                                w="full"
+                                bg="background.secondary"
+                                color="text.primary"
+                                borderColor="border.primary"
+                                size="md"
+                                fontSize="sm"
+                                _hover={{ 
+                                  bg: "background.tertiary",
+                                  borderColor: "border.hover"
+                                }}
+                                _active={{
+                                  bg: "background.tertiary"
+                                }}
+                                textAlign="left"
+                                justifyContent="space-between"
+                              >
+                                <HStack spacing={2}>
+                                  {selectedAttendanceStatus === 'attending' && (
+                                    <>
+                                      <Icon as={CheckIcon} color="green.400" />
+                                      <Text>I'm attending</Text>
+                                    </>
+                                  )}
+                                  {selectedAttendanceStatus === 'absent' && (
+                                    <>
+                                      <Icon as={CloseIcon} color="red.400" />
+                                      <Text>Absence{userSignup?.absenceReason ? ' (Current)' : ''}</Text>
+                                    </>
+                                  )}
+                                  {selectedAttendanceStatus === 'tentative' && (
+                                    <>
+                                      <Icon as={TimeIcon} color="yellow.400" />
+                                      <Text>Tentative</Text>
+                                    </>
+                                  )}
+                                </HStack>
+                              </MenuButton>
+                              <MenuList
+                                bg="background.secondary"
+                                borderColor="border.primary"
+                                py={2}
+                              >
+                                <MenuItem
+                                  onClick={() => setSelectedAttendanceStatus('attending')}
+                                  bg="transparent"
+                                  _hover={{ bg: "background.tertiary" }}
+                                  _focus={{ bg: "background.tertiary" }}
+                                >
+                                  <HStack spacing={2}>
+                                    <Icon as={CheckIcon} color="green.400" />
+                                    <Text color="text.primary">I'm attending</Text>
+                                  </HStack>
+                                </MenuItem>
+                                <MenuItem
+                                  onClick={() => setSelectedAttendanceStatus('absent')}
+                                  bg="transparent"
+                                  _hover={{ bg: "background.tertiary" }}
+                                  _focus={{ bg: "background.tertiary" }}
+                                >
+                                  <HStack spacing={2}>
+                                    <Icon as={CloseIcon} color="red.400" />
+                                    <Text color="text.primary">
+                                      Absence{userSignup?.absenceReason ? ' (Current)' : ''}
+                                    </Text>
+                                  </HStack>
+                                </MenuItem>
+                                <MenuItem
+                                  onClick={() => setSelectedAttendanceStatus('tentative')}
+                                  bg="transparent"
+                                  _hover={{ bg: "background.tertiary" }}
+                                  _focus={{ bg: "background.tertiary" }}
+                                >
+                                  <HStack spacing={2}>
+                                    <Icon as={TimeIcon} color="yellow.400" />
+                                    <Text color="text.primary">Tentative</Text>
+                                  </HStack>
+                                </MenuItem>
+                              </MenuList>
+                            </Menu>
+                            
+                            {/* Show reason input if absent is selected */}
+                            {selectedAttendanceStatus === 'absent' && (
+                              <FormControl>
+                                <FormLabel color="text.secondary" fontSize="sm">Reason for absence</FormLabel>
+                                <Input
+                                  value={absenceReason}
+                                  onChange={(e) => setAbsenceReason(e.target.value)}
+                                  placeholder="Enter your reason here..."
+                                  bg="background.secondary"
+                                  color="text.primary"
+                                  borderColor="border.primary"
+                                  _hover={{ borderColor: "border.hover" }}
+                                  _focus={{ borderColor: "orange.400" }}
+                                />
+                              </FormControl>
+                            )}
+                            
+                            <Button
+                              onClick={handleAttendanceStatusChange}
+                              colorScheme="orange"
+                              isLoading={isSubmitting}
+                              loadingText="Updating..."
+                              isDisabled={selectedAttendanceStatus === 'absent' && !absenceReason.trim()}
+                            >
+                              Update Attendance
+                            </Button>
+                          </VStack>
+                        </Box>
+                      )}
+
+                      {/* Absence Section - only show if user hasn't signed up yet */}
+                      {!userSignup && (
+                        <Box
+                          bg="background.tertiary"
+                          p={4}
+                          borderRadius="lg"
+                          borderLeft="4px solid"
+                          borderLeftColor="red.400"
+                        >
+                          <VStack spacing={2} align="stretch">
+                            <Text color="text.primary" fontSize="sm" fontWeight="semibold">
+                              Can't make it to the event?
+                            </Text>
+                            <Button
+                              onClick={() => setIsAbsenceModalOpen(true)}
+                              width="100%"
+                              colorScheme="red"
+                              variant="outline"
+                              size="md"
+                              leftIcon={<TimeIcon />}
+                            >
+                              Sign as absence
+                            </Button>
+                          </VStack>
+                        </Box>
+                      )}
 
                       {/* Only show character signup section if not already signed up through website */}
                       {!userSignup && (
