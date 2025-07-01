@@ -180,6 +180,7 @@ export interface SignupPlayer {
   isPreview?: boolean;
   matchedPlayerId?: string;
   originalClass?: string;
+  originalClassName?: string;
 }
 
 export interface RaidTemplate {

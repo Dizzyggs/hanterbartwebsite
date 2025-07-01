@@ -396,6 +396,7 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       ...(typeof (signup as any).originalClass === 'string' ? { originalClass: (signup as any).originalClass } : {})
     } as SignupPlayer));
 
+
   const discordSignups = (event.raidHelperSignups?.signUps || [])
     .filter(signup => signup.status === "primary")
     .map((signup): SignupPlayer => ({
@@ -746,10 +747,16 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
       // Set unassigned players (those not in groups, bench, absence, or tentative)
       const unassigned = allSignups.filter(signup => !assignedPlayerIds.has(signup.characterId));
       
-      // Separate absence and tentative players from unassigned
+      // Separate Discord bench signups from regular unassigned players
+      const discordBenchSignups = unassigned.filter(signup => 
+        signup.isDiscordSignup && (signup as any).originalClassName === "Bench"
+      );
+      
+      // Separate absence and tentative players from unassigned (excluding Discord bench)
       const regularUnassigned = unassigned.filter(signup => 
         signup.characterClass !== "Absence" && 
         signup.characterClass !== "Tentative" &&
+        !((signup as any).originalClassName === "Bench") && // Exclude Discord bench signups
         !signup.absenceReason &&
         signup.attendanceStatus !== 'absent' &&
         signup.attendanceStatus !== 'tentative'
@@ -775,6 +782,14 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
         ...additionalAbsence,
         ...additionalTentative
       ];
+
+      // Add Discord bench signups to the bench list
+      setBenchedPlayers(prev => [...prev, ...discordBenchSignups]);
+      
+      // Mark Discord bench signups as assigned
+      discordBenchSignups.forEach(player => {
+        assignedPlayerIds.add(player.characterId);
+      });
 
       setUnassignedPlayers(allUnassignedIncludingMoved);
       setRaidGroups(initialGroups);
@@ -905,17 +920,59 @@ const RosterModal = ({ isOpen, onClose, event, isAdmin }: RosterModalProps) => {
           // Try to find the user by Discord ID first
           const matchingUser = signup.userId ? discordIdToUser.get(signup.userId) : undefined;
 
+          // For bench signups, derive the actual class from spec or use a mapping
+          let actualClass = signup.className || '';
+          let actualRole = signup.role || '';
+          
+          // If this is a bench signup, derive the actual class from the spec
+          if (signup.className === "Bench" && signup.specName) {
+            const spec = signup.specName.toLowerCase();
+            
+            // Map specs to classes
+            if (spec.includes('discipline') || spec.includes('holy') || spec.includes('shadow')) {
+              actualClass = 'Priest';
+            } else if (spec.includes('frost') || spec.includes('fire') || spec.includes('arcane')) {
+              actualClass = 'Mage';
+            } else if (spec.includes('fury') || spec.includes('arms') || spec.includes('protection')) {
+              actualClass = 'Warrior';
+            } else if (spec.includes('affliction') || spec.includes('demonology') || spec.includes('destruction')) {
+              actualClass = 'Warlock';
+            } else if (spec.includes('beast') || spec.includes('marksmanship') || spec.includes('survival')) {
+              actualClass = 'Hunter';
+            } else if (spec.includes('retribution') || spec.includes('protection') || spec.includes('holy')) {
+              actualClass = 'Paladin';
+            } else if (spec.includes('balance') || spec.includes('feral') || spec.includes('restoration')) {
+              actualClass = 'Druid';
+            } else if (spec.includes('assassination') || spec.includes('combat') || spec.includes('subtlety')) {
+              actualClass = 'Rogue';
+            }
+            
+            // Also derive role from roleName if available
+            if (signup.roleName) {
+              const roleName = signup.roleName.toLowerCase();
+              if (roleName.includes('tank')) {
+                actualRole = 'Tank';
+              } else if (roleName.includes('heal')) {
+                actualRole = 'Healer';
+              } else if (roleName.includes('dps') || roleName.includes('damage')) {
+                actualRole = 'DPS';
+              }
+            }
+          }
+
           const player: SignupPlayer = {
             userId: matchingUser?.id || signup.userId || signup.name,
             username: matchingUser?.username || signup.name,
             characterId: signup.id.toString(),
             characterName: matchingUser?.discordSignupNickname || signup.name,
-            characterClass: signup.className || '',
-            characterRole: signup.role || '',
+            characterClass: signup.className === "Bench" ? actualClass : (signup.className || 'WARRIOR'),
+            characterRole: signup.className === "Bench" ? actualRole : (signup.role || 'DPS'),
             originalDiscordName: signup.name,
             discordNickname: matchingUser?.discordSignupNickname || undefined,
             spec: signup.specName || '',
             isDiscordSignup: true,
+            // Store the original className for bench identification
+            ...(signup.className === "Bench" && { originalClassName: "Bench" }),
             ...(typeof (signup as any).originalClass === 'string' ? { originalClass: (signup as any).originalClass } : {})
           };
           return player;
