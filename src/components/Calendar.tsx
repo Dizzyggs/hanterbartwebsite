@@ -1,4 +1,4 @@
-import { Box, Container, Heading, Button, HStack, Text, useDisclosure, Flex } from '@chakra-ui/react';
+import { Box, Container, Heading, Button, HStack, Text, useDisclosure, Flex, useBreakpointValue } from '@chakra-ui/react';
 import { Calendar as BigCalendar, dateFnsLocalizer, Views } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay } from 'date-fns';
 import { enGB } from 'date-fns/locale';
@@ -73,6 +73,7 @@ const Calendar = () => {
   const { isOpen: isSignupModalOpen, onOpen: onSignupModalOpen, onClose: onSignupModalClose } = useDisclosure();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const isMobile = useBreakpointValue({ base: true, md: false });
 
   const calendarStyles = `
     .rbc-calendar {
@@ -374,7 +375,7 @@ const Calendar = () => {
         pointerEvents: 'none',
       }}
     >
-      <Container maxW="7xl">
+      <Container maxW="7xl" mt={isMobile ? 0 : 10}>
         <Breadcrumbs />
         <style>{calendarStyles}</style>
         <MotionFlex

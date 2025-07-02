@@ -811,8 +811,6 @@ const Profile = () => {
         setNotSignedUpEvents(notSignedUp);
         
         const totalTime = performance.now() - startTime;
-        console.log(`✅ Total event processing completed in ${totalTime.toFixed(2)}ms`);
-        console.log(`📊 Results: ${upcomingSignedUp.length} signed up, ${notSignedUp.length} not signed up`);
       } catch (error) {
         console.error('❌ Error fetching events and signups:', error);
       } finally {
@@ -905,120 +903,189 @@ const Profile = () => {
   // Enhanced event card component
   const EventCard = ({ event, isSignedUp = false }: { event: Event; isSignedUp?: boolean }) => (
     <Box 
-      bg="gray.750" 
+      bg={isSignedUp 
+        ? "linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(21, 128, 61, 0.05) 100%)"
+        : "linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%)"
+      }
       borderRadius="xl" 
-      p={{ base: 3, md: 5 }}
-      border="0.5px solid"
-      borderColor={isSignedUp ? "green.500" : "yellow.500"}
+      p={{ base: 3, md: 4 }}
+      border="1px solid"
+      borderColor={isSignedUp ? "green.400" : "yellow.400"}
       cursor={isSignedUp ? "default" : "pointer"}
       onClick={!isSignedUp ? () => handleEventClick(event) : undefined}
       _hover={!isSignedUp ? { 
-        bg: 'gray.700', 
-        borderColor: 'yellow.400',
-        transform: 'translateY(-2px)',
-        boxShadow: '0 8px 25px rgba(0, 0, 0, 0.4)'
+        bg: "linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(217, 119, 6, 0.1) 100%)",
+        borderColor: 'yellow.300',
+        transform: 'translateY(-3px)',
+        boxShadow: '0 12px 30px rgba(251, 191, 36, 0.2)',
+        "& .event-title": {
+          color: "yellow.200"
+        },
+        "& .status-badge": {
+          transform: "scale(1.05)"
+        }
       } : {
-        bg: 'gray.700',
-        transform: 'translateY(-1px)',
-        boxShadow: '0 6px 20px rgba(0, 0, 0, 0.3)'
+        bg: "linear-gradient(135deg, rgba(34, 197, 94, 0.12) 0%, rgba(21, 128, 61, 0.08) 100%)",
+        transform: 'translateY(-2px)',
+        boxShadow: '0 8px 25px rgba(34, 197, 94, 0.15)'
       }}
-      transition="all 0.3s ease"
+      transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
       position="relative"
       overflow="hidden"
-      minH={{ base: "100px", md: "120px" }}
+      minH={{ base: "90px", md: "100px" }}
     >
-      {/* Status indicator */}
+      {/* Subtle background pattern */}
       <Box
         position="absolute"
-        top={{ base: 2, md: 3 }}
-        right={{ base: 2, md: 3 }}
-        bg={isSignedUp ? "green.500" : "yellow.500"}
-        color="white"
-        px={2}
-        py={1}
-        borderRadius="md"
-        fontSize={{ base: "2xs", md: "xs" }}
-        fontWeight="bold"
-        textTransform="uppercase"
-        letterSpacing="wide"
-        zIndex={1}
-        maxW={{ base: "80px", md: "120px" }}
-        textAlign="center"
-      >
-        {isSignedUp ? "SIGNED UP" : "SIGN UP"}
-      </Box>
+        top={0}
+        left={0}
+        right={0}
+        bottom={0}
+        opacity={0.03}
+        bgImage="radial-gradient(circle at 50% 50%, currentColor 1px, transparent 1px)"
+        bgSize="20px 20px"
+        color={isSignedUp ? "green.400" : "yellow.400"}
+        zIndex={0}
+      />
 
-      <VStack align="stretch" spacing={{ base: 2, md: 3 }} h="100%">
-        {/* Event title */}
-        <Box pr={{ base: 20, md: 28 }}>
+      {/* Enhanced status indicator */}
+      {isSignedUp && 
+              <Box
+              className="status-badge"
+              position="absolute"
+              top={{ base: 2, md: 3 }}
+              right={{ base: 2, md: 3 }}
+              bg={isSignedUp 
+                ? "rgba(34, 197, 94, 0.1)"
+                : "linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)"
+              }
+              color={isSignedUp ? "green.300" : "white"}
+              px={{ base: 2, md: 3 }}
+              py={{ base: 1, md: 1.5 }}
+              borderRadius="full"
+              fontSize={{ base: "2xs", md: "xs" }}
+              fontWeight={isSignedUp ? "600" : "bold"}
+              textTransform={isSignedUp ? "none" : "uppercase"}
+              letterSpacing={isSignedUp ? "normal" : "wider"}
+              zIndex={2}
+              boxShadow={isSignedUp 
+                ? "none"
+                : "0 4px 12px rgba(251, 191, 36, 0.4)"
+              }
+              border={isSignedUp ? "1px solid" : "none"}
+              borderColor={isSignedUp ? "green.400" : "transparent"}
+              transition="all 0.3s ease"
+              fontFamily={isSignedUp ? "Satoshi" : "inherit"}
+            >
+              {isSignedUp ? "🎯 Signed up" : ""}
+            </Box>
+      }
+
+      <VStack align="stretch" spacing={{ base: 2, md: 2.5 }} h="100%" position="relative" zIndex={1}>
+        {/* Enhanced event title */}
+        <Box pr={{ base: 20, md: 24 }} >
           <Heading 
-            size={{ base: "xs", md: "md" }}
-            color={textColor} 
+            className="event-title"
+            size={{ base: "sm", md: "sm" }}
+            color={isSignedUp ? "green.100" : "yellow.100"}
             fontFamily="Satoshi"
-            fontWeight="600"
+            fontWeight="700"
             fontSize={{ base: "sm", md: "md" }}
             letterSpacing="tight"
-            lineHeight="1.3"
+            lineHeight="1.2"
             wordBreak="break-word"
-            noOfLines={2}
+            noOfLines={1}
+            transition="color 0.3s ease"
           >
             {event.title}
           </Heading>
         </Box>
 
-        {/* Event details - Always visible */}
-        <VStack align="stretch" spacing={{ base: 1, md: 2 }} flex="1">
-          {/* Date and Time - More prominent */}
-          <HStack spacing={{ base: 2, md: 4 }} flexWrap="wrap" mb={{ base: 1, md: 2 }}>
-            <Flex align="center" gap={2} minW="fit-content">
-              <Icon as={CalendarIcon} color={isSignedUp ? "green.400" : "yellow.400"} boxSize={{ base: 3, md: 4 }} />
-              <Text color="gray.200" fontSize={{ base: "xs", md: "sm" }} fontWeight="semibold">
+        {/* Enhanced event details */}
+        <VStack align="stretch" spacing={{ base: 1.5, md: 2 }} flex="1">
+          {/* Date and Time with enhanced styling */}
+          <HStack spacing={{ base: 3, md: 4 }} flexWrap="wrap">
+            <Flex align="center" gap={1.5} minW="fit-content">
+              <Box
+                p={1}
+                borderRadius="md"
+                bg={isSignedUp ? "green.500" : "yellow.500"}
+                color="white"
+              >
+                <Icon as={CalendarIcon} boxSize={{ base: 2.5, md: 3 }} />
+              </Box>
+              <Text 
+                color="gray.100" 
+                fontSize={{ base: "xs", md: "sm" }} 
+                fontWeight="600"
+                fontFamily="Satoshi"
+              >
                 {formatDate(event.date, 'N/A')}
               </Text>
             </Flex>
-            <Flex align="center" gap={2} minW="fit-content">
-              <Icon as={TimeIcon} color={isSignedUp ? "green.400" : "yellow.400"} boxSize={{ base: 3, md: 4 }} />
-              <Text color="gray.200" fontSize={{ base: "xs", md: "sm" }} fontWeight="semibold">
+            <Flex align="center" gap={1.5} minW="fit-content">
+              <Box
+                p={1}
+                borderRadius="md"
+                bg={isSignedUp ? "green.500" : "yellow.500"}
+                color="white"
+              >
+                <Icon as={TimeIcon} boxSize={{ base: 2.5, md: 3 }} />
+              </Box>
+              <Text 
+                color="gray.100" 
+                fontSize={{ base: "xs", md: "sm" }} 
+                fontWeight="600"
+                fontFamily="Satoshi"
+              >
                 {event.time}
               </Text>
             </Flex>
           </HStack>
 
-          {/* Event description if available */}
+          {/* Event description with better styling */}
           {event.description && (
-            <Text 
-              color="gray.400" 
-              fontSize={{ base: "xs", md: "sm" }}
-              noOfLines={1}
-              lineHeight="1.4"
+            <Box
+              bg="rgba(0, 0, 0, 0.2)"
+              px={2}
+              py={1.5}
+              borderRadius="md"
+              borderLeft="2px solid"
+              borderLeftColor={isSignedUp ? "green.400" : "yellow.400"}
             >
-              {event.description}
-            </Text>
-          )}
-
-          {/* Signup count if available */}
-          {event.signups && (
-            <Flex align="center" gap={2}>
-              <Icon as={StarIcon} color="blue.400" boxSize={{ base: 2, md: 3 }} />
-              <Text color="gray.400" fontSize={{ base: "2xs", md: "xs" }}>
-                {Object.keys(event.signups).length} signed up
+              <Text 
+                color="gray.300" 
+                fontSize={{ base: "2xs", md: "xs" }}
+                fontStyle="italic"
+                lineHeight="1.3"
+                noOfLines={1}
+              >
+                "{event.description}"
               </Text>
-            </Flex>
+            </Box>
           )}
 
-          {/* Action indicator for non-signed up events */}
+          {/* Enhanced action indicator for non-signed up events */}
           {!isSignedUp && (
             <Flex align="center" justify="center" pt={1} mt="auto">
-              <Text 
-                color="yellow.400" 
-                fontSize={{ base: "2xs", md: "xs" }}
-                fontWeight="semibold"
-                textTransform="uppercase"
-                letterSpacing="wide"
-                textAlign="center"
+              <Box
+                bg="rgba(251, 191, 36, 0.1)"
+                px={2}
+                py={1}
+                borderRadius="full"
+                border="1px dashed"
+                borderColor="yellow.400"
               >
-                ✨ Click to join this event
-              </Text>
+                <Text 
+                  color="yellow.300" 
+                  fontSize={{ base: "2xs", md: "xs" }}
+                  fontWeight="600"
+                  textAlign="center"
+                  fontFamily="Satoshi"
+                >
+                  ⚡ Click to signup
+                </Text>
+              </Box>
             </Flex>
           )}
         </VStack>
@@ -1070,7 +1137,7 @@ const Profile = () => {
       pb={8}
       px={isMobile ? 4 : 8}
     >
-      <Container maxW="container.xl">
+      <Container maxW="container.xl" mt={isMobile ? 0 : 10}>
         <Box mb={isMobile ? 4 : 8}>
           <Breadcrumbs 
             items={[
@@ -1168,7 +1235,7 @@ const Profile = () => {
                                 <Flex align="center" gap={2} mb={1}>
                                   <Heading 
                                     size="sm" 
-                                    fontFamily="ClashDisplay" 
+                                    fontFamily="Satoshi" 
                                     color={textColor}
                                     letterSpacing="tight"
                                     fontSize={{ base: "sm", md: "md" }}
@@ -1433,7 +1500,7 @@ const Profile = () => {
                             <Heading size={{ base: "sm", md: "md" }} color={textColor} letterSpacing="tight" fontFamily="Satoshi" fontWeight="600" fontSize={{ base: "sm", md: "md" }}>
                               <Flex align="center" gap={3}>
                                 <FaRegCircleCheck color='#24c223' />
-                                <Text>Events You're Signed Up For ({isLoadingEvents ? '...' : signedUpEvents.length})</Text>
+                                <Text fontFamily={"Satoshi"}>Events You're Signed Up For ({isLoadingEvents ? '...' : signedUpEvents.length})</Text>
                                 {!isLoadingEvents && <AccordionIcon />}
                                 {isLoadingEvents && <Spinner size="sm" color="blue.400" />}
                               </Flex>
@@ -1452,7 +1519,7 @@ const Profile = () => {
                             <VStack
                               align="stretch"
                               spacing={3}
-                              maxH={{ base: "250px", md: "300px" }}
+                              maxH={{ base: "180px", md: "200px" }}
                               overflowY="auto"
                               sx={{
                                 scrollbarWidth: 'none',
@@ -1497,7 +1564,7 @@ const Profile = () => {
                             <Heading size={{ base: "sm", md: "md" }} color={textColor} letterSpacing="tight" fontFamily="Satoshi" fontWeight="600" fontSize={{ base: "sm", md: "md" }}>
                               <Flex align="center" gap={3}>
                                 <RxCross2 color="red" />
-                                <Text>Events You Haven't Signed Up For ({isLoadingEvents ? '...' : notSignedUpEvents.length})</Text>
+                                <Text fontFamily={"Satoshi"}>Events You Haven't Signed Up For ({isLoadingEvents ? '...' : notSignedUpEvents.length})</Text>
                                 {!isLoadingEvents && <AccordionIcon />}
                                 {isLoadingEvents && <Spinner size="sm" color="blue.400" />}
                               </Flex>
@@ -1516,7 +1583,7 @@ const Profile = () => {
                             <VStack
                               align="stretch"
                               spacing={3}
-                              maxH={{ base: "250px", md: "300px" }}
+                              maxH={{ base: "180px", md: "200px" }}
                               overflowY="auto"
                               sx={{
                                 scrollbarWidth: 'none',

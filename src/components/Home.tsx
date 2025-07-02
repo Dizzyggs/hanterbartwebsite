@@ -104,32 +104,6 @@ const Home = () => {
         )}
       </AnimatePresence>
 
-      {/* Header animation */}
-      <AnimatePresence>
-        {showHeader && (
-          <MotionBox
-            key="header"
-            position="fixed"
-            top={0}
-            left={0}
-            right={0}
-            zIndex={10}
-            initial={{ y: -60, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: -60, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 400, damping: 30, duration: 0.7 }}
-            bg={useColorModeValue('gray.900', 'gray.800')}
-            boxShadow="sm"
-            py={2}
-            px={6}
-          >
-            {/* You can replace this with your actual header/navbar component */}
-            <Heading as="h2" size="md" color="white" fontFamily="ClashDisplay" fontWeight="700">
-              Hanterbart
-            </Heading>
-          </MotionBox>
-        )}
-      </AnimatePresence>
 
       {/* Main content */}
       <Container

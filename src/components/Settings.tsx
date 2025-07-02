@@ -24,6 +24,7 @@ import {
   useRadioGroup,
   UseRadioProps,
   chakra,
+  useBreakpointValue,
 } from '@chakra-ui/react';
 import { ViewIcon, ViewOffIcon, MoonIcon, SunIcon, StarIcon, EditIcon, LockIcon, SettingsIcon } from '@chakra-ui/icons';
 import { FaLightbulb, FaUser, FaKey, FaPalette, FaUserEdit, FaShieldAlt } from 'react-icons/fa';
@@ -128,6 +129,7 @@ const Settings = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const isMobile = useBreakpointValue({ base: true, md: false });
   const toast = useToast({
     position: 'top',
     duration: 3000,
@@ -263,8 +265,8 @@ const Settings = () => {
   if (!user) return null;
 
   return (
-    <Container maxW="container.lg" py={10}>
-      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={8}>
+    <Container maxW="container.lg" py={10} mt={isMobile ? 0 : 100}>
+      <SimpleGrid columns={{ base: 1, md: 2 }} spacing={8} >
         {/* Account Settings Section */}
         <Card bg="background.secondary" borderColor="border.primary" borderWidth={1}>
           <CardHeader>
