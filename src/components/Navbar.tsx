@@ -40,6 +40,7 @@ import { useUser } from '../context/UserContext';
 import { FaDiscord, FaHome, FaImage, FaUserCircle } from 'react-icons/fa';
 import { raidHelperService } from '../services/raidhelper';
 import { useNavbarVisibility } from '../context/NavbarVisibilityContext';
+import defaultAvatar from '../assets/avatar.jpg';
 
 const discordInviteLink = 'https://discord.gg/rBNWd8zM';
 
@@ -302,19 +303,20 @@ const Navbar = () => {
   return (
     <Box 
       position="fixed" 
-      top={4}
-      left="50%"
-      transform="translateX(-50%)"
+      top={{ base: 2, md: 4 }}
+      left={{ base: 4, md: "50%" }}
+      right={{ base: 4, md: "auto" }}
+      transform={{ base: "none", md: "translateX(-50%)" }}
       zIndex={1000}
-      bg="rgba(0, 0, 0, 0.6)"
-      width="fit-content"
-      px={6}
-      py={3}
-      borderRadius="full"
-      backdropFilter="blur(20px) saturate(180%)"
-      border="1px solid"
-      borderColor="rgba(255, 255, 255, 0.1)"
-      boxShadow="0 8px 32px rgba(0, 0, 0, 0.3)"
+      bg={{ base: "transparent", md: "rgba(0, 0, 0, 0.6)" }}
+      width={{ base: "auto", md: "fit-content" }}
+      px={{ base: 4, md: 6 }}
+      py={{ base: 2, md: 3 }}
+      borderRadius={{ base: "lg", md: "full" }}
+      backdropFilter={{ base: "none", md: "blur(20px) saturate(180%)" }}
+      border={{ base: "none", md: "1px solid" }}
+      borderColor={{ base: "transparent", md: "rgba(255, 255, 255, 0.1)" }}
+      boxShadow={{ base: "none", md: "0 8px 32px rgba(0, 0, 0, 0.3)" }}
       _before={{
         content: '""',
         position: "absolute",
@@ -322,7 +324,7 @@ const Navbar = () => {
         left: 0,
         right: 0,
         bottom: 0,
-        borderRadius: "full",
+        borderRadius: { base: "lg", md: "full" },
         padding: "1px",
         background: "rgba(11, 11, 13, 0.75)",
         mask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
@@ -330,16 +332,17 @@ const Navbar = () => {
         WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
         WebkitMaskComposite: "xor",
         pointerEvents: "none",
+        display: { base: "none", md: "block" },
       }}
     >
-      <Flex h={10} alignItems="center" justifyContent="center" gap={6}>
+      <Flex h={{ base: 8, md: 10 }} alignItems="center" justifyContent={{ base: "flex-end", md: "center" }} gap={6}>
         {isMobile ? (
           <IconButton
             aria-label="Open menu"
             icon={<HamburgerIcon />}
             onClick={onOpen}
             variant="ghost"
-            size="sm"
+            size="md"
             color="white"
           />
         ) : (
@@ -361,7 +364,11 @@ const Navbar = () => {
                   ml={2}
                 >
                   <HStack spacing={2}>
-                    <Avatar size="xs" name={user.username} />
+                    <Avatar 
+                      size="xs" 
+                      name={user.username}
+                      src={user.avatarUrl || defaultAvatar}
+                    />
                     <Text>{user.username}</Text>
                   </HStack>
                 </MenuButton>
