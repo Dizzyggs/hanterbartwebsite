@@ -715,7 +715,12 @@ export const EventSignupModal = ({ isOpen, onClose, event, onSignupChange }: Eve
                 <Text color="text.secondary" fontSize="sm" fontWeight="medium">
                   Beskrivning
                 </Text>
-                <Text color="text.primary" fontSize="sm">
+                <Text 
+                  color="text.primary" 
+                  fontSize="sm"
+                  whiteSpace="pre-line"
+                  lineHeight="1.5"
+                >
                   {event.description}
                 </Text>
               </VStack>

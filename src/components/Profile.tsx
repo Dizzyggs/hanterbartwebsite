@@ -934,6 +934,8 @@ const Profile = () => {
       position="relative"
       overflow="hidden"
       minH={{ base: "90px", md: "180px" }}
+      display="flex"
+      flexDirection="column"
     >
       {/* Subtle background pattern */}
       <Box
@@ -982,9 +984,9 @@ const Profile = () => {
             </Box>
       }
 
-      <VStack align="stretch" spacing={{ base: 2, md: 2.5 }} h="100%" position="relative" zIndex={1}>
-        {/* Enhanced event title */}
-        <Box pr={{ base: 20, md: 24 }}>
+      {/* Header Section: Title + Date/Time */}
+      <Box position="relative" zIndex={1} mb={{ base: 2, md: 3 }}>
+        <Box pr={{ base: 20, md: 24 }} mb={{ base: 2, md: 3 }}>
           <Heading 
             className="event-title"
             size={{ base: "sm", md: "sm" }}
@@ -1002,96 +1004,110 @@ const Profile = () => {
           </Heading>
         </Box>
 
-        {/* Enhanced event details */}
-        <VStack align="stretch" spacing={{ base: 1.5, md: 2 }} flex="1">
-          {/* Date and Time with enhanced styling */}
-          <HStack spacing={{ base: 3, md: 4 }} flexWrap="wrap">
-            <Flex align="center" gap={1.5} minW="fit-content">
-              <Box
-                p={1}
-                borderRadius="md"
-                bg={isSignedUp ? "green.500" : "yellow.500"}
-                color="white"
-              >
-                <Icon as={CalendarIcon} boxSize={{ base: 2.5, md: 3 }} />
-              </Box>
-              <Text 
-                color="gray.100" 
-                fontSize={{ base: "xs", md: "sm" }} 
-                fontWeight="600"
-                fontFamily="Satoshi"
-              >
-                {formatDate(event.date, 'N/A')}
-              </Text>
-            </Flex>
-            <Flex align="center" gap={1.5} minW="fit-content">
-              <Box
-                p={1}
-                borderRadius="md"
-                bg={isSignedUp ? "green.500" : "yellow.500"}
-                color="white"
-              >
-                <Icon as={TimeIcon} boxSize={{ base: 2.5, md: 3 }} />
-              </Box>
-              <Text 
-                color="gray.100" 
-                fontSize={{ base: "xs", md: "sm" }} 
-                fontWeight="600"
-                fontFamily="Satoshi"
-              >
-                {event.time}
-              </Text>
-            </Flex>
-          </HStack>
-
-          {/* Event description with better styling */}
-          {event.description && (
+        {/* Date and Time with enhanced styling */}
+        <HStack spacing={{ base: 3, md: 4 }} flexWrap="wrap">
+          <Flex align="center" gap={1.5} minW="fit-content">
             <Box
-              bg="rgba(0, 0, 0, 0.2)"
-              px={2}
-              py={1.5}
+              p={1}
               borderRadius="md"
-              borderLeft="2px solid"
-              borderLeftColor={isSignedUp ? "green.400" : "yellow.400"}
+              bg={isSignedUp ? "green.500" : "yellow.500"}
+              color="white"
+            >
+              <Icon as={CalendarIcon} boxSize={{ base: 2.5, md: 3 }} />
+            </Box>
+            <Text 
+              color="gray.100" 
+              fontSize={{ base: "xs", md: "sm" }} 
+              fontWeight="600"
+              fontFamily="Satoshi"
+            >
+              {formatDate(event.date, 'N/A')}
+            </Text>
+          </Flex>
+          <Flex align="center" gap={1.5} minW="fit-content">
+            <Box
+              p={1}
+              borderRadius="md"
+              bg={isSignedUp ? "green.500" : "yellow.500"}
+              color="white"
+            >
+              <Icon as={TimeIcon} boxSize={{ base: 2.5, md: 3 }} />
+            </Box>
+            <Text 
+              color="gray.100" 
+              fontSize={{ base: "xs", md: "sm" }} 
+              fontWeight="600"
+              fontFamily="Satoshi"
+            >
+              {event.time}
+            </Text>
+          </Flex>
+        </HStack>
+      </Box>
+
+      {/* Main Content Area: Description */}
+      <Box 
+        flex="1" 
+        display="flex" 
+        flexDirection="column" 
+        justifyContent="center" 
+        position="relative" 
+        zIndex={1}
+        py={{ base: 2, md: 3 }}
+      >
+        {event.description && (
+          <Box
+            bg="rgba(0, 0, 0, 0.3)"
+            px={{ base: 3, md: 4 }}
+            py={{ base: 2.5, md: 3.5 }}
+            borderRadius="lg"
+            borderLeft="3px solid"
+            borderLeftColor={isSignedUp ? "green.400" : "yellow.400"}
+            textAlign="center"
+            boxShadow="0 2px 8px rgba(0, 0, 0, 0.2)"
+          >
+            <Text 
+              color="gray.200" 
+              fontSize={{ base: "xs", md: "sm" }}
+              fontStyle="italic"
+              lineHeight="1.4"
+              noOfLines={{ base: 2, md: 3 }}
+              fontFamily="Satoshi"
+              fontWeight="400"
+              whiteSpace="pre-line"
+            >
+              "{event.description}"
+            </Text>
+          </Box>
+        )}
+      </Box>
+
+      {/* Footer Section: Action Button */}
+      {!isSignedUp && (
+        <Box position="relative" zIndex={1} pt={{ base: 2, md: 3 }}>
+          <Flex align="center" justify="center">
+            <Box
+              bg="rgba(251, 191, 36, 0.15)"
+              px={{ base: 3, md: 4 }}
+              py={{ base: 1.5, md: 2 }}
+              borderRadius="full"
+              border="1px solid"
+              borderColor="yellow.400"
+              boxShadow="0 2px 8px rgba(251, 191, 36, 0.2)"
             >
               <Text 
-                color="gray.300" 
-                fontSize={{ base: "2xs", md: "xs" }}
-                fontStyle="italic"
-                lineHeight="1.3"
-                noOfLines={1}
+                color="yellow.200" 
+                fontSize={{ base: "xs", md: "sm" }}
+                fontWeight="600"
+                textAlign="center"
+                fontFamily="Satoshi"
               >
-                "{event.description}"
+                ⚡ Click to signup
               </Text>
             </Box>
-          )}
-
-          {/* Enhanced action indicator for non-signed up events */}
-          {!isSignedUp && (
-            <Flex align="center" justify="center" pt={1} mt="auto">
-              <Box
-                bg="rgba(251, 191, 36, 0.1)"
-                px={2}
-                py={1}
-                borderRadius="full"
-                border="1px dashed"
-                borderColor="yellow.400"
-                
-              >
-                <Text 
-                  color="yellow.300" 
-                  fontSize={{ base: "2xs", md: "xs" }}
-                  fontWeight="600"
-                  textAlign="center"
-                  fontFamily="Satoshi"
-                >
-                  ⚡ Click to signup
-                </Text>
-              </Box>
-            </Flex>
-          )}
-        </VStack>
-      </VStack>
+          </Flex>
+        </Box>
+      )}
     </Box>
   );
 
@@ -1524,9 +1540,22 @@ const Profile = () => {
                               maxH={{ base: "180px", md: "200px" }}
                               overflowY="auto"
                               sx={{
-                                scrollbarWidth: 'none',
+                                scrollbarWidth: 'thin',
+                                scrollbarColor: 'rgba(75, 85, 99, 0.7) rgba(31, 41, 55, 0.3)',
                                 '&::-webkit-scrollbar': { 
-                                  display: 'none'
+                                  width: '6px'
+                                },
+                                '&::-webkit-scrollbar-track': {
+                                  background: 'rgba(31, 41, 55, 0.3)',
+                                  borderRadius: '10px'
+                                },
+                                '&::-webkit-scrollbar-thumb': {
+                                  background: 'rgba(75, 85, 99, 0.7)',
+                                  borderRadius: '10px',
+                                  border: '1px solid rgba(31, 41, 55, 0.5)'
+                                },
+                                '&::-webkit-scrollbar-thumb:hover': {
+                                  background: 'rgba(107, 114, 128, 0.8)'
                                 }
                               }}
                             >
@@ -1588,9 +1617,22 @@ const Profile = () => {
                               maxH={{ base: "180px", md: "200px" }}
                               overflowY="auto"
                               sx={{
-                                scrollbarWidth: 'none',
+                                scrollbarWidth: 'thin',
+                                scrollbarColor: 'rgba(75, 85, 99, 0.7) rgba(31, 41, 55, 0.3)',
                                 '&::-webkit-scrollbar': { 
-                                  display: 'none'
+                                  width: '6px'
+                                },
+                                '&::-webkit-scrollbar-track': {
+                                  background: 'rgba(31, 41, 55, 0.3)',
+                                  borderRadius: '10px'
+                                },
+                                '&::-webkit-scrollbar-thumb': {
+                                  background: 'rgba(75, 85, 99, 0.7)',
+                                  borderRadius: '10px',
+                                  border: '1px solid rgba(31, 41, 55, 0.5)'
+                                },
+                                '&::-webkit-scrollbar-thumb:hover': {
+                                  background: 'rgba(107, 114, 128, 0.8)'
                                 }
                               }}
                             >
