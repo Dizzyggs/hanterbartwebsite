@@ -1159,7 +1159,6 @@ const Profile = () => {
         <Box mb={isMobile ? 4 : 8}>
           <Breadcrumbs 
             items={[
-              { label: 'Home', path: '/' },
               { label: 'Profile', path: '/profile' },
             ]}
           />
