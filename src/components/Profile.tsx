@@ -1460,9 +1460,9 @@ const Profile = () => {
                         transform: 'translateY(-3px)',
                         boxShadow: char.isMain 
                           ? "0 15px 35px rgba(99, 102, 241, 0.15)" 
-                          : "0 10px 25px rgba(0, 0, 0, 0.15)"
+                          : "0 10px 25px rgba(0, 0, 0, 0.15)",
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                       }}
-                      transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
                       cursor="pointer"
                       position="relative"
                       overflow="hidden"
