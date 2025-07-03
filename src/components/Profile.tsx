@@ -933,7 +933,7 @@ const Profile = () => {
       transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
       position="relative"
       overflow="hidden"
-      minH={{ base: "180px", md: "100px" }}
+      minH={{ base: "90px", md: "180px" }}
     >
       {/* Subtle background pattern */}
       <Box
