@@ -1117,23 +1117,6 @@ const Profile = () => {
     out: { opacity: 0, y: -20 },
   };
 
-  const sectionVariants = {
-    hidden: { opacity: 0, x: -30 },
-    visible: (i:number = 1) => ({
-      opacity: 1,
-      x: 0,
-      transition: { delay: i * 0.2, duration: 0.5, ease: 'easeOut' },
-    }),
-  };
-
-  const characterCardVariants = {
-    hidden: { opacity: 0, scale: 0.9 },
-    visible: (i:number = 1) => ({
-      opacity: 1,
-      scale: 1,
-      transition: { delay: i * 0.1, duration: 0.4, ease: 'easeOut' },
-    }),
-  };
 
   if (loading && !isInitialDataFetched) {
     return (
@@ -1151,556 +1134,640 @@ const Profile = () => {
       animate="in"
       exit="out"
       transition={{ duration: 0.5, ease: 'easeInOut' }}
-      pt={isMobile ? 4 : 8}
-      pb={8}
-      px={isMobile ? 4 : 8}
+      minH="100vh"
+      bg="background.primary"
+      mt={!isMobile ? 20 : 0}
     >
-      <Container maxW="container.xl" mt={isMobile ? 0 : 10}>
-        <Box mb={isMobile ? 4 : 8}>
-          <Breadcrumbs 
-            items={[
-              { label: 'Profile', path: '/profile' },
-            ]}
-          />
-        </Box>
-        {/* Unified Profile Card */}
-        <Box 
-          bg={cardBg} 
-          borderRadius="2xl" 
-          boxShadow="2xl" 
-          p={{ base: 4, md: 12 }} 
-          minH={{ base: "auto", md: "70vh" }}
-          border="1px solid"
-          borderColor="gray.600"
+      <Container maxW="container.xl" py={8}>
+        <Breadcrumbs />
+        
+        {/* Hero Section - Modern Glass Card */}
+        <MotionBox
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+          mb={8}
         >
-          <Flex direction={{ base: 'column', lg: 'row' }} gap={{ base: 6, md: 8, lg: 12 }} align="flex-start">
-            {/* Characters Block */}
-            <Box 
-              w={{ base: '100%', lg: '340px' }} 
-              flexShrink={0} 
-              pr={{ base: 0, lg: 6 }} 
-              borderRight={{ base: 'none', lg: '2px solid' }} 
-              borderBottom={{ base: '2px solid', lg: 'none' }}
-              borderColor={{ base: 'gray.600', lg: 'gray.600' }}
-              pb={{ base: 6, lg: 0 }}
+          <Box
+            bg="rgba(255, 255, 255, 0.02)"
+            backdropFilter="blur(20px)"
+            borderRadius="3xl"
+            p={8}
+            border="1px solid"
+            borderColor="rgba(255, 255, 255, 0.1)"
+            boxShadow="0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05)"
+            position="relative"
+            overflow="hidden"
+          >
+            {/* Modern Background Pattern */}
+            <Box
+              position="absolute"
+              top="-50%"
+              left="-50%"
+              w="200%"
+              h="200%"
+              bgGradient="conic-gradient(from 0deg, transparent, rgba(99, 102, 241, 0.1), transparent)"
+              animation="spin 20s linear infinite"
+              zIndex={0}
+            />
+            
+            <Flex 
+              direction={{ base: 'column', lg: 'row' }} 
+              align="center" 
+              gap={8}
+              position="relative"
+              zIndex={1}
             >
-              <VStack spacing={{ base: 4, md: 6 }} align="stretch">
+              {/* Modern Avatar Section */}
+              <Box textAlign="center" position="relative">
+                <Box
+                  position="relative"
+                  display="inline-block"
+                  _before={{
+                    content: '""',
+                    position: 'absolute',
+                    top: '-4px',
+                    left: '-4px',
+                    right: '-4px',
+                    bottom: '-4px',
+                    borderRadius: 'full',
+                    bgGradient: 'linear(45deg, primary.400, purple.400, primary.600)',
+                    zIndex: -1,
+                    animation: 'pulse 2s ease-in-out infinite'
+                  }}
+                >
+                  <Avatar 
+                    size="2xl"
+                    name={user?.username} 
+                    src={avatarUrl} 
+                    cursor="pointer"
+                    onClick={handleAvatarClick}
+                    border="4px solid"
+                    borderColor="background.primary"
+                    boxShadow="0 10px 25px rgba(0,0,0,0.3)"
+                    _hover={{ 
+                      transform: 'scale(1.05)',
+                      boxShadow: '0 15px 35px rgba(0,0,0,0.4)'
+                    }}
+                    transition="all 0.4s cubic-bezier(0.4, 0, 0.2, 1)"
+                  />
+                </Box>
+                <Input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileChange} 
+                  accept="image/*" 
+                  style={{ display: 'none' }} 
+                />
+                <Text 
+                  color="text.secondary" 
+                  fontSize="sm" 
+                  mt={4}
+                  fontWeight="500"
+                  opacity={0.8}
+                >
+                  Click to change avatar
+                </Text>
+              </Box>
+              
+              {/* Profile Info - Modern Layout */}
+              <Box flex={1} textAlign={{ base: 'center', lg: 'left' }}>
+                <Heading 
+                  size="2xl" 
+                  color="white"
+                  bgGradient="linear(to-r, primary.200, purple.200, primary.400)"
+                  bgClip="text"
+                  letterSpacing="tight"
+                  mb={6}
+                  fontWeight="800"
+                  fontSize={{ base: '2xl', md: '3xl', lg: '4xl' }}
+                >
+                  {user?.username}
+                </Heading>
+                
+                {/* Status Cards */}
+                <HStack spacing={4} justify={{ base: 'center', lg: 'flex-start' }} mb={8} flexWrap="wrap">
+                  <Box
+                    bg="rgba(34, 197, 94, 0.1)"
+                    backdropFilter="blur(10px)"
+                    border="1px solid"
+                    borderColor="rgba(34, 197, 94, 0.2)"
+                    borderRadius="2xl"
+                    px={6}
+                    py={3}
+                    boxShadow="0 8px 25px rgba(34, 197, 94, 0.1)"
+                  >
+                    <HStack spacing={3}>
+                      <Icon 
+                        as={StarIcon} 
+                        color={user?.confirmedRaider ? 'green.300' : 'orange.300'} 
+                        boxSize={5}
+                      />
+                      <Text 
+                        color={user?.confirmedRaider ? 'green.200' : 'orange.200'}
+                        fontSize="sm"
+                        fontWeight="600"
+                        textTransform="uppercase"
+                        letterSpacing="wide"
+                      >
+                        {user?.confirmedRaider ? 'Confirmed Raider' : 'Pending Raider'}
+                      </Text>
+                    </HStack>
+                  </Box>
+                  
+                  <Box
+                    bg={isDiscordConnected ? "rgba(88, 101, 242, 0.1)" : "rgba(99, 102, 241, 0.1)"}
+                    backdropFilter="blur(10px)"
+                    border="1px solid"
+                    borderColor={isDiscordConnected ? "rgba(88, 101, 242, 0.2)" : "rgba(99, 102, 241, 0.2)"}
+                    borderRadius="2xl"
+                    px={6}
+                    py={3}
+                    boxShadow="0 8px 25px rgba(88, 101, 242, 0.1)"
+                  >
+                    <HStack spacing={3}>
+                      <Icon as={FaDiscord} color="blue.300" boxSize={5} />
+                      {isDiscordConnected ? (
+                        <Text color="blue.200" fontSize="sm" fontWeight="600" textTransform="uppercase" letterSpacing="wide">
+                          Discord Connected
+                        </Text>
+                      ) : (
+                        <Button 
+                          colorScheme="blue" 
+                          size="sm" 
+                          onClick={handleConnectDiscord}
+                          leftIcon={<FaDiscord />}
+                          borderRadius="xl"
+                          bg="blue.500"
+                          _hover={{ bg: 'blue.600' }}
+                          fontWeight="600"
+                        >
+                          Connect Discord
+                        </Button>
+                      )}
+                    </HStack>
+                  </Box>
+                </HStack>
+                
+                {/* Calendar Nickname - Modern Input */}
+                <FormControl maxW="500px">
+                  <FormLabel color="text.secondary" fontSize="sm" mb={3} fontWeight="600">
+                    Calendar Nickname
+                  </FormLabel>
+                  <InputGroup>
+                    <Input
+                      value={discordSignupNickname}
+                      onChange={e => setDiscordSignupNickname(e.target.value)}
+                      placeholder="Enter your calendar nickname"
+                      bg="rgba(255, 255, 255, 0.02)"
+                      backdropFilter="blur(10px)"
+                      border="1px solid"
+                      borderColor="rgba(255, 255, 255, 0.1)"
+                      _focus={{ 
+                        borderColor: 'primary.400',
+                        boxShadow: '0 0 0 1px rgba(99, 102, 241, 0.4)'
+                      }}
+                      _hover={{
+                        borderColor: 'rgba(255, 255, 255, 0.2)'
+                      }}
+                      _disabled={{ 
+                        opacity: 0.6,
+                        cursor: 'not-allowed'
+                      }}
+                      borderRadius="xl"
+                      disabled={!isEditingNickname}
+                      pr={isEditingNickname ? "90px" : "50px"}
+                      fontSize="sm"
+                      fontWeight="500"
+                    />
+                    <InputRightElement w={isEditingNickname ? "85px" : "45px"}>
+                      {!isEditingNickname ? (
+                        <IconButton
+                          aria-label="Edit nickname"
+                          icon={<EditIcon />}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setIsEditingNickname(true);
+                            setOriginalNickname(discordSignupNickname);
+                          }}
+                          _hover={{ bg: 'rgba(255, 255, 255, 0.1)' }}
+                          borderRadius="lg"
+                        />
+                      ) : (
+                        <HStack spacing={1}>
+                          <IconButton
+                            aria-label="Save nickname"
+                            icon={<CheckIcon />}
+                            size="sm"
+                            colorScheme="green"
+                            variant="ghost"
+                            onClick={handleUpdateDiscordNickname}
+                            isLoading={isUpdatingNickname}
+                            _hover={{ bg: 'rgba(34, 197, 94, 0.1)' }}
+                            borderRadius="lg"
+                          />
+                          <IconButton
+                            aria-label="Cancel edit"
+                            icon={<CloseIcon />}
+                            size="sm"
+                            colorScheme="red"
+                            variant="ghost"
+                            onClick={() => {
+                              setIsEditingNickname(false);
+                              setDiscordSignupNickname(originalNickname);
+                            }}
+                            _hover={{ bg: 'rgba(239, 68, 68, 0.1)' }}
+                            borderRadius="lg"
+                          />
+                        </HStack>
+                      )}
+                    </InputRightElement>
+                  </InputGroup>
+                </FormControl>
+              </Box>
+            </Flex>
+          </Box>
+        </MotionBox>
+
+        {/* Main Content - Modern Grid */}
+        <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={8}>
+          {/* Characters Section - Modern Glass Card */}
+          <MotionBox
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+          >
+            <Box
+              bg="rgba(255, 255, 255, 0.02)"
+              backdropFilter="blur(20px)"
+              borderRadius="3xl"
+              p={6}
+              border="1px solid"
+              borderColor="rgba(255, 255, 255, 0.1)"
+              boxShadow="0 25px 50px -12px rgba(0, 0, 0, 0.25)"
+              h="fit-content"
+            >
+              <Flex justify="space-between" align="center" mb={6}>
+                <Heading size="lg" color="white" fontWeight="700">
+                  My Characters
+                </Heading>
                 <Button
-                  colorScheme="blue"
+                  colorScheme="primary"
                   leftIcon={<AddIcon />}
                   onClick={onOpen}
-                  w="100%"
-                  size={{ base: "md", md: "lg" }}
-                  height={{ base: "44px", md: "50px" }}
-                  fontSize={{ base: "sm", md: "md" }}
-                  fontWeight="semibold"
-                  as={motion.button}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  boxShadow="lg"
-                  _hover={{ boxShadow: "xl" }}
+                  size="md"
+                  borderRadius="xl"
+                  bg="primary.500"
+                  _hover={{ 
+                    bg: 'primary.600', 
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 10px 25px rgba(99, 102, 241, 0.3)'
+                  }}
+                  transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+                  fontWeight="600"
+                  px={6}
                 >
                   Add Character
                 </Button>
-                
-                <Box>
-                  <Heading 
-                    size={{ base: "md", md: "lg" }}
-                    fontFamily="ClashDisplay" 
-                    color={textColor} 
-                    mb={4} 
-                    textAlign="left"
-                    letterSpacing="tight"
-                  >
-                    My Characters
-                  </Heading>
-                  
-                  <VStack spacing={3} align="stretch">
-                    {characters.length > 0 ? (
-                      characters.map((char, index) => (
-                        <Box
-                          key={char.id || index}
-                          bg={char.isMain ? 'gray.750' : index % 2 === 0 ? 'gray.800' : 'gray.750'}
-                          borderRadius="xl"
-                          p={{ base: 3, md: 4 }}
-                          boxShadow={char.isMain ? 
-                            '0 0 0 2px rgba(255, 215, 0, 0.4), 0 4px 12px rgba(255, 215, 0, 0.15)' : 
-                            '0 2px 8px rgba(0, 0, 0, 0.3)'
-                          }
-                          borderWidth="1px"
-                          borderColor={char.isMain ? 'yellow.400' : 'gray.600'}
-                          _hover={{ 
-                            boxShadow: char.isMain ? 
-                              '0 0 0 2px rgba(255, 215, 0, 0.5), 0 6px 16px rgba(255, 215, 0, 0.2)' : 
-                              '0 4px 12px rgba(0, 0, 0, 0.4)', 
-                            borderColor: char.isMain ? 'yellow.300' : 'blue.400', 
-                            transform: 'translateY(-1px)',
-                            bg: char.isMain ? 'gray.700' : 'gray.700'
-                          }}
-                          transition="all 0.2s ease"
-                          cursor="pointer"
-                        >
-                          <Flex align="center" justify="space-between">
-                            <Flex align="center" gap={{ base: 2, md: 3 }} flex="1">
-                              <Image 
-                                src={getClassIcon(char.class)} 
-                                alt={char.class} 
-                                boxSize={{ base: "28px", md: "32px" }}
-                                borderRadius="md"
-                              />
-                              <Box flex="1">
-                                <Flex align="center" gap={2} mb={1}>
-                                  <Heading 
-                                    size="sm" 
-                                    fontFamily="Satoshi" 
-                                    color={textColor}
-                                    letterSpacing="tight"
-                                    fontSize={{ base: "sm", md: "md" }}
-                                  >
-                                    {char.name}
-                                  </Heading>
-                                  {char.isMain && (
-                                    <StarIcon color="yellow.400" boxSize={{ base: 2, md: 3 }} />
-                                  )}
-                                </Flex>
-                                <Badge 
-                                  colorScheme={getRoleColor(char.role)} 
-                                  size="sm"
-                                  borderRadius="md"
-                                  fontSize={{ base: "xs", md: "sm" }}
-                                >
-                                  {char.role}
-                                </Badge>
-                              </Box>
-                            </Flex>
-                            <IconButton
-                              aria-label="Edit Character"
-                              icon={<EditIcon />}
-                              size={{ base: "xs", md: "sm" }}
-                              variant="ghost"
-                              colorScheme="blue"
-                              onClick={() => setEditingCharacter(char)}
-                              _hover={{ bg: 'blue.600', color: 'white' }}
-                              borderRadius="lg"
-                            />
-                          </Flex>
-                        </Box>
-                      ))
-                    ) : (
-                      <Box 
-                        textAlign="center" 
-                        py={{ base: 6, md: 8 }}
-                        bg="gray.800" 
-                        borderRadius="xl" 
-                        border="2px dashed" 
-                        borderColor="gray.600"
-                      >
-                        <Text color={textColor} fontSize={{ base: "sm", md: "md" }} opacity={0.7}>
-                          No characters yet.
-                        </Text>
-                        <Text color={textColor} fontSize={{ base: "xs", md: "sm" }} opacity={0.5} mt={1}>
-                          Click "Add Character" to get started
-                        </Text>
-                      </Box>
-                    )}
-                  </VStack>
-                </Box>
-              </VStack>
-            </Box>
-
-            {/* Profile Info Block */}
-            <Box flex={1} pt={{ base: 0, lg: 0 }}>
-              <VStack spacing={{ base: 6, md: 8 }} align="stretch">
-                {/* Profile Info */}
-                <Box 
-                  bg="gray.800" 
-                  p={{ base: 4, md: 6 }}
-                  borderRadius="xl" 
-                  border="1px solid" 
-                  borderColor="gray.600"
-                  boxShadow="lg"
-                >
-                  <Flex direction={{ base: 'column', sm: 'row' }} align={{ base: 'center', sm: 'flex-start' }} gap={{ base: 4, md: 6 }}>
-                    <Box display="flex" flexDirection="column" alignItems="center">
-                      <Avatar 
-                        size={{ base: "xl", md: "2xl" }}
-                        name={user?.username} 
-                        src={avatarUrl} 
-                        mb={3}
-                        cursor="pointer"
-                        onClick={handleAvatarClick}
-                        _hover={{ 
-                          transform: 'scale(1.05)',
-                          boxShadow: 'lg'
-                        }}
-                        transition="all 0.2s ease"
-                        title="Click to change avatar"
-                      />
-                      <Input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        onChange={handleFileChange} 
-                        accept="image/*" 
-                        style={{ display: 'none' }} 
-                      />
-                      
-                      {/* Discord Info - moved here */}
-                      <Flex align="center" gap={3} mt={2}>
-                        <Icon as={FaDiscord} color={discordIconColor} w={{ base: 4, md: 5 }} h={{ base: 4, md: 5 }} />
-                        <Text fontWeight="semibold" color={textColor} fontSize={{ base: "xs", md: "sm" }}>
-                          Discord
-                        </Text>
-                        {isDiscordConnected ? (
-                          <Badge colorScheme="green" px={2} py={1} borderRadius="md" fontSize="xs">
-                            CONNECTED
-                          </Badge>
-                        ) : (
-                          <Button 
-                            colorScheme="blue" 
-                            size="xs" 
-                            onClick={handleConnectDiscord} 
-                            leftIcon={<FaDiscord />}
-                            borderRadius="md"
-                            _hover={{ transform: 'translateY(-1px)' }}
-                            fontSize="xs"
+              </Flex>
+              
+              <VStack spacing={4} align="stretch">
+                {characters.length > 0 ? (
+                  characters.map((char, index) => (
+                    <MotionBox
+                      key={char.id || index}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: index * 0.1 }}
+                      bg={char.isMain 
+                        ? "rgba(99, 102, 241, 0.1)" 
+                        : "rgba(255, 255, 255, 0.02)"
+                      }
+                      backdropFilter="blur(10px)"
+                      borderRadius="2xl"
+                      p={5}
+                      border="1px solid"
+                      borderColor={char.isMain 
+                        ? "rgba(99, 102, 241, 0.2)" 
+                        : "rgba(255, 255, 255, 0.05)"
+                      }
+                      boxShadow={char.isMain 
+                        ? "0 10px 25px rgba(99, 102, 241, 0.1)" 
+                        : "0 5px 15px rgba(0, 0, 0, 0.1)"
+                      }
+                      _hover={{ 
+                        transform: 'translateY(-3px)',
+                        boxShadow: char.isMain 
+                          ? "0 15px 35px rgba(99, 102, 241, 0.15)" 
+                          : "0 10px 25px rgba(0, 0, 0, 0.15)"
+                      }}
+                      transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+                      cursor="pointer"
+                      position="relative"
+                      overflow="hidden"
+                    >
+                      <Flex align="center" justify="space-between" position="relative">
+                        <Flex align="center" gap={4}>
+                          <Box
+                            position="relative"
+                            _before={char.isMain ? {
+                              content: '""',
+                              position: 'absolute',
+                              top: '-2px',
+                              left: '-2px',
+                              right: '-2px',
+                              bottom: '-2px',
+                              borderRadius: 'lg',
+                              bgGradient: 'linear(45deg, primary.400, purple.400)',
+                              zIndex: -1,
+                              animation: 'pulse 2s ease-in-out infinite'
+                            } : {}}
                           >
-                            Connect
-                          </Button>
-                        )}
-                      </Flex>
-                    </Box>
-                    
-                    <Box flex={1} w="100%">
-                      <Heading 
-                        size={{ base: "lg", md: "xl" }}
-                        fontFamily="ClashDisplay" 
-                        color={textColor} 
-                        mb={4} 
-                        textAlign={{ base: 'center', sm: 'left' }}
-                        letterSpacing="tight"
-                      >
-                        {user?.username}
-                      </Heading>
-                      
-                      <VStack spacing={{ base: 3, md: 4 }} align="stretch">
-                        {/* Raider Status - more compact */}
-                        <Flex align="center" gap={3} flexWrap="wrap">
-                          <Icon 
-                            as={StarIcon} 
-                            color={user?.confirmedRaider ? 'green.400' : 'orange.400'} 
-                            w={{ base: 4, md: 5 }} 
-                            h={{ base: 4, md: 5 }}
-                          />
-                          <Text fontWeight="semibold" color={textColor} fontSize={{ base: "sm", md: "md" }}>
-                            Raider Status
-                          </Text>
-                          {user?.confirmedRaider ? (
-                            <Badge colorScheme="green" fontSize={{ base: "xs", md: "sm" }} px={3} py={1} borderRadius="lg">
-                              CONFIRMED
-                            </Badge>
-                          ) : (
-                            <Badge colorScheme="orange" fontSize={{ base: "xs", md: "sm" }} px={3} py={1} borderRadius="lg">
-                              PENDING
-                            </Badge>
-                          )}
-                        </Flex>
-
-                        {user?.email && (
-                          <Flex align="center" gap={3} flexWrap="wrap">
-                            <EmailIcon color="gray.400" w={{ base: 4, md: 5 }} h={{ base: 4, md: 5 }} />
-                            <Text color={textColor} fontSize={{ base: "sm", md: "md" }} wordBreak="break-word">
-                              {user?.email}
-                            </Text>
-                          </Flex>
-                        )}
-                        
-                        {/* Calendar Nickname */}
-                        <FormControl>
-                          <FormLabel color={textColor} fontWeight="semibold" fontSize={{ base: "sm", md: "md" }} mb={2}>
-                            <Flex align="center" gap={2}>
-                              <CalendarIcon w={4} h={4} />
-                              Calendar Nickname
-                            </Flex>
-                          </FormLabel>
-                          <InputGroup>
-                            <Input
-                              value={discordSignupNickname}
-                              onChange={e => setDiscordSignupNickname(e.target.value)}
-                              size={{ base: "sm", md: "md" }}
-                              color={textColor}
-                              bg="gray.700"
-                              borderColor="gray.500"
-                              _placeholder={{ color: 'gray.400' }}
-                              _focus={{ borderColor: 'blue.400', boxShadow: '0 0 0 1px #3182ce' }}
-                              _disabled={{ 
-                                bg: 'gray.750',
-                                borderColor: 'gray.600',
-                                color: 'gray.300',
-                                cursor: 'not-allowed'
-                              }}
+                            <Image 
+                              src={getClassIcon(char.class)} 
+                              alt={char.class} 
+                              boxSize="45px"
                               borderRadius="lg"
-                              h={{ base: "40px", md: "44px" }}
-                              fontSize={{ base: "sm", md: "md" }}
-                              disabled={!isEditingNickname}
-                              placeholder={isEditingNickname ? "Enter your calendar nickname" : ""}
-                              pr={isEditingNickname ? "90px" : "50px"}
+                              border="2px solid"
+                              borderColor={char.isMain ? "primary.400" : "rgba(255, 255, 255, 0.1)"}
+                              boxShadow="0 4px 12px rgba(0, 0, 0, 0.2)"
                             />
-                            <InputRightElement h={{ base: "40px", md: "44px" }} w={isEditingNickname ? "85px" : "45px"}>
-                              {!isEditingNickname ? (
-                                <IconButton
-                                  aria-label="Edit nickname"
-                                  icon={<EditIcon />}
-                                  size="xs"
-                                  variant="ghost"
-                                  colorScheme="blue"
-                                  onClick={() => {
-                                    setIsEditingNickname(true);
-                                    setOriginalNickname(discordSignupNickname);
-                                  }}
-                                  _hover={{ bg: 'blue.600', color: 'white' }}
-                                  borderRadius="md"
-                                />
-                              ) : (
-                                <HStack spacing={1} w="100%" justify="flex-end" pr={1}>
-                                  <IconButton
-                                    aria-label="Save nickname"
-                                    icon={<CheckIcon />}
-                                    size="xs"
-                                    variant="ghost"
-                                    colorScheme="green"
-                                    onClick={handleUpdateDiscordNickname}
-                                    isLoading={isUpdatingNickname}
-                                    _hover={{ bg: 'green.600', color: 'white' }}
-                                    borderRadius="md"
-                                  />
-                                  <IconButton
-                                    aria-label="Cancel edit"
-                                    icon={<CloseIcon />}
-                                    size="xs"
-                                    variant="ghost"
-                                    colorScheme="red"
-                                    onClick={() => {
-                                      setIsEditingNickname(false);
-                                      setDiscordSignupNickname(originalNickname);
-                                    }}
-                                    _hover={{ bg: 'red.600', color: 'white' }}
-                                    borderRadius="md"
-                                  />
-                                </HStack>
+                          </Box>
+                          <Box>
+                            <Flex align="center" gap={2} mb={2}>
+                              <Heading 
+                                size="md" 
+                                color="white"
+                                fontWeight="700"
+                              >
+                                {char.name}
+                              </Heading>
+                              {char.isMain && (
+                                <Box
+                                  bg="linear-gradient(45deg, #fbbf24, #f59e0b)"
+                                  borderRadius="full"
+                                  p={1}
+                                  animation="pulse 2s ease-in-out infinite"
+                                >
+                                  <StarIcon color="white" boxSize={3} />
+                                </Box>
                               )}
-                            </InputRightElement>
-                          </InputGroup>
-                        </FormControl>
-                      </VStack>
-                    </Box>
-                  </Flex>
-                </Box>
-
-                {/* Events You're Signed Up For */}
-                {user?.confirmedRaider && (
-                  <Box 
-                    bg="gray.800" 
-                    p={{ base: 4, md: 6 }}
-                    borderRadius="xl" 
-                    border="1px solid" 
-                    borderColor="gray.600"
-                    boxShadow="lg"
-                  >
-                    <Accordion allowMultiple>
-                      <AccordionItem border="none">
-                        <AccordionButton
-                          p={0}
-                          _hover={{ bg: 'transparent' }}
-                          _focus={{ boxShadow: 'none' }}
-                        >
-                          <Box flex="1" textAlign="left">
-                            <Heading size={{ base: "sm", md: "md" }} color={textColor} letterSpacing="tight" fontFamily="Satoshi" fontWeight="600" fontSize={{ base: "sm", md: "md" }}>
-                              <Flex align="center" gap={3}>
-                                <FaRegCircleCheck color='#24c223' />
-                                <Text fontFamily={"Satoshi"}>Events You're Signed Up For ({isLoadingEvents ? '...' : signedUpEvents.length})</Text>
-                                {!isLoadingEvents && <AccordionIcon />}
-                                {isLoadingEvents && <Spinner size="sm" color="blue.400" />}
-                              </Flex>
-                            </Heading>
-                          </Box>
-                        </AccordionButton>
-                        <AccordionPanel p={0} pt={4}>
-                          {isLoadingEvents ? (
-                            <Flex justify="center" align="center" h="100px">
-                              <VStack spacing={3}>
-                                <Spinner size="lg" color="blue.400" />
-                                <Text color="gray.400" fontSize="sm">Loading events...</Text>
-                              </VStack>
                             </Flex>
-                          ) : signedUpEvents.length > 0 ? (
-                            <VStack
-                              align="stretch"
-                              spacing={3}
-                              maxH={{ base: "180px", md: "200px" }}
-                              overflowY="auto"
-                              sx={{
-                                scrollbarWidth: 'thin',
-                                scrollbarColor: 'rgba(75, 85, 99, 0.7) rgba(31, 41, 55, 0.3)',
-                                '&::-webkit-scrollbar': { 
-                                  width: '6px'
-                                },
-                                '&::-webkit-scrollbar-track': {
-                                  background: 'rgba(31, 41, 55, 0.3)',
-                                  borderRadius: '10px'
-                                },
-                                '&::-webkit-scrollbar-thumb': {
-                                  background: 'rgba(75, 85, 99, 0.7)',
-                                  borderRadius: '10px',
-                                  border: '1px solid rgba(31, 41, 55, 0.5)'
-                                },
-                                '&::-webkit-scrollbar-thumb:hover': {
-                                  background: 'rgba(107, 114, 128, 0.8)'
-                                }
-                              }}
+                            <Badge 
+                              colorScheme={getRoleColor(char.role)} 
+                              size="sm"
+                              borderRadius="lg"
+                              px={3}
+                              py={1}
+                              fontSize="xs"
+                              fontWeight="600"
+                              textTransform="uppercase"
+                              letterSpacing="wide"
                             >
-                              {signedUpEvents.slice(0, 4).map((event, idx) => (
-                                <EventCard key={event.id} event={event} isSignedUp />
-                              ))}
-                            </VStack>
-                          ) : (
-                            <Flex justify="center" align="center" h="100px">
-                              <Text color="gray.400" fontSize="sm">No events signed up for</Text>
-                            </Flex>
-                          )}
-                        </AccordionPanel>
-                      </AccordionItem>
-                    </Accordion>
-                  </Box>
-                )}
-
-                {/* Events You Haven't Signed Up For */}
-                {user?.confirmedRaider && (
-                  <Box 
-                    bg="gray.800" 
-                    p={{ base: 4, md: 6 }}
-                    borderRadius="xl" 
-                    border="1px solid" 
-                    borderColor="gray.600"
-                    boxShadow="lg"
-                  >
-                    <Accordion allowMultiple>
-                      <AccordionItem border="none">
-                        <AccordionButton
-                          p={0}
-                          _hover={{ bg: 'transparent' }}
-                          _focus={{ boxShadow: 'none' }}
-                        >
-                          <Box flex="1" textAlign="left">
-                            <Heading size={{ base: "sm", md: "md" }} color={textColor} letterSpacing="tight" fontFamily="Satoshi" fontWeight="600" fontSize={{ base: "sm", md: "md" }}>
-                              <Flex align="center" gap={3}>
-                                <RxCross2 color="red" />
-                                <Text fontFamily={"Satoshi"}>Events You Haven't Signed Up For ({isLoadingEvents ? '...' : notSignedUpEvents.length})</Text>
-                                {!isLoadingEvents && <AccordionIcon />}
-                                {isLoadingEvents && <Spinner size="sm" color="blue.400" />}
-                              </Flex>
-                            </Heading>
+                              {char.role}
+                            </Badge>
                           </Box>
-                        </AccordionButton>
-                        <AccordionPanel p={0} pt={4}>
-                          {isLoadingEvents ? (
-                            <Flex justify="center" align="center" h="100px">
-                              <VStack spacing={3}>
-                                <Spinner size="lg" color="blue.400" />
-                                <Text color="gray.400" fontSize="sm">Loading events...</Text>
-                              </VStack>
-                            </Flex>
-                          ) : notSignedUpEvents.length > 0 ? (
-                            <VStack
-                              align="stretch"
-                              spacing={3}
-                              maxH={{ base: "180px", md: "200px" }}
-                              overflowY="auto"
-                              sx={{
-                                scrollbarWidth: 'thin',
-                                scrollbarColor: 'rgba(75, 85, 99, 0.7) rgba(31, 41, 55, 0.3)',
-                                '&::-webkit-scrollbar': { 
-                                  width: '6px'
-                                },
-                                '&::-webkit-scrollbar-track': {
-                                  background: 'rgba(31, 41, 55, 0.3)',
-                                  borderRadius: '10px'
-                                },
-                                '&::-webkit-scrollbar-thumb': {
-                                  background: 'rgba(75, 85, 99, 0.7)',
-                                  borderRadius: '10px',
-                                  border: '1px solid rgba(31, 41, 55, 0.5)'
-                                },
-                                '&::-webkit-scrollbar-thumb:hover': {
-                                  background: 'rgba(107, 114, 128, 0.8)'
-                                }
-                              }}
-                            >
-                              {notSignedUpEvents.slice(0, 4).map((event, idx) => (
-                                <EventCard key={event.id} event={event} />
-                              ))}
-                            </VStack>
-                          ) : (
-                            <Flex justify="center" align="center" h="100px">
-                              <Text color="gray.400" fontSize="sm">No upcoming events available</Text>
-                            </Flex>
-                          )}
-                        </AccordionPanel>
-                      </AccordionItem>
-                    </Accordion>
+                        </Flex>
+                        <IconButton
+                          aria-label="Edit Character"
+                          icon={<EditIcon />}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setEditingCharacter(char)}
+                          _hover={{ bg: 'rgba(255,255,255,0.1)' }}
+                          borderRadius="lg"
+                        />
+                      </Flex>
+                    </MotionBox>
+                  ))
+                ) : (
+                  <Box 
+                    textAlign="center" 
+                    py={16}
+                    bg="rgba(255, 255, 255, 0.02)" 
+                    borderRadius="2xl" 
+                    border="2px dashed" 
+                    borderColor="rgba(255, 255, 255, 0.1)"
+                    backdropFilter="blur(5px)"
+                  >
+                    <Text color="text.secondary" fontSize="lg" mb={2} fontWeight="500">
+                      No characters yet
+                    </Text>
+                    <Text color="text.secondary" fontSize="sm" opacity={0.7}>
+                      Click "Add Character" to get started
+                    </Text>
                   </Box>
                 )}
               </VStack>
             </Box>
-          </Flex>
-        </Box>
-        {/* Modals and Dialogs */}
-        <CharacterCreationModal isOpen={isOpen} onClose={onClose} onCharacterCreated={memoizedFetchCharacters} />
-        {editingCharacter && (
-          <CharacterEditModal
-            isOpen={!!editingCharacter}
-            onClose={() => setEditingCharacter(null)}
-            character={editingCharacter}
-            onCharacterUpdated={memoizedFetchCharacters}
-          />
-        )}
-        {selectedEventForSignup && (
-          <EventSignupModal
-            isOpen={isEventSignupOpen}
-            onClose={() => {
-              onEventSignupClose();
-              setSelectedEventForSignup(null);
-            }}
-            event={selectedEventForSignup}
-            onSignupChange={handleSignupChange}
-          />
-        )}
-        {characterToDelete && (
-          <AlertDialog
-            isOpen={deleteAlertDialog.isOpen}
-            leastDestructiveRef={cancelRef}
-            onClose={deleteAlertDialog.onClose}
+          </MotionBox>
+
+          {/* Events Section - Modern Accordions */}
+          <MotionBox
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.4 }}
           >
-            <AlertDialogOverlay>
-              <AlertDialogContent bg={cardBg}>
-                <AlertDialogHeader fontSize="lg" fontWeight="bold">
-                  Delete Character
-                </AlertDialogHeader>
-                <AlertDialogBody>
-                  Are you sure you want to delete {characterToDelete.name}?
-                </AlertDialogBody>
-                <AlertDialogFooter>
-                  <Button ref={cancelRef} onClick={deleteAlertDialog.onClose}>
-                    Cancel
-                  </Button>
-                  <Button colorScheme="red" onClick={handleDeleteCharacter} ml={3}>
-                    Delete
-                  </Button>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialogOverlay>
-          </AlertDialog>
-        )}
+            <VStack spacing={6} align="stretch">
+              {/* Events Accordion Container */}
+              {user?.confirmedRaider && (
+                <Box
+                  bg="rgba(255, 255, 255, 0.02)"
+                  backdropFilter="blur(20px)"
+                  borderRadius="3xl"
+                  border="1px solid"
+                  borderColor="rgba(255, 255, 255, 0.1)"
+                  boxShadow="0 25px 50px -12px rgba(0, 0, 0, 0.25)"
+                  overflow="hidden"
+                >
+                  <Accordion allowToggle>
+                    {/* Signed Up Events */}
+                    <AccordionItem border="none">
+                      <h2>
+                        <AccordionButton
+                          _hover={{ bg: 'rgba(34, 197, 94, 0.05)' }}
+                          py={6}
+                          px={6}
+                          transition="all 0.3s ease"
+                        >
+                          <Box flex="1" textAlign="left">
+                            <HStack spacing={3}>
+                              <Box
+                                bg="rgba(34, 197, 94, 0.1)"
+                                p={2}
+                                borderRadius="lg"
+                                border="1px solid"
+                                borderColor="rgba(34, 197, 94, 0.2)"
+                              >
+                                <Icon as={CheckIcon} color="green.300" boxSize={4} />
+                              </Box>
+                              <Box>
+                                <Heading size="md" color="white" fontWeight="700">
+                                  Events You're Signed Up For
+                                </Heading>
+                                <Text color="text.secondary" fontSize="sm" mt={1}>
+                                  {isLoadingEvents ? 'Loading...' : `${signedUpEvents.length} events`}
+                                </Text>
+                              </Box>
+                            </HStack>
+                          </Box>
+                          <AccordionIcon color="white" />
+                        </AccordionButton>
+                      </h2>
+                      <AccordionPanel pb={6} px={6}>
+                        {isLoadingEvents ? (
+                          <Flex justify="center" align="center" h="100px">
+                            <VStack spacing={3}>
+                              <Spinner color="primary.400" size="lg" />
+                              <Text color="text.secondary" fontSize="sm">Loading events...</Text>
+                            </VStack>
+                          </Flex>
+                        ) : signedUpEvents.length > 0 ? (
+                          <VStack spacing={4} align="stretch">
+                            {signedUpEvents.map((event, idx) => (
+                              <EventCard key={event.id} event={event} isSignedUp />
+                            ))}
+                          </VStack>
+                        ) : (
+                          <Box textAlign="center" py={8}>
+                            <Text color="text.secondary" fontSize="sm">
+                              No events signed up for yet
+                            </Text>
+                          </Box>
+                        )}
+                      </AccordionPanel>
+                    </AccordionItem>
+
+                    {/* Not Signed Up Events */}
+                    <AccordionItem border="none">
+                      <h2>
+                        <AccordionButton
+                          _hover={{ bg: 'rgba(251, 191, 36, 0.05)' }}
+                          py={6}
+                          px={6}
+                          transition="all 0.3s ease"
+                        >
+                          <Box flex="1" textAlign="left">
+                            <HStack spacing={3}>
+                              <Box
+                                bg="rgba(251, 191, 36, 0.1)"
+                                p={2}
+                                borderRadius="lg"
+                                border="1px solid"
+                                borderColor="rgba(251, 191, 36, 0.2)"
+                              >
+                                <Icon as={TimeIcon} color="yellow.300" boxSize={4} />
+                              </Box>
+                              <Box>
+                                <Heading size="md" color="white" fontWeight="700">
+                                  Available Events
+                                </Heading>
+                                <Text color="text.secondary" fontSize="sm" mt={1}>
+                                  {isLoadingEvents ? 'Loading...' : `${notSignedUpEvents.length} available`}
+                                </Text>
+                              </Box>
+                            </HStack>
+                          </Box>
+                          <AccordionIcon color="white" />
+                        </AccordionButton>
+                      </h2>
+                      <AccordionPanel pb={6} px={6}>
+                        {isLoadingEvents ? (
+                          <Flex justify="center" align="center" h="100px">
+                            <VStack spacing={3}>
+                              <Spinner color="primary.400" size="lg" />
+                              <Text color="text.secondary" fontSize="sm">Loading events...</Text>
+                            </VStack>
+                          </Flex>
+                        ) : notSignedUpEvents.length > 0 ? (
+                          <VStack spacing={4} align="stretch">
+                            {notSignedUpEvents.map((event, idx) => (
+                              <EventCard key={event.id} event={event} />
+                            ))}
+                          </VStack>
+                        ) : (
+                          <Box textAlign="center" py={8}>
+                            <Text color="text.secondary" fontSize="sm">
+                              No upcoming events available
+                            </Text>
+                          </Box>
+                        )}
+                      </AccordionPanel>
+                    </AccordionItem>
+                  </Accordion>
+                </Box>
+              )}
+            </VStack>
+          </MotionBox>
+        </SimpleGrid>
       </Container>
+
+      {/* Modals */}
+      <CharacterCreationModal isOpen={isOpen} onClose={onClose} onCharacterCreated={memoizedFetchCharacters} />
+      {editingCharacter && (
+        <CharacterEditModal
+          isOpen={!!editingCharacter}
+          onClose={() => setEditingCharacter(null)}
+          character={editingCharacter}
+          onCharacterUpdated={memoizedFetchCharacters}
+        />
+      )}
+      {selectedEventForSignup && (
+        <EventSignupModal
+          isOpen={isEventSignupOpen}
+          onClose={() => {
+            onEventSignupClose();
+            setSelectedEventForSignup(null);
+          }}
+          event={selectedEventForSignup}
+          onSignupChange={handleSignupChange}
+        />
+      )}
+      {characterToDelete && (
+        <AlertDialog
+          isOpen={deleteAlertDialog.isOpen}
+          leastDestructiveRef={cancelRef}
+          onClose={deleteAlertDialog.onClose}
+        >
+          <AlertDialogOverlay>
+            <AlertDialogContent 
+              bg="rgba(255, 255, 255, 0.02)"
+              backdropFilter="blur(20px)"
+              border="1px solid"
+              borderColor="rgba(255, 255, 255, 0.1)"
+              borderRadius="2xl"
+            >
+              <AlertDialogHeader fontSize="lg" fontWeight="bold" color="white">
+                Delete Character
+              </AlertDialogHeader>
+              <AlertDialogBody color="text.secondary">
+                Are you sure you want to delete {characterToDelete.name}?
+              </AlertDialogBody>
+              <AlertDialogFooter>
+                <Button 
+                  ref={cancelRef} 
+                  onClick={deleteAlertDialog.onClose}
+                  variant="ghost"
+                  _hover={{ bg: 'rgba(255, 255, 255, 0.1)' }}
+                  borderRadius="xl"
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  colorScheme="red" 
+                  onClick={handleDeleteCharacter} 
+                  ml={3}
+                  borderRadius="xl"
+                  _hover={{ bg: 'red.600' }}
+                >
+                  Delete
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialogOverlay>
+        </AlertDialog>
+      )}
     </MotionBox>
   );
 };
