@@ -3,6 +3,7 @@ import { doc, getDoc, Timestamp, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { User } from '../types/firebase';
 import { useToast } from '@chakra-ui/react';
+import defaultAvatar from '../assets/avatar.jpg';
 
 interface UserContextType {
   user: User | null;
@@ -20,6 +21,17 @@ export const UserContext = createContext<UserContextType>({
   updateUser: () => {},
 });
 
+// Helper function to preload avatar images
+const preloadAvatar = (avatarUrl: string | undefined) => {
+  if (avatarUrl) {
+    const img = new Image();
+    img.src = avatarUrl;
+  }
+  // Also preload the default avatar
+  const defaultImg = new Image();
+  defaultImg.src = defaultAvatar;
+};
+
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,7 +44,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
         if (savedUsername) {
           const userDoc = await getDoc(doc(db, 'users', savedUsername));
           if (userDoc.exists()) {
-            setUser(userDoc.data() as User);
+            const userData = userDoc.data() as User;
+            preloadAvatar(userData.avatarUrl);
+            setUser(userData);
           } else {
             localStorage.removeItem('username');
           }
@@ -67,10 +81,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
         });
 
         // Set user in state with updated lastLogin
-        setUser({
+        const updatedUserData = {
           ...userData,
           lastLogin: now
-        });
+        };
+        
+        preloadAvatar(updatedUserData.avatarUrl);
+        setUser(updatedUserData);
         
         localStorage.setItem('username', userData.username);
         
@@ -107,10 +124,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
       });
 
       // Set user in state with updated lastLogin
-      setUser({
+      const updatedUserData = {
         ...userData,
         lastLogin: now
-      });
+      };
+      
+      preloadAvatar(updatedUserData.avatarUrl);
+      setUser(updatedUserData);
       
       localStorage.setItem('username', username);
       
@@ -140,6 +160,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const updateUser = (updatedUser: User) => {
+    preloadAvatar(updatedUser.avatarUrl);
     setUser(updatedUser);
   };
 

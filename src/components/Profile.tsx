@@ -907,6 +907,7 @@ const Profile = () => {
         ? "linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(21, 128, 61, 0.05) 100%)"
         : "linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(217, 119, 6, 0.05) 100%)"
       }
+      
       borderRadius="xl" 
       p={{ base: 3, md: 4 }}
       border="1px solid"
@@ -932,7 +933,7 @@ const Profile = () => {
       transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
       position="relative"
       overflow="hidden"
-      minH={{ base: "90px", md: "100px" }}
+      minH={{ base: "180px", md: "100px" }}
     >
       {/* Subtle background pattern */}
       <Box
@@ -983,7 +984,7 @@ const Profile = () => {
 
       <VStack align="stretch" spacing={{ base: 2, md: 2.5 }} h="100%" position="relative" zIndex={1}>
         {/* Enhanced event title */}
-        <Box pr={{ base: 20, md: 24 }} >
+        <Box pr={{ base: 20, md: 24 }}>
           <Heading 
             className="event-title"
             size={{ base: "sm", md: "sm" }}
@@ -1075,6 +1076,7 @@ const Profile = () => {
                 borderRadius="full"
                 border="1px dashed"
                 borderColor="yellow.400"
+                
               >
                 <Text 
                   color="yellow.300" 
