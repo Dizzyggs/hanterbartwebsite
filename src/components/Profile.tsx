@@ -1339,6 +1339,7 @@ const Profile = () => {
                       pr={isEditingNickname ? "90px" : "50px"}
                       fontSize="sm"
                       fontWeight="500"
+                      color="white"
                     />
                     <InputRightElement w={isEditingNickname ? "85px" : "45px"}>
                       {!isEditingNickname ? (
@@ -1347,6 +1348,7 @@ const Profile = () => {
                           icon={<EditIcon />}
                           size="sm"
                           variant="ghost"
+                          color="white"
                           onClick={() => {
                             setIsEditingNickname(true);
                             setOriginalNickname(discordSignupNickname);

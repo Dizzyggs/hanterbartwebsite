@@ -22,7 +22,8 @@ import {
   Avatar,
   AvatarGroup,
   Fade,
-  ScaleFade
+  ScaleFade,
+  useBreakpointValue
 } from '@chakra-ui/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EventCreationModal } from './EventCreationModal';
@@ -79,6 +80,13 @@ const Calendar = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<'month' | 'week' | 'day'>('month');
   const toast = useToast();
+
+  // Mobile responsive values
+  const isMobile = useBreakpointValue({ base: true, md: false });
+  const eventFontSize = useBreakpointValue({ base: 'sm', md: 'xs' });
+  const timeFontSize = useBreakpointValue({ base: 'xs', md: 'xs' });
+  const eventsMaxHeight = useBreakpointValue({ base: '120px', md: '80px' });
+  const calendarCellMinHeight = useBreakpointValue({ base: '140px', md: '120px' });
 
   // Fetch events from Firestore
   useEffect(() => {
@@ -172,6 +180,130 @@ const Calendar = () => {
   // Week days
   const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+  // Mobile list view - get events for current week
+  const getCurrentWeekEvents = () => {
+    const startOfWeekDate = startOfWeek(currentDate, { weekStartsOn: 1 });
+    const endOfWeekDate = endOfWeek(currentDate, { weekStartsOn: 1 });
+    
+    const weekEvents = [];
+    let currentDay = startOfWeekDate;
+    
+    while (currentDay <= endOfWeekDate) {
+      const dayEvents = getEventsForDay(currentDay);
+      if (dayEvents.length > 0) {
+        weekEvents.push({
+          date: currentDay,
+          events: dayEvents
+        });
+      }
+      currentDay = addDays(currentDay, 1);
+    }
+    
+    return weekEvents;
+  };
+
+  // Mobile Event Card Component
+  const MobileEventCard = ({ event }: { event: CalendarEvent }) => (
+    <Box
+      bg="gray.800"
+      borderRadius="xl"
+      p={5}
+      cursor="pointer"
+      onClick={() => handleEventClick(event)}
+      boxShadow="0 4px 12px rgba(0, 0, 0, 0.15)"
+      border="1px solid"
+      borderColor="gray.700"
+      _hover={{
+        transform: 'translateY(-2px)',
+        boxShadow: "0 8px 24px rgba(0, 0, 0, 0.25)",
+        borderColor: "primary.500",
+      }}
+      transition="all 0.2s ease-in-out"
+      position="relative"
+      overflow="hidden"
+    >
+      {/* Accent bar */}
+      <Box
+        position="absolute"
+        left={0}
+        top={0}
+        bottom={0}
+        width="4px"
+        bg="primary.500"
+        borderTopLeftRadius="xl"
+        borderBottomLeftRadius="xl"
+      />
+
+      <VStack align="start" spacing={3} pl={2}>
+        {/* Header */}
+        <HStack justify="space-between" w="full" align="start">
+          <VStack align="start" spacing={1} flex={1}>
+            <Text
+              fontSize="lg"
+              fontWeight="semibold"
+              color="white"
+              lineHeight="1.2"
+              letterSpacing="-0.01em"
+            >
+              {event.title}
+            </Text>
+            <HStack spacing={2}>
+              <HStack spacing={1}>
+                <Box w={2} h={2} bg="primary.500" borderRadius="full" />
+                <Text
+                  fontSize="sm"
+                  color="gray.300"
+                  fontWeight="medium"
+                >
+                  {format(event.start, 'HH:mm')}
+                </Text>
+              </HStack>
+              {event.end && (
+                <Text
+                  fontSize="sm"
+                  color="gray.400"
+                >
+                  - {format(event.end, 'HH:mm')}
+                </Text>
+              )}
+            </HStack>
+          </VStack>
+          
+          <Box
+            bg="primary.900"
+            borderRadius="lg"
+            px={3}
+            py={1}
+            border="1px solid"
+            borderColor="primary.700"
+          >
+            <Text
+              fontSize="xs"
+              fontWeight="semibold"
+              color="primary.300"
+              textTransform="uppercase"
+              letterSpacing="0.05em"
+            >
+              {event.type}
+            </Text>
+          </Box>
+        </HStack>
+
+        {/* Description */}
+        {event.description && (
+          <Text
+            fontSize="sm"
+            color="gray.400"
+            lineHeight="1.5"
+            noOfLines={2}
+          >
+            {event.description}
+          </Text>
+        )}
+      </VStack>
+    </Box>
+  );
+
   return (
     <Container maxW="container.xl" py={8}>
       <Breadcrumbs />
@@ -180,6 +312,7 @@ const Calendar = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
+        mt={!isMobile? 20 : 0}
       >
         {/* Header */}
         <Flex justify="space-between" align="center" mb={8} wrap="wrap" gap={4}>
@@ -195,7 +328,7 @@ const Calendar = () => {
               bgClip="text"
               letterSpacing="tight"
             >
-              Calendar
+              Guild Events
             </Heading>
             <Text color="text.secondary" fontSize="lg" mt={1}>
               {format(currentDate, 'MMMM yyyy')}
@@ -248,153 +381,218 @@ const Calendar = () => {
           </HStack>
         </Flex>
 
-        {/* Calendar Grid */}
-        <MotionCard
-          bg="background.secondary"
-          borderColor="border.primary"
-          borderWidth={1}
-          borderRadius="xl"
-          overflow="hidden"
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <CardBody p={0}>
-            {/* Week day headers */}
-            <SimpleGrid columns={7} bg="background.tertiary" borderBottom="1px" borderColor="border.primary">
-              {weekDays.map(day => (
-                <Box
-                  key={day}
-                  p={4}
-                  textAlign="center"
-                  borderRight="1px"
-                  borderColor="border.primary"
-                  _last={{ borderRight: 'none' }}
-                >
-                  <Text 
-                    color="text.secondary" 
-                    fontSize="sm" 
-                    fontWeight="semibold"
-                    textTransform="uppercase"
-                    letterSpacing="wide"
-                  >
-                    {day}
-                  </Text>
-                </Box>
-              ))}
-            </SimpleGrid>
+        {/* Mobile Layout */}
+        {isMobile ? (
+          <VStack spacing={6} align="stretch">
+            {/* Week Navigation */}
+            <HStack justify="space-between" align="center" bg="background.secondary" p={4} borderRadius="lg">
+              <IconButton
+                aria-label="Previous week"
+                icon={<ChevronLeftIcon />}
+                onClick={() => setCurrentDate(addDays(currentDate, -7))}
+                variant="ghost"
+                size="sm"
+                color="text.secondary"
+              />
+              <Text color="text.primary" fontWeight="medium">
+                {format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'MMM d')} - {format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'MMM d')}
+              </Text>
+              <IconButton
+                aria-label="Next week"
+                icon={<ChevronRightIcon />}
+                onClick={() => setCurrentDate(addDays(currentDate, 7))}
+                variant="ghost"
+                size="sm"
+                color="text.secondary"
+              />
+            </HStack>
 
-            {/* Calendar days */}
-            <SimpleGrid columns={7} minH="400px">
-              <AnimatePresence mode="wait">
-                {generateCalendarDays().map((day, index) => {
-                  const dayEvents = getEventsForDay(day);
-                  const isCurrentMonth = isSameMonth(day, currentDate);
-                  const isDayToday = isToday(day);
-
-                  return (
-                    <MotionBox
-                      key={day.toString()}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3, delay: index * 0.01 }}
-                      borderRight="1px"
-                      borderBottom="1px"
-                      borderColor="border.primary"
-                      _last={{ borderRight: 'none' }}
-                      minH="120px"
-                      position="relative"
-                      bg={isDayToday ? 'whiteAlpha.50' : 'transparent'}
-                      borderLeftWidth={isDayToday ? '3px' : '0px'}
-                      borderLeftColor={isDayToday ? 'primary.400' : 'transparent'}
-                      _hover={{
-                        bg: isDayToday ? 'whiteAlpha.100' : 'background.tertiary',
-                        cursor: 'pointer'
-                      }}
+            {/* Events List */}
+            {getCurrentWeekEvents().length > 0 ? (
+              <VStack spacing={4} align="stretch">
+                {getCurrentWeekEvents().map(({ date, events }) => (
+                  <Box key={date.toString()}>
+                    <Text
+                      fontSize="lg"
+                      fontWeight="bold"
+                      color="text.primary"
+                      mb={3}
+                      pl={2}
                     >
-                      <VStack spacing={2} p={2} h="full" align="stretch">
-                        {/* Date number */}
-                        <Flex justify="space-between" align="center">
-                          <Text
-                            fontSize="sm"
-                            fontWeight={isDayToday ? 'bold' : 'medium'}
-                            color={
-                              isDayToday 
-                                ? 'white' 
-                                : isCurrentMonth 
-                                  ? 'text.primary' 
-                                  : 'text.secondary'
-                            }
-                            opacity={isCurrentMonth ? 1 : 0.4}
-                          >
-                            {format(day, 'd')}
-                          </Text>
-                          
-                          {dayEvents.length > 0 && (
-                            <Badge
-                              size="sm"
-                              colorScheme={isDayToday ? 'whiteAlpha' : 'primary'}
-                              variant={isDayToday ? 'solid' : 'subtle'}
-                              fontSize="xs"
-                            >
-                              {dayEvents.length}
-                            </Badge>
-                          )}
-                        </Flex>
+                      {format(date, 'EEEE, MMMM d')}
+                      {isToday(date) && (
+                        <Badge ml={2} colorScheme="primary" variant="solid">
+                          Today
+                        </Badge>
+                      )}
+                    </Text>
+                    <VStack spacing={3} align="stretch">
+                      {events.map(event => (
+                        <MobileEventCard key={event.id} event={event} />
+                      ))}
+                    </VStack>
+                  </Box>
+                ))}
+              </VStack>
+            ) : (
+              <Box textAlign="center" py={12}>
+                <Text color="text.secondary" fontSize="lg">
+                  No events this week
+                </Text>
+              </Box>
+            )}
+          </VStack>
+        ) : (
+          /* Desktop Calendar Grid */
+          <MotionCard
+            bg="background.secondary"
+            borderColor="border.primary"
+            borderWidth={1}
+            borderRadius="xl"
+            overflow="hidden"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            mt={10}
+          >
+            <CardBody p={0}>
+              {/* Week day headers */}
+              <SimpleGrid columns={7} bg="background.tertiary" borderBottom="1px" borderColor="border.primary">
+                {weekDays.map(day => (
+                  <Box
+                    key={day}
+                    p={4}
+                    textAlign="center"
+                    borderRight="1px"
+                    borderColor="border.primary"
+                    _last={{ borderRight: 'none' }}
+                  >
+                    <Text 
+                      color="text.secondary" 
+                      fontSize="sm" 
+                      fontWeight="semibold"
+                      textTransform="uppercase"
+                      letterSpacing="wide"
+                    >
+                      {day}
+                    </Text>
+                  </Box>
+                ))}
+              </SimpleGrid>
 
-                        {/* Events */}
-                        <VStack spacing={1} flex={1} align="stretch" maxH="80px" overflowY="auto">
-                          {dayEvents.map((event, eventIndex) => (
-                            <ScaleFade
-                              key={event.id}
-                              in={true}
-                              initialScale={0.9}
+              {/* Calendar days */}
+              <SimpleGrid columns={7} minH="400px">
+                <AnimatePresence mode="wait">
+                  {generateCalendarDays().map((day, index) => {
+                    const dayEvents = getEventsForDay(day);
+                    const isCurrentMonth = isSameMonth(day, currentDate);
+                    const isDayToday = isToday(day);
+
+                    return (
+                      <MotionBox
+                        key={day.toString()}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: index * 0.01 }}
+                        borderRight="1px"
+                        borderBottom="1px"
+                        borderColor="border.primary"
+                        _last={{ borderRight: 'none' }}
+                        minH={calendarCellMinHeight}
+                        position="relative"
+                        bg={isDayToday ? 'whiteAlpha.50' : 'transparent'}
+                        borderLeftWidth={isDayToday ? '3px' : '0px'}
+                        borderLeftColor={isDayToday ? 'primary.400' : 'transparent'}
+                        _hover={{
+                          bg: isDayToday ? 'whiteAlpha.100' : 'background.tertiary',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <VStack spacing={2} p={2} h="full" align="stretch">
+                          {/* Date number */}
+                          <Flex justify="space-between" align="center">
+                            <Text
+                              fontSize="sm"
+                              fontWeight={isDayToday ? 'bold' : 'medium'}
+                              color={
+                                isDayToday 
+                                  ? 'white' 
+                                  : isCurrentMonth 
+                                    ? 'text.primary' 
+                                    : 'text.secondary'
+                              }
+                              opacity={isCurrentMonth ? 1 : 0.4}
                             >
-                              <Box
-                                bg="primary.500"
-                                borderRadius="md"
-                                p={2}
-                                cursor="pointer"
-                                onClick={() => handleEventClick(event)}
-                                _hover={{
-                                  bg: 'primary.600',
-                                  transform: 'translateY(-1px)',
-                                  boxShadow: 'lg'
-                                }}
-                                transition="all 0.2s"
-                                position="relative"
-                                overflow="hidden"
-                                minH="fit-content"
-                                flexShrink={0}
+                              {format(day, 'd')}
+                            </Text>
+                            
+                            {dayEvents.length > 0 && (
+                              <Badge
+                                size="sm"
+                                colorScheme={isDayToday ? 'whiteAlpha' : 'primary'}
+                                variant={isDayToday ? 'solid' : 'subtle'}
+                                fontSize="xs"
                               >
-                                <Text
-                                  fontSize="xs"
-                                  fontWeight="medium"
-                                  color="white"
-                                  isTruncated
-                                  lineHeight="1.2"
+                                {dayEvents.length}
+                              </Badge>
+                            )}
+                          </Flex>
+
+                          {/* Events */}
+                          <VStack spacing={1} flex={1} align="stretch" maxH={eventsMaxHeight} overflowY="auto">
+                            {dayEvents.map((event, eventIndex) => (
+                              <ScaleFade
+                                key={event.id}
+                                in={true}
+                                initialScale={0.9}
+                              >
+                                <Box
+                                  bg="primary.500"
+                                  borderRadius="md"
+                                  p={2}
+                                  cursor="pointer"
+                                  onClick={() => handleEventClick(event)}
+                                  _hover={{
+                                    bg: 'primary.600',
+                                    transform: 'translateY(-1px)',
+                                    boxShadow: 'lg'
+                                  }}
+                                  transition="all 0.2s"
+                                  position="relative"
+                                  overflow="hidden"
+                                  minH="fit-content"
+                                  flexShrink={0}
                                 >
-                                  {event.title}
-                                </Text>
-                                <Text
-                                  fontSize="xs"
-                                  color="whiteAlpha.800"
-                                  isTruncated
-                                >
-                                  {format(event.start, 'HH:mm')}
-                                </Text>
-                              </Box>
-                            </ScaleFade>
-                          ))}
+                                  <Text
+                                    fontSize={eventFontSize}
+                                    fontWeight="medium"
+                                    color="white"
+                                    isTruncated={!isMobile}
+                                    lineHeight="1.2"
+                                    noOfLines={isMobile ? 2 : 1}
+                                  >
+                                    {event.title}
+                                  </Text>
+                                  <Text
+                                    fontSize={timeFontSize}
+                                    color="whiteAlpha.800"
+                                    isTruncated={!isMobile}
+                                  >
+                                    {format(event.start, 'HH:mm')}
+                                  </Text>
+                                </Box>
+                              </ScaleFade>
+                            ))}
+                          </VStack>
                         </VStack>
-                      </VStack>
-                    </MotionBox>
-                  );
-                })}
-              </AnimatePresence>
-            </SimpleGrid>
-          </CardBody>
-        </MotionCard>
+                      </MotionBox>
+                    );
+                  })}
+                </AnimatePresence>
+              </SimpleGrid>
+            </CardBody>
+          </MotionCard>
+        )}
       </MotionBox>
 
       {/* Modals */}
