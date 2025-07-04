@@ -765,11 +765,17 @@ const ManageUsers = () => {
                     _focus={{ borderColor: 'primary.400' }}
                     maxW={{ base: 'full', sm: '180px' }}
                     size="sm"
+                    sx={{
+                      '> option': {
+                        bg: 'gray.800',
+                        color: 'white',
+                      }
+                    }}
                   >
-                    <option value="username">Username</option>
-                    <option value="role">Role</option>
-                    <option value="joined">Join Date</option>
-                    <option value="confirmedRaider">Raider Status</option>
+                    <option value="username" style={{ backgroundColor: '#1a202c', color: 'white' }}>Username</option>
+                    <option value="role" style={{ backgroundColor: '#1a202c', color: 'white' }}>Role</option>
+                    <option value="joined" style={{ backgroundColor: '#1a202c', color: 'white' }}>Join Date</option>
+                    <option value="confirmedRaider" style={{ backgroundColor: '#1a202c', color: 'white' }}>Raider Status</option>
                   </Select>
                   
                   <InputGroup maxW={{ base: 'full', sm: '300px' }}>
@@ -1204,10 +1210,16 @@ const ManageUsers = () => {
                     borderRadius="xl"
                     _hover={{ borderColor: 'rgba(255, 255, 255, 0.2)' }}
                     _focus={{ borderColor: 'primary.400' }}
+                    sx={{
+                      '> option': {
+                        bg: 'gray.800',
+                        color: 'white',
+                      }
+                    }}
                   >
-                    <option value="member">👤 Member</option>
-                    <option value="officer">⚔️ Officer</option>
-                    <option value="admin">🛡️ Admin</option>
+                    <option value="member" style={{ backgroundColor: '#1a202c', color: 'white' }}>👤 Member</option>
+                    <option value="officer" style={{ backgroundColor: '#1a202c', color: 'white' }}>⚔️ Officer</option>
+                    <option value="admin" style={{ backgroundColor: '#1a202c', color: 'white' }}>🛡️ Admin</option>
                   </Select>
                 </FormControl>
 
