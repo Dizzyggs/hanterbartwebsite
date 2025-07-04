@@ -99,12 +99,10 @@ export const EventCreationModal = ({ isOpen, onClose, onEventCreated }: EventCre
 
   const createEvent = async (startDate: Date) => {
     try {
-      const eventId = doc(collection(db, 'events')).id;
       const endDate = new Date(startDate.getTime() + 3 * 60 * 60 * 1000); // 3 hours duration
 
-      // Base event data for Firestore
+      // Base event data for Firestore - Remove the internal id property
       const baseEventData = {
-        id: eventId,
         title: eventTitle,
         description: eventDescription || '',
         date: startDate.toISOString().split('T')[0],
