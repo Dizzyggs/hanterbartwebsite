@@ -602,7 +602,7 @@ const MobileRosterModal = ({ isOpen, onClose, event, isAdmin }: MobileRosterModa
 
   // Save raid composition
   const handleSaveRaidComp = async () => {
-    if (!isAdmin) {
+    if (!isAdmin || !user) {
       toast({
         title: 'Unauthorized',
         description: 'Only administrators can save raid compositions.',
@@ -615,38 +615,60 @@ const MobileRosterModal = ({ isOpen, onClose, event, isAdmin }: MobileRosterModa
 
     setIsSaving(true);
     try {
-      const eventRef = doc(db, 'events', event.id);
-      
-      const raidComposition = {
-        groups: raidGroups.map(group => ({
+      // Filter out empty groups and clean up the data
+      const nonEmptyGroups = raidGroups
+        .filter(group => group.players.length > 0)
+        .map(group => ({
           id: group.id,
           name: group.name,
-          players: group.players.filter(p => !p.isPreview).map(player => ({
-            userId: player.userId,
-            username: player.username,
-            characterId: player.characterId,
-            characterName: player.characterName,
-            characterClass: player.characterClass,
-            characterRole: player.characterRole,
-            discordNickname: player.discordNickname,
-            originalDiscordName: player.originalDiscordName,
-            spec: player.spec
-          }))
-        })),
-        benchedPlayers: benchedPlayers.filter(p => !p.isPreview).map(player => ({
-          userId: player.userId,
-          username: player.username,
-          characterId: player.characterId,
-          characterName: player.characterName,
-          characterClass: player.characterClass,
-          characterRole: player.characterRole,
-          discordNickname: player.discordNickname,
-          originalDiscordName: player.originalDiscordName,
-          spec: player.spec
-        }))
+          players: group.players.filter(p => !p.isPreview).map(player => {
+            // Base player object with required fields
+            const cleanPlayer = {
+              userId: player.userId || '',
+              username: player.username || '',
+              characterId: player.characterId || '',
+              characterName: player.characterName || '',
+              characterClass: player.characterClass || 'Unknown',
+              characterRole: player.characterRole || 'DPS'
+            };
+
+            // Add Discord-specific fields only if they exist and we're in Discord mode
+            if (event.signupType === 'raidhelper' && player.originalDiscordName) {
+              return {
+                ...cleanPlayer,
+                originalDiscordName: player.originalDiscordName,
+                ...(player.discordNickname && { discordNickname: player.discordNickname }),
+                isDiscordSignup: true
+              };
+            }
+
+            return cleanPlayer;
+          })
+        }));
+
+      // Clean up benched players data
+      const cleanBenchedPlayers = benchedPlayers.filter(p => !p.isPreview).map(player => ({
+        userId: player.userId || '',
+        username: player.username || '',
+        characterId: player.characterId || '',
+        characterName: player.characterName || '',
+        characterClass: player.characterClass || 'Unknown',
+        characterRole: player.characterRole || 'DPS'
+      }));
+
+      const raidComposition = {
+        lastUpdated: new Date(),
+        updatedBy: {
+          userId: user.username || '',
+          username: user.username || ''
+        },
+        groups: nonEmptyGroups,
+        benchedPlayers: cleanBenchedPlayers
       };
 
-      await updateDoc(eventRef, { raidComposition });
+      await updateDoc(doc(db, 'events', event.id), {
+        raidComposition
+      });
       
       setHasUnsavedChanges(false);
       toast({
@@ -657,9 +679,14 @@ const MobileRosterModal = ({ isOpen, onClose, event, isAdmin }: MobileRosterModa
       });
     } catch (error) {
       console.error('Error saving raid composition:', error);
+      console.error('Error details:', {
+        eventId: event.id,
+        userId: user.username,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
       toast({
         title: 'Error saving raid composition',
-        description: 'Please try again',
+        description: error instanceof Error ? error.message : 'Please try again',
         status: 'error',
         duration: 3000,
         isClosable: true,
